@@ -1,0 +1,32 @@
+{
+    "name": "autosnippet",
+    "version": "1.1.12",
+    "description": "A iOS module management tool.",
+    "main": "index.js",
+    "scripts": {
+        "test": "node bin/asnip.js init"
+    },
+    "author": "gaoxuefeng",
+    "license": "MIT",
+    "bin": {
+        "asd": "bin/asnip.js"
+    },
+    "keywords": [
+        "Xcode",
+        "iOS",
+        "Snippet"
+    ],
+    "homepage": "https://github.com/ggsoul/AutoSnippet#readme",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ggsoul/AutoSnippet"
+    },
+    "dependencies": {
+        "commander": "^7.2.0",
+        "inquirer": "^8.0.0",
+        "minimist": "^1.2.5",
+        "node": "^14.16.0",
+        "open": "^8.0.4",
+        "xml2js": "^0.4.23"
+    }
+}

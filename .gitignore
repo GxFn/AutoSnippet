@@ -1,0 +1,7 @@
+node_modules/
+AutoSnippet.boxspec.json
+*.boxspec
+*.h
+*.m
+*.pch
+*.swift
