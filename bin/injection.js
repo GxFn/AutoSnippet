@@ -17,18 +17,42 @@ const headerMark = '// ahead ';
 const importReg = /^\#import\s*<\w+\/\w+.h>$/;
 
 function createHeader(headerLine) {
-    const header = headerLine.split(headerMark)[1].trim();
-    const headerArray = header.split('/');
-    const moduleName = headerArray[0].substr(1);
-    const headerName = headerArray[1].substr(0, headerArray[1].length - 1);
-
+    // 格式：// ahead <Module/Header.h> [relative/path/to/Header.h]
+    // 或：// ahead &lt;Module/Header.h&gt; [relative/path/to/Header.h] (转义格式)
+    const content = headerLine.split(headerMark)[1].trim();
+    
+    // 匹配 <Module/Header.h> 或 &lt;Module/Header.h&gt; 以及可选的相对路径
+    const match = content.match(/^(?:&lt;|<)(\w+)\/(\w+\.h)(?:&gt;|>)(?:\s+(.+))?$/);
+    
+    if (!match) {
+        // 兼容旧格式：直接解析
+        const headerArray = content.split('/');
+        const moduleName = headerArray[0].substr(1);
+        const headerName = headerArray[1].substr(0, headerArray[1].length - 1);
+        
+        return {
+            name: content,
+            specName: headerArray[0] + '/' + headerArray[0].substr(1) + '.h>',
+            moduleName: moduleName,
+            headerName: headerName,
+            moduleStrName: '"' + moduleName + '.h"',
+            headerStrName: '"' + headerName + '"',
+            headRelativePathFromMark: null,
+        };
+    }
+    
+    const moduleName = match[1];
+    const headerName = match[2];
+    const headRelativePathFromMark = match[3] || null;  // 相对路径（如果有）
+    
     return {
-        name: header,
-        specName: headerArray[0] + '/' + headerArray[0].substr(1) + '.h>',
+        name: `<${moduleName}/${headerName}>`,
+        specName: `<${moduleName}/${headerName}>`,
         moduleName: moduleName,
         headerName: headerName,
-        moduleStrName: '"' + moduleName + '.h"',
-        headerStrName: '"' + headerName + '"',
+        moduleStrName: `"${moduleName}.h"`,
+        headerStrName: `"${headerName}"`,
+        headRelativePathFromMark: headRelativePathFromMark,  // 从标记中提取的相对路径
     };
 }
 
@@ -109,25 +133,98 @@ async function handleHeaderLine(specFile, updateFile, headerLine, importArray, i
 	header.headRelativePath = headerInfo.headRelativePath;  // 相对于模块根目录的相对路径
 	header.specName = '<' + headerInfo.moduleName + '/' + header.headerName + '>';
 
+	// ✅ 优先检查：如果头文件路径和当前文件在同一个目录下，直接使用文件名
+	const headRelativePathFromInfo = headerInfo.headRelativePath;
+	let isSameDirectory = false;
+	let headFullPath = null;
+	let headDir = null;
+	
+	if (headRelativePathFromInfo) {
+		// 从头文件相对路径构造完整路径
+		// headRelativePathFromInfo 是相对于模块根目录的路径（如 Code/BDGlobalVideoPlayerManager.h）
+		
+		// 方法：从当前文件路径向上查找，直到找到包含 headRelativePathFromInfo 的路径
+		const headName = path.basename(headRelativePathFromInfo);  // BDGlobalVideoPlayerManager.h
+		
+		// 方案1：尝试在当前文件所在目录直接查找
+		const headInCurrentDir = path.join(updateFileDir, headName);
+		if (fs.existsSync(headInCurrentDir)) {
+			headFullPath = headInCurrentDir;
+			headDir = updateFileDir;
+		} else {
+			// 方案2：从当前文件路径向上查找，尝试找到头文件
+			let searchDir = updateFileDir;
+			for (let i = 0; i < 5 && searchDir !== path.dirname(searchDir); i++) {
+				const possiblePath = path.join(searchDir, headRelativePathFromInfo);
+				if (fs.existsSync(possiblePath)) {
+					headFullPath = possiblePath;
+					headDir = path.dirname(possiblePath);
+					break;
+				}
+				searchDir = path.dirname(searchDir);
+			}
+			
+			// 方案3：尝试使用模块路径拼接
+			if (!headFullPath) {
+				const possiblePaths = [
+					path.join(currentPackageInfo.path, headRelativePathFromInfo),  // 当前模块根目录
+				];
+				
+				// 如果当前文件在 Code/ 目录下，尝试向上查找模块根目录
+				if (updateFileDir.endsWith('Code')) {
+					const possibleModuleRoot = path.dirname(updateFileDir);
+					possiblePaths.push(path.join(possibleModuleRoot, headRelativePathFromInfo));
+				}
+				
+				for (const possiblePath of possiblePaths) {
+					if (fs.existsSync(possiblePath)) {
+						headFullPath = possiblePath;
+						headDir = path.dirname(possiblePath);
+						break;
+					}
+				}
+			}
+		}
+		
+		if (headDir) {
+			// 检查是否在同一个目录（使用规范化路径比较）
+			const normalizedUpdateDir = path.normalize(updateFileDir);
+			const normalizedHeadDir = path.normalize(headDir);
+			
+			if (normalizedUpdateDir === normalizedHeadDir) {
+				isSameDirectory = true;
+				// 如果同目录，直接使用文件名
+				header.relativePathToCurrentFile = header.headerName;
+			}
+		}
+		
+		// ✅ 如果能找到头文件完整路径且不同目录，计算相对路径（即使模块名不同）
+		if (headFullPath && fs.existsSync(headFullPath) && !isSameDirectory) {
+			// 计算从当前文件到头文件的相对路径
+			const relativePathToHeader = path.relative(updateFileDir, headDir);
+			
+			// 如果相对路径为空或为当前目录，使用文件名
+			if (!relativePathToHeader || relativePathToHeader === '.') {
+				header.relativePathToCurrentFile = header.headerName;
+			} else {
+				// 拼接相对路径和文件名
+				header.relativePathToCurrentFile = path.join(relativePathToHeader, header.headerName).replace(/\\/g, '/');
+			}
+		}
+	}
+	
 	// ✅ 判断是否为同一模块
 	const isSameModule = currentModuleName === headerInfo.moduleName;
+	
+	// ✅ 决定是否使用相对路径
+	// 1. 同目录 -> 使用文件名
+	// 2. 同一模块 -> 使用相对路径
+	// 3. 能找到完整路径 -> 使用相对路径
+	// 4. 其他 -> 使用 <> 格式
+	const shouldUseRelativePath = isSameDirectory || isSameModule || (headFullPath && fs.existsSync(headFullPath));
 
-	// ✅ 如果是同一模块，计算相对于当前文件的相对路径
-	if (isSameModule && headerInfo.headRelativePath) {
-		// 当前文件相对于模块根目录的路径
-		const currentFileRelativeToModuleRoot = path.relative(currentPackageInfo.path, updateFile);
-		// 头文件相对于模块根目录的路径
-		const headRelativeToModuleRoot = headerInfo.headRelativePath;
-		
-		// 计算从当前文件到头文件的相对路径
-		const currentFileDir = path.dirname(currentFileRelativeToModuleRoot);
-		const relativePathToHeader = path.relative(currentFileDir, headRelativeToModuleRoot).replace(/\\/g, '/');
-		
-		header.relativePathToCurrentFile = relativePathToHeader;
-	}
-
-	// 如果是同一模块，使用相对路径；否则使用 <> 格式
-	handleModuleHeader(specFile, updateFile, header, importArray, !isSameModule);
+	// 如果同目录或同一模块，使用相对路径；否则使用 <> 格式
+	handleModuleHeader(specFile, updateFile, header, importArray, !shouldUseRelativePath);
 }
 
 /**
@@ -235,6 +332,28 @@ async function determineHeaderInfo(specFile, header, headRelativePath, currentPa
 //    - isOuter = false：同一模块内部，使用相对路径 #import "relative/path/Header.h" 或 #import "Header.h"
 //    - isOuter = true：不同模块之间，使用 #import <ModuleName/Header.h>
 function handleModuleHeader(specFile, updateFile, header, importArray, isOuter) {
+	// ✅ 重新读取文件内容，获取最新的 import 列表（避免使用过时的 importArray）
+	let currentImportArray = importArray;
+	try {
+		const fileContent = fs.readFileSync(updateFile, 'utf8');
+		const lineArray = fileContent.split('\n');
+		// ✅ 匹配 #import <> 和 #import "" 两种格式
+		const importReg = /^\#import\s*(<.+>|".+")$/;
+		currentImportArray = [];
+		
+		lineArray.forEach(element => {
+			const lineVal = element.trim();
+			if (importReg.test(lineVal)) {
+				currentImportArray.push(lineVal);
+			}
+		});
+		
+	} catch (err) {
+		console.error(`❌ 读取文件失败: ${updateFile}`, err.message);
+		// 如果读取失败，使用传入的 importArray
+		currentImportArray = importArray;
+	}
+	
 	// ✅ 根据 isOuter 选择不同的引入格式，用于检查是否已存在
 	let headNameToCheck;
 	if (isOuter) {
@@ -250,17 +369,53 @@ function handleModuleHeader(specFile, updateFile, header, importArray, isOuter) 
 	}
 	const moduleName = isOuter ? header.specName : header.moduleStrName;
 
-	// 检查是否已经引入头文件
-	for (let i = 0; i < importArray.length; i++) {
-		const importHeader = importArray[i].split(importMark)[1].trim();
+	// ✅ 检查是否已经引入头文件（精确匹配）
+	for (let i = 0; i < currentImportArray.length; i++) {
+		const importHeader = currentImportArray[i].split(importMark)[1].trim();
 
 		if (importHeader === headNameToCheck) {
-			// 已经引入头文件
+			// 已经引入头文件（完全相同的格式）
 			handelAddHeaderStatus(specFile, updateFile, header, true, false, isOuter);
 			return;
 		} else if (importHeader === moduleName) {
 			// 已经引入模块头文件（如 <ModuleName/ModuleName.h>）
 			handelAddHeaderStatus(specFile, updateFile, header, false, true, isOuter);
+			return;
+		}
+	}
+
+	// ✅ 额外检查：通过头文件名判断是否为同一头文件（不同格式也算相同）
+	const headerFileName = header.headerName;  // BDGlobalVideoPlayerManager.h
+	const headerFileNameLower = headerFileName.toLowerCase();
+	
+	for (let i = 0; i < currentImportArray.length; i++) {
+		const importHeader = currentImportArray[i].split(importMark)[1].trim();
+		
+		// 提取导入的头文件名（可能包含路径）
+		let importedFileName = null;
+		
+		// 处理 <> 格式：<ModuleName/Header.h>
+		const angleMatch = importHeader.match(/<([^>]+)>/);
+		if (angleMatch) {
+			const content = angleMatch[1];
+			importedFileName = path.basename(content).toLowerCase();
+		}
+		
+		// 处理 "" 格式："Header.h" 或 "relative/path/Header.h"
+		const quoteMatch = importHeader.match(/"([^"]+)"/);
+		if (quoteMatch) {
+			const content = quoteMatch[1];
+			importedFileName = path.basename(content).toLowerCase();
+		}
+		
+		// 如果没有引号，可能是直接的 Header.h 格式（理论上不应该出现）
+		if (!importedFileName && !importHeader.includes('<') && !importHeader.includes('"')) {
+			importedFileName = path.basename(importHeader).toLowerCase();
+		}
+		
+		// 如果导入的头文件名与要插入的头文件名相同，说明已经引用了同一头文件
+		if (importedFileName && importedFileName === headerFileNameLower) {
+			handelAddHeaderStatus(specFile, updateFile, header, true, false, isOuter);
 			return;
 		}
 	}

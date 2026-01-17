@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
+const chokidar = require('chokidar');
 const path = require('path');
 const open = require('open');
 const injection = require('./injection.js');
 
-// 全局路径
 const CMD_PATH = process.cwd();
 const cache = require('./cache.js');
 
@@ -14,94 +13,167 @@ const alinkMark = 'alink';
 const wellMark = '#';
 const atMark = '@';
 
-// ✅ 更新正则以匹配包含相对路径的新格式：// ahead <Module/Header.h> relative/path/to/Header.h
-const headerReg = /^\/\/ ahead <\w+\/\w+.h>(\s+.+)?$/;
+// 匹配原始格式和转义格式：// ahead <Module/Header.h> 或 // ahead &lt;Module/Header.h&gt;
+const headerReg = /^\/\/ ahead\s+(?:&lt;|<)(\w+)\/(\w+\.h)(?:&gt;|>)(\s+.+)?$/;
 const headerSwiftReg = /^\/\/ ahead \w+$/;
 const importReg = /^\#import\s*<\w+\/\w+.h>$/;
 const importSwiftReg = /^import\s*\w+$/;
+
+const debounceTimers = new Map();
+const DEBOUNCE_DELAY = 300;
 
 let timeoutLink = null;
 let timeoutHead = null;
 
 function watchFileChange(specFile, watchRootPath) {
-	// ✅ 如果指定了监听根目录，使用它；否则使用当前工作目录
 	const filePath = watchRootPath || CMD_PATH;
-	console.log(`[watchFileChange] 监听目录: ${filePath}`);
-	console.log(`[watchFileChange] 配置文件: ${specFile}`);
-	let isReading = false;
+	
+	const ignored = [
+		'**/node_modules/**',
+		'**/.git/**',
+		'**/.mgit/**',
+		'**/.easybox/**',
+		'**/xcuserdata/**',
+		'**/.build/**',
+		'**/*.swp',
+		'**/*.tmp',
+		'**/*~.m',
+		'**/*~.h',
+	];
+	
+	const filePattern = ['**/*.m', '**/*.h', '**/*.swift'];
+	
+	console.log(`✅ 文件监听已启动: ${filePath}`);
+	
+	const watcher = chokidar.watch(filePattern, {
+		cwd: filePath,
+		ignored: ignored,
+		ignoreInitial: true,
+		persistent: true,
+		awaitWriteFinish: {
+			stabilityThreshold: 500,  // 增加稳定阈值，等待文件写入完成
+			pollInterval: 100
+		},
+		usePolling: false,  // macOS/Linux 使用原生事件
+		interval: 100,
+		binaryInterval: 300
+	});
 
-	fs.watch(filePath, {recursive: true}, (event, filename) => {
-		if (filename) {
-			setTimeout(() => {
-				if (!watchFileFilter(filePath, filename)) {
+	watcher.on('change', (relativePath) => {
+		const fullPath = path.join(filePath, relativePath);
+		handleFileChange(specFile, fullPath, relativePath);
+	});
+
+	watcher.on('add', (relativePath) => {
+		const fullPath = path.join(filePath, relativePath);
+		handleFileChange(specFile, fullPath, relativePath);
+	});
+
+	watcher.on('error', (error) => {
+		console.error('文件监听错误:', error.message);
+	});
+
+	watcher.on('ready', () => {
+		console.log('文件监听器已就绪，等待文件变更...');
+	});
+
+	return watcher;
+}
+
+function handleFileChange(specFile, fullPath, relativePath) {
+	const existingTimer = debounceTimers.get(fullPath);
+	if (existingTimer) {
+		clearTimeout(existingTimer);
+	}
+
+	const timer = setTimeout(() => {
+		debounceTimers.delete(fullPath);
+		processFileChange(specFile, fullPath, relativePath);
+	}, DEBOUNCE_DELAY);
+
+	debounceTimers.set(fullPath, timer);
+}
+
+function processFileChange(specFile, updateFile, relativePath) {
+	const fs = require('fs');
+	
+	fs.access(updateFile, fs.constants.F_OK, (err) => {
+		if (err) {
+			return;
+		}
+
+		fs.stat(updateFile, (statErr, stats) => {
+			if (statErr || stats.isDirectory()) {
+				return;
+			}
+
+			fs.readFile(updateFile, 'utf8', (readErr, data) => {
+				if (readErr) {
+					console.error(`❌ 读取文件失败: ${updateFile}`, readErr.message);
 					return;
 				}
-				if (isReading) {
-					return;
-				}
-				isReading = true;
 
-				let updateFile = path.join(filePath, filename);
-				fs.readFile(updateFile, 'utf8', (err, data) => {
-					isReading = false;
-					if (err) {
-						console.error(err);
-						return;
+				const filename = path.basename(updateFile);
+				const isSwift = filename.endsWith('.swift');
+				const currImportReg = isSwift ? importSwiftReg : importReg;
+				const currHeaderReg = isSwift ? headerSwiftReg : headerReg;
+
+				let importArray = [];
+				let headerLine = null;
+				let alinkLine = null;
+
+				const lineArray = data.split('\n');
+				lineArray.forEach(element => {
+					const lineVal = element.trim();
+
+					if (currImportReg.test(lineVal)) {
+						importArray.push(lineVal);
 					}
-
-					const isSwift = filename.endsWith('.swift');
-					const currImportReg = isSwift ? importSwiftReg : importReg;
-					const currHeaderReg = isSwift ? headerSwiftReg : headerReg;
-
-					let importArray = [];
-					let headerLine = null;
-					let alinkLine = null;
-
-					const lineArray = data.split('\n');
-					lineArray.forEach(element => {
-						const lineVal = element.trim();
-
-						if (currImportReg.test(lineVal)) {
-							importArray.push(lineVal);
-						}
-						if (lineVal.startsWith(headerMark)) {
-							headerLine = lineVal;
-							console.log('headerLine: ' + headerLine);
-						}
-						if (lineVal.startsWith(atMark) && lineVal.endsWith(wellMark + alinkMark)) {
-							alinkLine = lineVal;
-							console.log('alinkLine: ' + alinkLine);
-						}
-					});
-
-					if (alinkLine) {
-
-						clearTimeout(timeoutLink);
-						timeoutLink = setTimeout(() => {
-							openLink(specFile, alinkLine);
-						}, 300);
+					if (lineVal.startsWith(headerMark)) {
+						headerLine = lineVal;
 					}
-
-					if (headerLine && currHeaderReg.test(headerLine)) {
-
-						clearTimeout(timeoutHead);
-						timeoutHead = setTimeout(() => {
-							checkAnotherFile(specFile, updateFile, headerLine, importArray, isSwift);
-						}, 300);
+					if (lineVal.startsWith(atMark) && lineVal.endsWith(wellMark + alinkMark)) {
+						alinkLine = lineVal;
 					}
 				});
-			}, 1000);
-		}
+
+				if (alinkLine) {
+					clearTimeout(timeoutLink);
+					timeoutLink = setTimeout(() => {
+						openLink(specFile, alinkLine);
+					}, DEBOUNCE_DELAY);
+				}
+
+				if (headerLine) {
+					// 先解码 HTML 实体（&lt; -> <, &gt; -> >, &amp; -> &）
+					let decodedHeaderLine = headerLine
+						.replace(/&lt;/g, '<')
+						.replace(/&gt;/g, '>')
+						.replace(/&amp;/g, '&');
+					
+					const isMatch = currHeaderReg.test(decodedHeaderLine);
+					
+					if (isMatch) {
+						clearTimeout(timeoutHead);
+						timeoutHead = setTimeout(() => {
+							// 传递解码后的 headerLine
+							checkAnotherFile(specFile, updateFile, decodedHeaderLine, importArray, isSwift);
+						}, DEBOUNCE_DELAY);
+					}
+				}
+			});
+		});
 	});
 }
 
 function checkAnotherFile(specFile, updateFile, headerLine, importArray, isSwift) {
+	const fs = require('fs');
+	
 	if (isSwift || updateFile.endsWith('.h')) {
 		injection.handleHeaderLine(specFile, updateFile, headerLine, importArray, isSwift);
 		return;
 	}
 
-	// 识别.h文件的引入头文件
 	const dotIndex = updateFile.lastIndexOf('.');
 	const mainPathFile = updateFile.substring(0, dotIndex) + '.h';
 
@@ -119,7 +191,6 @@ function checkAnotherFile(specFile, updateFile, headerLine, importArray, isSwift
 			const lineArray = data.split('\n');
 			lineArray.forEach(element => {
 				const lineVal = element.trim();
-
 				if (importReg.test(lineVal)) {
 					importArray.push(lineVal);
 				}
@@ -153,26 +224,6 @@ function openLink(specFile, inputWord) {
 			});
 		}
 	}
-}
-
-function watchFileFilter(filePath, filename) {
-	let updateFile = path.join(filePath, filename);
-	if (updateFile.includes('xcuserdata')
-		|| updateFile.includes('.git')
-		|| updateFile.includes('.mgit')
-		|| updateFile.includes('.easybox')) {
-		return false;
-	}
-	if (filename.endsWith('~.m')
-		|| filename.endsWith('~.h')) {
-		return false;
-	}
-	if (!filename.endsWith('.m')
-		&& !filename.endsWith('.h')
-		&& !filename.endsWith('.swift')) {
-		return false;
-	}
-	return true;
 }
 
 exports.watchFileChange = watchFileChange;

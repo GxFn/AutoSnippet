@@ -1,6 +1,6 @@
 {
     "name": "autosnippet",
-    "version": "1.2.0",
+    "version": "1.2.9",
     "description": "A iOS module management tool.",
     "main": "index.js",
     "scripts": {
@@ -22,6 +22,7 @@
         "url": "git+https://github.com/GxFn/AutoSnippet.git"
     },
     "dependencies": {
+        "chokidar": "^3.6.0",
         "commander": "^7.2.0",
         "inquirer": "^8.0.0",
         "minimist": "^1.2.5",

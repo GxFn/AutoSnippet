@@ -2,6 +2,13 @@
 
 一个 iOS 模块管理工具。使用命令行创建 Xcode 代码片段，生成 JSON 配置文件，并在代码仓库中与其他开发者共享。
 
+[![npm version](https://img.shields.io/npm/v/autosnippet.svg?style=flat-square)](https://www.npmjs.com/package/autosnippet)
+[![npm downloads](https://img.shields.io/npm/dm/autosnippet.svg?style=flat-square)](https://www.npmjs.com/package/autosnippet)
+[![npm total downloads](https://img.shields.io/npm/dt/autosnippet.svg?style=flat-square)](https://www.npmjs.com/package/autosnippet)
+[![GitHub stars](https://img.shields.io/github/stars/GxFn/AutoSnippet.svg?style=flat-square)](https://github.com/GxFn/AutoSnippet)
+[![GitHub forks](https://img.shields.io/github/forks/GxFn/AutoSnippet.svg?style=flat-square)](https://github.com/GxFn/AutoSnippet)
+[![License](https://img.shields.io/npm/l/autosnippet.svg?style=flat-square)](https://github.com/GxFn/AutoSnippet/blob/main/LICENSE)
+
 ## 安装
 
 ```bash
@@ -126,3 +133,11 @@ Xcode 会检测 `<#` 和 `#>` 标记，并将它们之间的文本作为占位�
 1. 选择一个占位符
 2. `⌥⌘E` 选择下一个占位符，`⌥⇧⌘E` 选择上一个占位符
 3. 输入修改的内容，所有选中的占位符都会被修改
+
+## 📝 贡献
+
+欢迎提交 Issues 和 Pull Requests 来帮助改进 AutoSnippet！
+
+## 📄 许可证
+
+本项目采用 MIT 许可证。详情请参阅 [LICENSE](LICENSE) 文件。
