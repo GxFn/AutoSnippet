@@ -1,5 +1,8 @@
 node_modules/
 AutoSnippet.boxspec.json
+AutoSnippetRoot.boxspec.json
+SPMTest/
+docs/
 *.boxspec
 *.h
 *.m
