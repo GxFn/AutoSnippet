@@ -1,36 +1,36 @@
 # AutoSnippet
 
-A iOS module management tool. Use the command line to create an Xcode Snippet, generate a JSON file, and share it with other developers in the code repository.
+一个 iOS 模块管理工具。使用命令行创建 Xcode 代码片段，生成 JSON 配置文件，并在代码仓库中与其他开发者共享。
 
-## Installation
+## 安装
 
 ```bash
 $ npm install -g autosnippet
 ```
 
-## Options
+## 命令选项
 
-Please use all the following commands in the current Xcode project file directory.
+请在当前 Xcode 项目文件目录下使用以下所有命令。
 
 ### init
 
-Execute this command in the root directory of the Xcode project to create a workspace:
+在 Xcode 项目的根目录执行此命令以创建工作空间：
 
 ```bash
 $ asd init
 ```
 
-When creating a workspace, the Snippet configuration information of the sub-workspace will be collected to the current workspace.
+创建工作空间时，会将子工作空间的 Snippet 配置信息收集到当前工作空间。
 
 ### create
 
-Command to create an Xcode Snippet, in the file directory marked with `// ACode` code:
+创建 Xcode 代码片段的命令，在标记有 `// ACode` 代码的文件目录中：
 
 ```bash
 $ asd c
 ```
 
-Code like this:
+代码示例：
 
 ```
 // ACode
@@ -40,22 +40,22 @@ UIView *view = [[UIView alloc] init];
 
 ### install
 
-Add the shared Snippet to the Xcode environment:
+将共享的代码片段添加到 Xcode 环境：
 
 ```bash
 $ asd i
 ```
 
-Use code Snippet like this:
+使用代码片段示例：
 
 ```
-// view is code key entered when creating
+// view 是创建时输入的代码键
 @view 
 ```
 
 ### share
 
-Share local Snippet:
+共享本地代码片段：
 
 ```bash
 $ asd s
@@ -63,60 +63,60 @@ $ asd s
 
 ### watch
 
-In modular projects, recognize that Snippet automatically injects dependency header files:
+在模块化项目中，识别代码片段并自动注入依赖头文件：
 
 ```bash
 $ asd w
 ```
 
-#### Append header file
+#### 追加头文件
 
-After the watch is turned on, if you want to append the header file, perform the following operations:
+开启监听后，如果想要追加头文件，请执行以下操作：
 
-1. Down arrow to select the headerVersion of Snippet
-2. Press the `Enter`
-3. `Command + S` save file
+1. 向下箭头选择代码片段的 headerVersion
+2. 按 `Enter` 键
+3. `Command + S` 保存文件
 
-Within 1 second, the header file is automatically added to the file header.
+在 1 秒内，头文件会自动添加到文件头部。
 
-#### Browser view
+#### 浏览器查看
 
-After the watch is turned on, if you want to view more information about the module in the browser, perform the following operations:
+开启监听后，如果想要在浏览器中查看模块的更多信息，请执行以下操作：
 
-1. Enter `@` and `module key`
-2. Enter `#` and `ALink`
-3. `Command + S` save file
+1. 输入 `@` 和 `模块键`
+2. 输入 `#` 和 `ALink`
+3. `Command + S` 保存文件
 
-Automatically jump to the browser to open the link configured during creation, and open the README.md file without a link.
+会自动跳转到浏览器打开创建时配置的链接，如果没有链接则打开 README.md 文件。
 
-Use ALink like this:
+使用 ALink 示例：
 
 ```
 @view#ALink
 ```
 
-## Other
+## 其他
 
-### Shortcuts for placeholders
+### 占位符快捷键
 
-You can add a placeholder in your snippets too using following tag:
+您也可以在代码片段中添加占位符，使用以下标签：
 
 ```
 <#placeholder#>
 ```
 
-E.g: the above placeholder can be written as:
+例如：上面的占位符可以写成：
 
 ```
 <#view: UIView#>
 ```
 
-Xcode detects <# and #> tokens and will make the text between them a placeholder. We can switch between multiple placeholders by pressing `Tab` key.
+Xcode 会检测 `<#` 和 `#>` 标记，并将它们之间的文本作为占位符。我们可以通过按 `Tab` 键在多个占位符之间切换。
 
-When there are multiple same placeholders, use `⌥⌘E` to select multiple placeholders continuously:
+当有多个相同的占位符时，使用 `⌥⌘E` 连续选择多个占位符：
 
-1. Select a placeholder
-2. `⌥⌘E` selects the next placeholder, `⌥⇧⌘E` selects the previous placeholder
-3. Enter the modified content, all selected placeholders will be modified
+1. 选择一个占位符
+2. `⌥⌘E` 选择下一个占位符，`⌥⇧⌘E` 选择上一个占位符
+3. 输入修改的内容，所有选中的占位符都会被修改
 
-Thanks.
+感谢使用。

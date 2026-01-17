@@ -1,26 +1,115 @@
 #!/usr/bin/env node
 
 const fs = require('fs');
+const path = require('path');
 const cache = require('./cache.js');
+const config = require('./config.js');
+const findPath = require('./findPath.js');
 // 全局路径
-const USER_HOME 	= process.env.HOME || process.env.USERPROFILE;
-const SNIPPETS_PATH = USER_HOME + '/Library/Developer/Xcode/UserData/CodeSnippets';
 const HOLDER_KEYS  	= ['{identifier}', '{title}', '{completion}', '{summary}', '{content}', '{language}'];
 
-function addCodeSnippets(specFile) {
+/**
+ * 将单个代码片段写入文件
+ */
+function writeSingleSnippet(snippet, template) {
+	if (!snippet || !template) {
+		return;
+	}
+
+	let content = '';
+	let identifier = '';
+	let holderArr = [];
+
+	// 添加主代码片段
+	holderArr.push(snippet);
+
+	// 如果有头文件，添加 headerVersion
+	if (snippet['{headName}']) {
+		let extPlace = Object.assign({}, snippet);
+		// ✅ 从项目根目录找到模块，只使用模块名和头文件名
+		// 例如：<BDVideoPlayer/BDVideoCacheManager.h> 而不是 <BDVideoPlayer/UI/BDVideoPlayer/Code/BDVideoCacheManager.h>
+		const headerFileName = path.basename(extPlace['{headName}']);
+		let header = '<' + extPlace['{specName}'] + '/' + headerFileName + '>';
+		
+		// ✅ 在标记中包含相对路径信息，格式：// ahead <Module/Header.h> relative/path/to/Header.h
+		// 这样即使没有缓存也能解析出完整信息
+		const headRelativePath = extPlace['{headName}'];  // 相对于模块根目录的相对路径
+		header = header + ' ' + headRelativePath;
+		header = escapeString(header);
+
+		// swift只需要考虑工作空间是否引入
+		if (extPlace['{language}'] === 'Xcode.SourceCodeLanguage.Swift') {
+			header = extPlace['{specName}'];
+		}
+
+		extPlace['{identifier}'] = extPlace['{identifier}'] + 'Ext';
+		extPlace['{title}'] = extPlace['{title}'] + ' headerVersion';
+		extPlace['{completion}'] = extPlace['{completion}'] + 'Z';
+		extPlace['{summary}'] = extPlace['{summary}'] + header;
+
+		// 添加替换header标识位（格式：// ahead <Module/Header.h> relative/path/to/Header.h）
+		let array = ['// ahead ' + header];
+		extPlace['{content}'].forEach(element => {
+			array.push(element);
+		});
+		extPlace['{content}'] = array;
+
+		holderArr.push(extPlace);
+	}
+
+	// 处理每个代码片段（主片段和 headerVersion）
+	holderArr.forEach(function (placeVal) {
+		content = '';
+		template.list.forEach(function (tempVal) {
+			// 保存id，文件名和id一致
+			if (HOLDER_KEYS.indexOf(tempVal) === 0) {
+				identifier = placeVal[tempVal];
+			}
+
+			if (HOLDER_KEYS.indexOf(tempVal) > -1) {
+				let value = placeVal[tempVal];
+
+				// 数组需要遍历取出每一行内容
+				if (Array.isArray(value)) {
+					let turnValue = '';
+
+					for (var index = 0; index < value.length; index++) {
+						if (index === 0) {
+							turnValue += value[index] + '\n';
+						} else {
+							turnValue += '\t' + value[index] + '\n';
+						}
+					}
+					value = turnValue;
+				}
+				tempVal = '\t<string>' + value + '</string>\n';
+			}
+
+			content += tempVal;
+		});
+
+		if (identifier && content) {
+			// ✅ 使用配置模块获取代码片段输出路径（写入 Xcode CodeSnippets）
+			const snippetsPath = config.getSnippetsPath();
+			
+			try {
+				fs.accessSync(snippetsPath, fs.constants.F_OK);
+			} catch (err) {
+				fs.mkdirSync(snippetsPath, { recursive: true });
+			}
+			try {
+				const snippetFile = path.join(snippetsPath, identifier + '.codesnippet');
+				fs.writeFileSync(snippetFile, content);
+			} catch (err) {
+				console.log(err);
+			}
+		}
+	});
+}
+
+function addCodeSnippets(specFile, singleSnippet) {
 	let placeholder = null;
 	let template = null;
-
-	try {
-		// 读取AutoSnippet的占位配置
-		const data = fs.readFileSync(specFile, 'utf8');
-		if (data) {
-			placeholder = JSON.parse(data);
-			cache.updateCache(specFile, data);
-		}
-	} catch (err) {
-		console.error(err);
-	}
 
 	try {
 		// 读取模板信息
@@ -30,6 +119,35 @@ function addCodeSnippets(specFile) {
 		}
 	} catch (err) {
 		console.error(err);
+		return;
+	}
+
+	// ✅ 如果指定了单个代码片段，只处理这个片段
+	if (singleSnippet) {
+		writeSingleSnippet(singleSnippet, template);
+		// 更新缓存
+		try {
+			const data = fs.readFileSync(specFile, 'utf8');
+			if (data) {
+				cache.updateCache(specFile, data);
+			}
+		} catch (err) {
+			console.error(err);
+		}
+		return;
+	}
+
+	// 原有逻辑：处理所有代码片段（用于 install 命令）
+	try {
+		// 读取AutoSnippet的占位配置
+		const data = fs.readFileSync(specFile, 'utf8');
+		if (data) {
+			placeholder = JSON.parse(data);
+			cache.updateCache(specFile, data);
+		}
+	} catch (err) {
+		console.error(err);
+		return;
 	}
 
 	// 拼装配置文件
@@ -43,7 +161,14 @@ function addCodeSnippets(specFile) {
 
 			if (placeVal['{headName}']) {
 				let extPlace = Object.assign({}, placeVal);
-				let header = '<' + extPlace['{specName}'] + '/' + extPlace['{headName}'] + '>';
+				// ✅ 从项目根目录找到模块，只使用模块名和头文件名
+				const headerFileName = path.basename(extPlace['{headName}']);
+				let header = '<' + extPlace['{specName}'] + '/' + headerFileName + '>';
+				
+				// ✅ 在标记中包含相对路径信息，格式：// ahead <Module/Header.h> relative/path/to/Header.h
+				// 这样即使没有缓存也能解析出完整信息
+				const headRelativePath = extPlace['{headName}'];  // 相对于模块根目录的相对路径
+				header = header + ' ' + headRelativePath;
 				header = escapeString(header);
 
 				// swift只需要考虑工作空间是否引入
@@ -99,13 +224,17 @@ function addCodeSnippets(specFile) {
 			});
 
 			if (identifier && content) {
+				// ✅ 使用配置模块获取代码片段输出路径（写入 Xcode CodeSnippets）
+				const snippetsPath = config.getSnippetsPath();
+				
 				try {
-					fs.accessSync(SNIPPETS_PATH, fs.F_OK);
+					fs.accessSync(snippetsPath, fs.constants.F_OK);
 				} catch (err) {
-					fs.mkdirSync(SNIPPETS_PATH);
+					fs.mkdirSync(snippetsPath, { recursive: true });
 				}
 				try {
-					fs.writeFileSync(SNIPPETS_PATH + '/' + identifier + '.codesnippet', content);
+					const snippetFile = path.join(snippetsPath, identifier + '.codesnippet');
+					fs.writeFileSync(snippetFile, content);
 				} catch (err) {
 					console.log(err);
 				}

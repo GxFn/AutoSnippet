@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 const fs = require('fs');
+const path = require('path');
+const config = require('./config.js');
 
 const SpecCache = 'SpecCache_';
 const KeysCache = 'KeysCache_';
@@ -39,11 +41,12 @@ async function updateCache(specFile, content) {
 						linkCache[key] = element['{readme}'];
 					}
 
+					// ✅ SPM 模块：headName 已经包含相对路径，不需要 specHeadPath
 					if (element['{headName}']
-						&& element['{specHeadPath}']
 						&& element['{language}'] !== 'Xcode.SourceCodeLanguage.Swift') {
-
-						headCache[element['{headName}']] = element['{specHeadPath}'];
+						// headName 本身已经是相对路径，直接使用
+						const headerFileName = path.basename(element['{headName}']);
+						headCache[headerFileName] = element['{headName}'];
 					}
 				}
 			});
@@ -114,15 +117,12 @@ async function getHeadCache(specFile) {
 function getFilePathFromHolderPath(key, specFile) {
 	const pathBuff = Buffer.from(specFile, 'utf-8');
 	const fileName = key + pathBuff.toString('base64') + '.json';
-	const filePath = __dirname + '/../../AutoSnippetCache/';
+	
+	// ✅ 使用配置模块获取缓存路径
+	const cachePath = config.getCachePath();
+	const filePath = path.join(cachePath, fileName);
 
-	try {
-		fs.accessSync(filePath, fs.F_OK);
-	} catch (err) {
-		fs.mkdirSync(filePath);
-	}
-
-	return filePath + fileName;
+	return filePath;
 }
 
 exports.updateCache = updateCache;

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const fs = require('fs');
+const path = require('path');
 // 读取输入命令
 const inquirer = require('inquirer');
 // 命令行工具
@@ -15,8 +16,57 @@ const watch = require('./watch.js');
 const cache = require('./cache.js');
 const share = require('./share.js');
 const init = require('./init.js');
+const config = require('./config.js');
 
-function askQuestions(specFile) {
+// 获取配置文件路径
+function getSpecFile(callback) {
+	// 向上查找 AutoSnippet.boxspec.json 配置文件
+	findPath.findASSpecPath(CMD_PATH, callback);
+}
+
+/**
+ * 先查找包含 // ACode 标记的文件，找到后再询问
+ */
+async function findAndAsk(specFile) {
+	console.log('正在查找包含 // ACode 标记的文件...\n');
+	
+	const filesWithACode = await create.findFilesWithACode(CMD_PATH);
+	
+	if (filesWithACode.length === 0) {
+		console.log('未找到包含 // ACode 标记的文件。');
+		console.log('请在代码中添加 // ACode 标记，例如：');
+		console.log('');
+		console.log('// ACode');
+		console.log('UIView *view = [[UIView alloc] init];');
+		console.log('// ACode');
+		console.log('');
+		return;
+	}
+	
+	// 显示找到的文件
+	console.log(`找到 ${filesWithACode.length} 个包含 // ACode 标记的文件：\n`);
+	filesWithACode.forEach((file, index) => {
+		console.log(`  ${index + 1}. ${file.name} (第 ${file.line} 行)`);
+	});
+	console.log('');
+	
+	// 如果只有一个文件，直接使用；如果有多个，让用户选择
+	let selectedFile = null;
+	if (filesWithACode.length === 1) {
+		selectedFile = filesWithACode[0].path;
+		console.log(`将使用文件: ${filesWithACode[0].name}\n`);
+	} else {
+		// 多个文件时，让用户选择（这里简化处理，使用第一个）
+		// 可以后续扩展为让用户选择
+		selectedFile = filesWithACode[0].path;
+		console.log(`将使用第一个文件: ${filesWithACode[0].name}\n`);
+	}
+	
+	// 找到标记后，开始询问
+	askQuestions(specFile, selectedFile);
+}
+
+function askQuestions(specFile, selectedFilePath) {
 	// 开始问问题
 	const questions = [{
 			type: 'input',
@@ -106,7 +156,8 @@ function askQuestions(specFile) {
 	];
 
 	inquirer.prompt(questions).then((answers) => {
-		create.createCodeSnippets(specFile, answers, null);
+		// 将选中的文件路径传递给 createCodeSnippets
+		create.createCodeSnippets(specFile, answers, null, selectedFilePath);
 	});
 }
 
@@ -126,17 +177,24 @@ commander
 commander
 	.command('i')
 	.description('add the shared Snippet to the Xcode environment')
-	.action(() => {
-		findPath.findASSpecPath(CMD_PATH, function (specFile) {
-			install.addCodeSnippets(specFile);
-		});
+	.action(async () => {
+		// ✅ 使用异步版本查找配置文件
+		const specFile = await findPath.findASSpecPathAsync(CMD_PATH);
+		if (!specFile) {
+			console.error('未找到 AutoSnippet.boxspec.json 配置文件');
+			return;
+		}
+		// ✅ 先聚合子模块配置到主配置文件
+		await init.mergeSubSpecs(specFile);
+		// 然后安装 snippets
+		install.addCodeSnippets(specFile);
 	});
 
 commander
 	.command('s')
 	.description('share local Xcode Snippet')
 	.action(() => {
-		findPath.findASSpecPath(CMD_PATH, function (specFile) {
+		getSpecFile(function (specFile) {
 			share.shareCodeSnippets(specFile);
 		});
 	});
@@ -145,8 +203,8 @@ commander
 	.command('c')
 	.description('create an Xcode Snippet, in the file directory marked with `// ACode` code')
 	.action(() => {
-		findPath.findASSpecPath(CMD_PATH, function (specFile) {
-			askQuestions(specFile);
+		getSpecFile(function (specFile) {
+			findAndAsk(specFile);
 		});
 	});
 
@@ -154,7 +212,7 @@ commander
 	.command('u <word> [key] [value]')
 	.description('modify the `// ACode` code corresponding to `word`')
 	.action((word, key, value) => {
-		findPath.findASSpecPath(CMD_PATH, function (specFile) {
+		getSpecFile(function (specFile) {
 			create.updateCodeSnippets(specFile, word, key, value);
 		});
 	});
@@ -162,11 +220,51 @@ commander
 commander
 	.command('w')
 	.description('recognize that Snippet automatically injects dependency header files')
+	.action(async () => {
+		// ✅ 从执行位置向上查找 AutoSnippetRoot.boxspec.json，找到根目录
+		const projectRoot = await findPath.findProjectRoot(CMD_PATH);
+		
+		if (!projectRoot) {
+			console.error('未找到项目根目录（AutoSnippetRoot.boxspec.json）。');
+			console.error('请先使用 asd root 命令在项目根目录创建根目录标记文件。');
+			return;
+		}
+		
+		console.log(`[asd w] 项目根目录: ${projectRoot}`);
+		
+		// ✅ 使用根目录的 AutoSnippetRoot.boxspec.json 作为配置文件
+		const rootSpecFile = path.join(projectRoot, findPath.ROOT_MARKER_NAME);
+		console.log(`[asd w] 使用配置文件: ${rootSpecFile}`);
+		
+		// 先安装 snippets
+		install.addCodeSnippets(rootSpecFile);
+		// 在根目录启动监听
+		watch.watchFileChange(rootSpecFile, projectRoot);
+	});
+
+commander
+	.command('root')
+	.description('mark current directory as project root by creating AutoSnippetRoot.boxspec.json')
 	.action(() => {
-		findPath.findASSpecPath(CMD_PATH, function (specFile) {
-			install.addCodeSnippets(specFile);
-			watch.watchFileChange(specFile);
-		});
+		const rootMarkerPath = path.join(CMD_PATH, 'AutoSnippetRoot.boxspec.json');
+		
+		try {
+			// 检查文件是否已存在
+			fs.accessSync(rootMarkerPath, fs.constants.F_OK);
+			console.log(`根目录标记文件已存在: ${rootMarkerPath}`);
+		} catch (err) {
+			// 文件不存在，创建它
+			try {
+				// 创建一个空的标记文件
+				fs.writeFileSync(rootMarkerPath, JSON.stringify({
+					root: true,
+					description: 'This file marks the project root directory for AutoSnippet'
+				}, null, 2), 'utf8');
+				console.log(`已创建根目录标记文件: ${rootMarkerPath}`);
+			} catch (writeErr) {
+				console.error(`创建根目录标记文件失败: ${writeErr.message}`);
+			}
+		}
 	});
 
 commander.parse(process.argv);

@@ -14,7 +14,8 @@ const alinkMark = 'alink';
 const wellMark = '#';
 const atMark = '@';
 
-const headerReg = /^\/\/ ahead <\w+\/\w+.h>$/;
+// ✅ 更新正则以匹配包含相对路径的新格式：// ahead <Module/Header.h> relative/path/to/Header.h
+const headerReg = /^\/\/ ahead <\w+\/\w+.h>(\s+.+)?$/;
 const headerSwiftReg = /^\/\/ ahead \w+$/;
 const importReg = /^\#import\s*<\w+\/\w+.h>$/;
 const importSwiftReg = /^import\s*\w+$/;
@@ -22,10 +23,11 @@ const importSwiftReg = /^import\s*\w+$/;
 let timeoutLink = null;
 let timeoutHead = null;
 
-function watchFileChange(specFile) {
-
-	// 监听文件变化
-	const filePath = CMD_PATH;
+function watchFileChange(specFile, watchRootPath) {
+	// ✅ 如果指定了监听根目录，使用它；否则使用当前工作目录
+	const filePath = watchRootPath || CMD_PATH;
+	console.log(`[watchFileChange] 监听目录: ${filePath}`);
+	console.log(`[watchFileChange] 配置文件: ${specFile}`);
 	let isReading = false;
 
 	fs.watch(filePath, {recursive: true}, (event, filename) => {
