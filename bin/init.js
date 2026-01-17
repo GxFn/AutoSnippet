@@ -27,6 +27,26 @@ async function mergeSubSpecs(mainSpecFile) {
 	const specSlashIndex = rootSpecFile.lastIndexOf('/');
 	const specFilePath = rootSpecFile.substring(0, specSlashIndex + 1);
 
+	// ✅ 先读取 AutoSnippetRoot.boxspec.json 的现有内容，合并到 specObj
+	try {
+		if (fs.existsSync(rootSpecFile)) {
+			const rootData = fs.readFileSync(rootSpecFile, 'utf8');
+			const rootConfig = JSON.parse(rootData);
+			if (rootConfig && rootConfig.list) {
+				// 将现有内容的 identifier 添加到 idsArray（用于去重）
+				rootConfig.list.forEach(item => {
+					if (item['{identifier}']) {
+						idsArray.push(item['{identifier}']);
+					}
+				});
+				// 先保留现有内容（子模块配置会覆盖相同 identifier 的项）
+				specObj.list = specObj.list.concat(rootConfig.list);
+			}
+		}
+	} catch (err) {
+		// 如果读取失败，继续执行（可能是文件不存在或格式错误）
+	}
+
 	const array = await findPath.findSubASSpecPath(searchRoot);
 
 	for (let i = 0; i < array.length; i++) {
@@ -35,7 +55,7 @@ async function mergeSubSpecs(mainSpecFile) {
 		const slashIndex = filename.lastIndexOf('/');
 		let thePath = filename.substring(0, slashIndex + 1);
 		if (filename === rootSpecFile) {
-			// 跳过根目录的 AutoSnippetRoot.boxspec.json，避免循环引用
+			// 跳过根目录的 AutoSnippetRoot.boxspec.json，避免重复处理
 			continue;
 		} else {
 			thePath = thePath.replace(specFilePath, '');
@@ -47,12 +67,19 @@ async function mergeSubSpecs(mainSpecFile) {
 			const config = JSON.parse(data);
 			if (config && config.list) {
 				const arr = config.list.filter(function (item, index, array) {
-					for (let i = 0; i < idsArray.length; i++) {
-						if (item['{identifier}'] === idsArray[i]) {
-							return false;
-						}
+					const identifier = item['{identifier}'];
+					if (!identifier) {
+						return false;
 					}
-					idsArray.push(item['{identifier}']);
+					// 检查是否已存在（在 idsArray 中查找）
+					const exists = idsArray.indexOf(identifier) !== -1;
+					if (!exists) {
+						idsArray.push(identifier);
+						return true;
+					}
+					// 如果已存在，移除旧项，保留新项（子模块配置优先）
+					// 查找并移除 specObj.list 中相同 identifier 的项
+					specObj.list = specObj.list.filter(oldItem => oldItem['{identifier}'] !== identifier);
 					return true;
 				});
 				specObj.list = specObj.list.concat(arr);
