@@ -1,6 +1,6 @@
 {
     "name": "autosnippet",
-    "version": "1.1.22",
+    "version": "1.2.0",
     "description": "A iOS module management tool.",
     "main": "index.js",
     "scripts": {
@@ -31,5 +31,8 @@
     "devDependencies": {},
     "bugs": {
         "url": "https://github.com/GxFn/AutoSnippet/issues"
+    },
+    "directories": {
+        "doc": "docs"
     }
 }

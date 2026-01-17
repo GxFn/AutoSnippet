@@ -181,13 +181,33 @@ commander
 		// ✅ 使用异步版本查找配置文件
 		const specFile = await findPath.findASSpecPathAsync(CMD_PATH);
 		if (!specFile) {
-			console.error('未找到 AutoSnippet.boxspec.json 配置文件');
+			console.error('❌ 安装失败：未找到 AutoSnippet.boxspec.json 配置文件');
+			console.error('请先执行 asd init 初始化工作空间');
 			return;
 		}
 		// ✅ 先聚合子模块配置到主配置文件
 		await init.mergeSubSpecs(specFile);
 		// 然后安装 snippets
-		install.addCodeSnippets(specFile);
+		const result = install.addCodeSnippets(specFile);
+		
+		if (result && result.success) {
+			if (result.count) {
+				console.log(`✅ 安装成功：已安装 ${result.count} 个代码片段`);
+			} else if (result.successCount !== undefined) {
+				const total = result.total || 0;
+				const success = result.successCount || 0;
+				const error = result.errorCount || 0;
+				if (error === 0) {
+					console.log(`✅ 安装成功：已安装 ${success} 个代码片段`);
+				} else {
+					console.log(`⚠️  安装完成：成功 ${success} 个，失败 ${error} 个，共 ${total} 个`);
+				}
+			} else {
+				console.log('✅ 安装成功');
+			}
+		} else {
+			console.error('❌ 安装失败：', result?.error || '未知错误');
+		}
 	});
 
 commander

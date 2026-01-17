@@ -507,6 +507,8 @@ function removeAcodeMark(filePath, positionList) {
 }
 
 function escapeString(string) {
+	// 必须先转义 &，否则会把 &lt; 转成 &amp;lt;
+	string = string.replace(/&/g, '&amp;');
 	string = string.replace(/</g, '&lt;');
 	string = string.replace(/>/g, '&gt;');
 	return string;

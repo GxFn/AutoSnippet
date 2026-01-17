@@ -74,13 +74,18 @@ function writeSingleSnippet(snippet, template) {
 					let turnValue = '';
 
 					for (var index = 0; index < value.length; index++) {
+						// ✅ 对代码内容进行特殊字符转义
+						const escapedLine = escapeString(value[index]);
 						if (index === 0) {
-							turnValue += value[index] + '\n';
+							turnValue += escapedLine + '\n';
 						} else {
-							turnValue += '\t' + value[index] + '\n';
+							turnValue += '\t' + escapedLine + '\n';
 						}
 					}
 					value = turnValue;
+				} else {
+					// ✅ 对非数组值也进行转义（如 summary）
+					value = escapeString(value);
 				}
 				tempVal = '\t<string>' + value + '</string>\n';
 			}
@@ -118,8 +123,8 @@ function addCodeSnippets(specFile, singleSnippet) {
 			template = JSON.parse(data);
 		}
 	} catch (err) {
-		console.error(err);
-		return;
+		console.error('安装失败：无法读取模板文件', err.message);
+		return { success: false, error: err.message };
 	}
 
 	// ✅ 如果指定了单个代码片段，只处理这个片段
@@ -134,7 +139,7 @@ function addCodeSnippets(specFile, singleSnippet) {
 		} catch (err) {
 			console.error(err);
 		}
-		return;
+		return { success: true, count: 1 };
 	}
 
 	// 原有逻辑：处理所有代码片段（用于 install 命令）
@@ -146,8 +151,8 @@ function addCodeSnippets(specFile, singleSnippet) {
 			cache.updateCache(specFile, data);
 		}
 	} catch (err) {
-		console.error(err);
-		return;
+		console.error('安装失败：无法读取配置文件', err.message);
+		return { success: false, error: err.message };
 	}
 
 	// 拼装配置文件
@@ -155,6 +160,8 @@ function addCodeSnippets(specFile, singleSnippet) {
 		let content = '';
 		let identifier = '';
 		let holderArr = [];
+		let successCount = 0;
+		let errorCount = 0;
 
 		placeholder.list.forEach(function (placeVal) {
 			holderArr.push(placeVal);
@@ -209,13 +216,18 @@ function addCodeSnippets(specFile, singleSnippet) {
 						let turnValue = '';
 
 						for (var index = 0; index < value.length; index++) {
+							// ✅ 对代码内容进行特殊字符转义
+							const escapedLine = escapeString(value[index]);
 							if (index === 0) {
-								turnValue += value[index] + '\n';
+								turnValue += escapedLine + '\n';
 							} else {
-								turnValue += '\t' + value[index] + '\n';
+								turnValue += '\t' + escapedLine + '\n';
 							}
 						}
 						value = turnValue;
+					} else {
+						// ✅ 对非数组值也进行转义（如 summary）
+						value = escapeString(value);
 					}
 					tempVal = '\t<string>' + value + '</string>\n';
 				}
@@ -235,15 +247,23 @@ function addCodeSnippets(specFile, singleSnippet) {
 				try {
 					const snippetFile = path.join(snippetsPath, identifier + '.codesnippet');
 					fs.writeFileSync(snippetFile, content);
+					successCount++;
 				} catch (err) {
-					console.log(err);
+					console.error(`安装片段失败 [${identifier}]:`, err.message);
+					errorCount++;
 				}
 			}
 		});
+
+		return { success: true, successCount, errorCount, total: holderArr.length };
 	}
+
+	return { success: false, error: '配置文件格式错误' };
 }
 
 function escapeString(string) {
+	// 必须先转义 &，否则会把 &lt; 转成 &amp;lt;
+	string = string.replace(/&/g, '&amp;');
 	string = string.replace(/</g, '&lt;');
 	string = string.replace(/>/g, '&gt;');
 	return string;
