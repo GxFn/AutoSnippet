@@ -14,7 +14,7 @@
 模块开发者提供了Toast模块，可以将这一段使用代码写入模块的配置文件（参照下文命令）
 
 ```objectivec
-[[ASUIKitAlertToast sharedInstance] alertWithMessage:@\"<#object#>\"];
+[[ASUIKitAlertToast sharedInstance] alertWithMessage:@"<#object#>"];
 ```
 
 模块被工程引入时，业务开发者可以在xcode里，敲击@toast来获取这段标准的使用代码
