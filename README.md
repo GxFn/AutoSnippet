@@ -17,9 +17,9 @@
 [[ASUIKitAlertToast sharedInstance] alertWithMessage:@"<#object#>"];
 ```
 
-模块被工程引入时，业务开发者可以在xcode里，敲击@toast来获取这段标准的使用代码
+模块被工程引入时，业务开发者可以在Xcode里，敲击`@toast`来获取这段标准的使用代码
 
-Toast模块添加配置时可以选择分类，使用者可以通过@view或者@tool联想出同类别模块列表
+Toast模块添加配置时可以选择分类，使用者可以通过`@view`或者`@tool`联想出同类别模块列表
 
 代码量大的UI模块，能一键获取全部标准代码
 
