@@ -35,6 +35,7 @@ function writeSingleSnippet(snippet, template) {
 		// 这样即使没有缓存也能解析出完整信息
 		const headRelativePath = extPlace['{headName}'];  // 相对于模块根目录的相对路径
 		header = header + ' ' + headRelativePath;
+		// ✅ header 是动态生成的（包含 < >），需要转义以匹配 JSON 中的转义格式
 		header = escapeString(header);
 
 		// swift只需要考虑工作空间是否引入
@@ -74,18 +75,17 @@ function writeSingleSnippet(snippet, template) {
 					let turnValue = '';
 
 					for (var index = 0; index < value.length; index++) {
-						// ✅ 对代码内容进行特殊字符转义
-						const escapedLine = escapeString(value[index]);
+						// ✅ JSON 中已经是转义后的内容（来自 create.js），直接使用，无需再次转义
 						if (index === 0) {
-							turnValue += escapedLine + '\n';
+							turnValue += value[index] + '\n';
 						} else {
-							turnValue += '\t' + escapedLine + '\n';
+							turnValue += '\t' + value[index] + '\n';
 						}
 					}
 					value = turnValue;
 				} else {
-					// ✅ 对非数组值也进行转义（如 summary）
-					value = escapeString(value);
+					// ✅ JSON 中已经是转义后的内容（来自 create.js），直接使用，无需再次转义
+					// value 已经是转义后的字符串，直接使用
 				}
 				tempVal = '\t<string>' + value + '</string>\n';
 			}
@@ -176,6 +176,7 @@ function addCodeSnippets(specFile, singleSnippet) {
 				// 这样即使没有缓存也能解析出完整信息
 				const headRelativePath = extPlace['{headName}'];  // 相对于模块根目录的相对路径
 				header = header + ' ' + headRelativePath;
+				// ✅ header 是动态生成的（包含 < >），需要转义以匹配 JSON 中的转义格式
 				header = escapeString(header);
 
 				// swift只需要考虑工作空间是否引入
@@ -216,18 +217,17 @@ function addCodeSnippets(specFile, singleSnippet) {
 						let turnValue = '';
 
 						for (var index = 0; index < value.length; index++) {
-							// ✅ 对代码内容进行特殊字符转义
-							const escapedLine = escapeString(value[index]);
+							// ✅ JSON 中已经是转义后的内容（来自 create.js），直接使用，无需再次转义
 							if (index === 0) {
-								turnValue += escapedLine + '\n';
+								turnValue += value[index] + '\n';
 							} else {
-								turnValue += '\t' + escapedLine + '\n';
+								turnValue += '\t' + value[index] + '\n';
 							}
 						}
 						value = turnValue;
 					} else {
-						// ✅ 对非数组值也进行转义（如 summary）
-						value = escapeString(value);
+						// ✅ JSON 中已经是转义后的内容（来自 create.js），直接使用，无需再次转义
+						// value 已经是转义后的字符串，直接使用
 					}
 					tempVal = '\t<string>' + value + '</string>\n';
 				}
@@ -261,7 +261,14 @@ function addCodeSnippets(specFile, singleSnippet) {
 	return { success: false, error: '配置文件格式错误' };
 }
 
+/**
+ * 转义特殊字符（仅在动态生成 header 时使用）
+ * 注意：从 JSON 读取的内容已经转义过了，不需要再次转义
+ */
 function escapeString(string) {
+	if (typeof string !== 'string') {
+		return string;
+	}
 	// 必须先转义 &，否则会把 &lt; 转成 &amp;lt;
 	string = string.replace(/&/g, '&amp;');
 	string = string.replace(/</g, '&lt;');
