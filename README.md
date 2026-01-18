@@ -9,12 +9,12 @@
 [![GitHub forks](https://img.shields.io/github/forks/GxFn/AutoSnippet.svg?style=flat-square)](https://github.com/GxFn/AutoSnippet)
 [![License](https://img.shields.io/npm/l/autosnippet.svg?style=flat-square)](https://github.com/GxFn/AutoSnippet/blob/main/LICENSE)
 
-## 事例
+## 使用
 
 比如提供了Toast组件，可以将这一段使用代码写入模块的配置文件（参照下文命令）
 
 ```objectivec
-    [[ASUIKitAlertToast sharedInstance] alertWithMessage:@\"<#object#>\"];
+[[ASUIKitAlertToast sharedInstance] alertWithMessage:@\"<#object#>\"];
 ```
 
 模块被工程引入时，开发者可以在xcode里，敲击@toast来获取这段标准的使用代码，特别是代码量大的UI模块，能一键获取全部标准代码
