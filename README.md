@@ -1,6 +1,6 @@
 # AutoSnippet
 
-一个 iOS 模块管理工具。使用命令行创建 Xcode 代码片段，生成 JSON 配置文件，并在代码仓库中与其他开发者共享。
+基于SPM的iOS模块管理工具。通过AutoSnippet可以将模块的使用示范写进Xcode的配置文件，支持分类查询和头文件引入。
 
 [![npm version](https://img.shields.io/npm/v/autosnippet.svg?style=flat-square)](https://www.npmjs.com/package/autosnippet)
 [![npm downloads](https://img.shields.io/npm/dm/autosnippet.svg?style=flat-square)](https://www.npmjs.com/package/autosnippet)
@@ -8,6 +8,16 @@
 [![GitHub stars](https://img.shields.io/github/stars/GxFn/AutoSnippet.svg?style=flat-square)](https://github.com/GxFn/AutoSnippet)
 [![GitHub forks](https://img.shields.io/github/forks/GxFn/AutoSnippet.svg?style=flat-square)](https://github.com/GxFn/AutoSnippet)
 [![License](https://img.shields.io/npm/l/autosnippet.svg?style=flat-square)](https://github.com/GxFn/AutoSnippet/blob/main/LICENSE)
+
+## 事例
+
+比如提供了Toast组件，可以将这一段使用代码写入模块的配置文件（参照下文命令）
+
+```objectivec
+    [[ASUIKitAlertToast sharedInstance] alertWithMessage:@\"<#object#>\"];
+```
+
+模块被工程引入时，开发者可以在xcode里，敲击@toast来获取这段标准的使用代码，特别是代码量大的UI模块，能一键获取全部标准代码
 
 ## 安装
 
