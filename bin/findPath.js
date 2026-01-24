@@ -1,5 +1,24 @@
 #!/usr/bin/env node
 
+/**
+ * 职责：
+ * - 路径/工程结构查找工具：定位 AutoSnippet.boxspec.json、AutoSnippetRoot.boxspec.json、Package.swift 等关键文件
+ * - 解析 SPM Package.swift（AST-lite）：提取 targets、每个 target 的 dependencies/path/sources 等信息
+ *
+ * 核心流程：
+ * - findASSpecPath / findASSpecPathAsync: 向上查找模块 spec
+ * - findProjectRoot / getRootSpecFilePath: 定位项目根（root marker）与根 spec
+ * - findPackageSwiftPath: 从目录向上查找最近的 Package.swift
+ * - parsePackageSwift / extractTargetBlocksFromPackageSwift: 解析 Package.swift 并提取 target blocks（跳过字符串/注释）
+ *
+ * 核心方法（主要导出）：
+ * - findASSpecPath, findASSpecPathAsync, findPackageSwiftPath
+ * - parsePackageSwift, extractTargetBlocksFromPackageSwift
+ * - findSubHeaderPath, findSubASSpecPath
+ * - findProjectRoot, getRootSpecFilePath
+ * - ROOT_MARKER_NAME
+ */
+
 const fs = require('fs');
 const path = require('path');
 // 全局常量
@@ -283,28 +302,237 @@ async function parsePackageSwift(packagePath) {
 	try {
 		const content = await fs.promises.readFile(packagePath, 'utf8');
 		const packageNameMatch = content.match(/name:\s*"([^"]+)"/);
-		const targetsMatch = content.match(/\.target\s*\([^)]+name:\s*"([^"]+)"/g);
-		
 		const packageName = packageNameMatch ? packageNameMatch[1] : null;
-		const targets = [];
-		
-		if (targetsMatch) {
-			targetsMatch.forEach(match => {
-				const targetMatch = match.match(/name:\s*"([^"]+)"/);
-				if (targetMatch) {
-					targets.push(targetMatch[1]);
-				}
-			});
-		}
-		
+
+		const { blocks, targets, targetsInfo } = extractTargetBlocksFromPackageSwift(content);
+
 		return {
 			name: packageName,
 			targets: targets,
+			targetsInfo: targetsInfo,
 			path: path.dirname(packagePath)
 		};
 	} catch (err) {
 		return null;
 	}
+}
+
+/**
+ * 从 Package.swift 内容中提取所有 `.target(...)` block，并做轻量解析：
+ * - target name
+ * - dependencies（字符串 / .target(name:) / .product / .byName）
+ *
+ * 说明：这是一个 AST-lite 解析器（括号配对 + 跳过字符串/注释），用于支持依赖图能力。
+ */
+function extractTargetBlocksFromPackageSwift(content) {
+	const blocks = [];
+	const targets = [];
+	const targetsInfo = {};
+
+	if (!content) return { blocks, targets, targetsInfo };
+
+	// 扫描所有 ".target(" 起点
+	let idx = 0;
+	while (idx < content.length) {
+		const hit = content.indexOf('.target', idx);
+		if (hit < 0) break;
+
+		// 找到 '('
+		const parenStart = content.indexOf('(', hit);
+		if (parenStart < 0) { idx = hit + 6; continue; }
+
+		// 括号配对（跳过字符串/注释）
+		let i = parenStart;
+		let depth = 0;
+		let inString = false;
+		let escape = false;
+		let inLineComment = false;
+		let inBlockComment = false;
+
+		for (; i < content.length; i++) {
+			const ch = content[i];
+			const nextCh = i + 1 < content.length ? content[i + 1] : '';
+
+			if (inLineComment) {
+				if (ch === '\n') inLineComment = false;
+				continue;
+			}
+			if (inBlockComment) {
+				if (ch === '*' && nextCh === '/') {
+					inBlockComment = false;
+					i++;
+				}
+				continue;
+			}
+
+			if (!inString) {
+				if (ch === '/' && nextCh === '/') { inLineComment = true; i++; continue; }
+				if (ch === '/' && nextCh === '*') { inBlockComment = true; i++; continue; }
+			}
+
+			if (inString) {
+				if (escape) { escape = false; continue; }
+				if (ch === '\\') { escape = true; continue; }
+				if (ch === '"') { inString = false; continue; }
+				continue;
+			} else {
+				if (ch === '"') { inString = true; continue; }
+			}
+
+			if (ch === '(') depth++;
+			if (ch === ')') {
+				depth--;
+				if (depth === 0) break;
+			}
+		}
+
+		if (depth !== 0) {
+			// 不平衡，跳过这个命中点
+			idx = parenStart + 1;
+			continue;
+		}
+
+		const blockStart = hit;
+		const blockEnd = i + 1; // include ')'
+		const blockText = content.slice(blockStart, blockEnd);
+
+		const nameMatch = blockText.match(/name:\s*"([^"]+)"/);
+		const name = nameMatch ? nameMatch[1] : null;
+
+		// path: "xxx"
+		const pathMatch = blockText.match(/path:\s*"([^"]+)"/);
+		const targetPath = pathMatch ? pathMatch[1] : null;
+
+		// sources: ["Code"] / ["Sources"] / [...]
+		let sources = null;
+		const sourcesMatch = blockText.match(/sources:\s*\[([\s\S]*?)\]/);
+		if (sourcesMatch) {
+			const inner = sourcesMatch[1];
+			const srcList = [];
+			const re = /"([^"]+)"/g;
+			let m = null;
+			while ((m = re.exec(inner)) !== null) {
+				srcList.push(m[1]);
+			}
+			if (srcList.length) sources = srcList;
+		}
+
+		const deps = [];
+
+		// 解析 dependencies: [...]
+		const depIdx = blockText.indexOf('dependencies:');
+		if (depIdx >= 0) {
+			const bracketStart = blockText.indexOf('[', depIdx);
+			if (bracketStart >= 0) {
+				let j = bracketStart;
+				let bDepth = 0;
+				let sInString = false;
+				let sEscape = false;
+				let sLineComment = false;
+				let sBlockComment = false;
+
+				for (; j < blockText.length; j++) {
+					const ch = blockText[j];
+					const nextCh = j + 1 < blockText.length ? blockText[j + 1] : '';
+
+					if (sLineComment) {
+						if (ch === '\n') sLineComment = false;
+						continue;
+					}
+					if (sBlockComment) {
+						if (ch === '*' && nextCh === '/') { sBlockComment = false; j++; }
+						continue;
+					}
+					if (!sInString) {
+						if (ch === '/' && nextCh === '/') { sLineComment = true; j++; continue; }
+						if (ch === '/' && nextCh === '*') { sBlockComment = true; j++; continue; }
+					}
+					if (sInString) {
+						if (sEscape) { sEscape = false; continue; }
+						if (ch === '\\') { sEscape = true; continue; }
+						if (ch === '"') { sInString = false; continue; }
+						continue;
+					} else {
+						if (ch === '"') { sInString = true; continue; }
+					}
+
+					if (ch === '[') bDepth++;
+					if (ch === ']') {
+						bDepth--;
+						if (bDepth === 0) break;
+					}
+				}
+
+				if (bDepth === 0) {
+					const depArrayText = blockText.slice(bracketStart + 1, j);
+
+					// split by comma at top-level (ignore nested parentheses)
+					const items = [];
+					let cur = '';
+					let pDepth = 0;
+					let dInString = false;
+					let dEscape = false;
+					for (let k = 0; k < depArrayText.length; k++) {
+						const ch = depArrayText[k];
+						if (dInString) {
+							cur += ch;
+							if (dEscape) { dEscape = false; continue; }
+							if (ch === '\\') { dEscape = true; continue; }
+							if (ch === '"') { dInString = false; continue; }
+							continue;
+						}
+						if (ch === '"') { dInString = true; cur += ch; continue; }
+						if (ch === '(') { pDepth++; cur += ch; continue; }
+						if (ch === ')') { pDepth = Math.max(0, pDepth - 1); cur += ch; continue; }
+						if (ch === ',' && pDepth === 0) {
+							if (cur.trim()) items.push(cur.trim());
+							cur = '';
+							continue;
+						}
+						cur += ch;
+					}
+					if (cur.trim()) items.push(cur.trim());
+
+					for (const it of items) {
+						// "TargetName"
+						const strMatch = it.match(/^"([^"]+)"$/);
+						if (strMatch) {
+							deps.push({ kind: 'byName', name: strMatch[1] });
+							continue;
+						}
+						// .target(name: "X")
+						const targetMatch = it.match(/\.target\s*\(\s*name:\s*"([^"]+)"/);
+						if (targetMatch) {
+							deps.push({ kind: 'target', name: targetMatch[1] });
+							continue;
+						}
+						// .product(name: "X", package: "Y")
+						const prodMatch = it.match(/\.product\s*\(\s*name:\s*"([^"]+)"\s*,\s*package:\s*"([^"]+)"/);
+						if (prodMatch) {
+							deps.push({ kind: 'product', name: prodMatch[1], package: prodMatch[2] });
+							continue;
+						}
+						// .byName(name: "X")
+						const byNameMatch = it.match(/\.byName\s*\(\s*name:\s*"([^"]+)"/);
+						if (byNameMatch) {
+							deps.push({ kind: 'byName', name: byNameMatch[1] });
+							continue;
+						}
+					}
+				}
+			}
+		}
+
+		blocks.push({ start: blockStart, end: blockEnd, name: name });
+		if (name) {
+			targets.push(name);
+			targetsInfo[name] = { type: 'target', dependencies: deps, path: targetPath, sources: sources };
+		}
+
+		idx = blockEnd;
+	}
+
+	return { blocks, targets, targetsInfo };
 }
 
 async function findSubHeaderPath(filePath, headerName, moduleName) {
@@ -448,6 +676,14 @@ async function getRootSpecFilePath(filePath) {
 	} catch (err) {
 		if (err.code === 'ENOENT') {
 			const specObj = {
+				schemaVersion: 2,
+				kind: 'root',
+				root: true,
+				skills: {
+					dir: 'skills',
+					format: 'md+frontmatter',
+					index: 'skills/index.json',
+				},
 				list: []
 			};
 			const content = JSON.stringify(specObj, null, 4);
@@ -462,6 +698,7 @@ exports.findASSpecPath = findASSpecPath;
 exports.findASSpecPathAsync = findASSpecPathAsync;
 exports.findPackageSwiftPath = findPackageSwiftPath;
 exports.parsePackageSwift = parsePackageSwift;
+exports.extractTargetBlocksFromPackageSwift = extractTargetBlocksFromPackageSwift;
 exports.findSubHeaderPath = findSubHeaderPath;
 exports.findSubASSpecPath = findSubASSpecPath;
 exports.findProjectRoot = findProjectRoot;

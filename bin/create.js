@@ -1,15 +1,36 @@
 #!/usr/bin/env node
 
+/**
+ * 职责：
+ * - 从源码中的 // autosnippet:code 标记提取代码片段并生成 AutoSnippet 配置（AutoSnippet.boxspec.json）
+ * - 支持更新已有片段（按 trigger/identifier），并可同步到根配置 AutoSnippetRoot.boxspec.json
+ * - 可选生成“headerVersion”片段：写入 // autosnippet:include 标记用于后续自动注入头文件
+ *
+ * 核心流程：
+ * - findFilesWithACode(): 扫描目录找到包含 // autosnippet:code 的文件
+ * - createCodeSnippets(): 读取 code 块 → 组装 snippet 对象 → saveFromFile() 落盘
+ * - saveFromFile(): 写入模块 spec + 同步 root spec + install.addCodeSnippets() 写入 Xcode CodeSnippets
+ *
+ * 核心方法（主要导出）：
+ * - createCodeSnippets(specFile, answers, updateSnippet, selectedFilePath)
+ * - updateCodeSnippets(specFile, word, key, value)
+ * - saveFromFile(specFile, snippet)
+ * - findFilesWithACode(filePath)
+ */
+
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const cache = require('./cache.js');
+const cache = require('../lib/infra/cacheStore.js');
 const findPath = require('./findPath.js');
-const install = require('./install.js');
+const specRepository = require('../lib/snippet/specRepository.js');
+const snippetFactory = require('../lib/snippet/snippetFactory.js');
 // 全局常量
 const README_NAME = 'readme.md';
 // 全局路径
 const CMD_PATH = process.cwd();
+const CODE_MARK_NEW = '// autosnippet:code';
+const CODE_MARK_SHORT = '// as:code';
 
 /**
  * 根据文件路径确定模块名（SPM）
@@ -109,10 +130,12 @@ function updateCodeSnippets(specFile, word, key, value) {
 		for (let index = 0; index < placeholder.list.length; index++) {
 			let placeItem = placeholder.list[index];
 
-			if (placeItem['{completionKey}'] === word) {
+			const t = placeItem && placeItem.trigger ? String(placeItem.trigger) : '';
+			const raw = t.startsWith('@') ? t.slice(1) : t;
+			if (raw === word || t === word || t === ('@' + word)) {
 				snippet = placeItem;
 				if (key) {
-					snippet['{' + key + '}'] = value;
+					snippet[key] = value;
 				}
 				break;
 			}
@@ -129,7 +152,7 @@ function updateCodeSnippets(specFile, word, key, value) {
 }
 
 /**
- * 查找包含 // ACode 标记的文件
+ * 查找包含 // autosnippet:code 标记的文件
  */
 async function findFilesWithACode(filePath) {
 	const filesWithACode = [];
@@ -147,9 +170,10 @@ async function findFilesWithACode(filePath) {
 						const content = await fs.promises.readFile(filedir, 'utf8');
 						const lines = content.split('\n');
 						
-						// 检查是否包含 // ACode 标记
+						// 检查是否包含代码块标记（// autosnippet:code / // as:code）
 						for (let i = 0; i < lines.length; i++) {
-							if (lines[i].trim().toLowerCase() === '// acode') {
+							const t = lines[i].trim().toLowerCase();
+							if (t === CODE_MARK_NEW || t === CODE_MARK_SHORT) {
 								filesWithACode.push({
 									path: filedir,
 									name: filename,
@@ -174,7 +198,7 @@ async function findFilesWithACode(filePath) {
 
 function createCodeSnippets(specFile, answers, updateSnippet, selectedFilePath) {
 	let snippet = updateSnippet;
-	let isHaveHeader = snippet === null ? false : (snippet['{headName}'] !== undefined);
+	let isHaveHeader = snippet === null ? false : (snippet.headName !== undefined);
 
 	if (snippet === null) {
 		// ✅ 处理 completion_more（可能是数组或字符串）
@@ -187,16 +211,16 @@ function createCodeSnippets(specFile, answers, updateSnippet, selectedFilePath) 
 		const identifier = 'AutoSnip_' + answersIdBuff.toString('base64').replace(/\//g, '');
 
 		snippet = {
-			'{identifier}': identifier,
-			'{title}': answers.title,
-			'{completionKey}': answers.completion_first,
-			'{completion}': '@' + answers.completion_first + completionMoreStr + '@Moudle',
-			'{summary}': answers.summary,
-			'{language}': 'Xcode.SourceCodeLanguage.Objective-C',
+			identifier: identifier,
+			title: answers.title,
+			trigger: '@' + answers.completion_first,
+			completion: '@' + answers.completion_first + completionMoreStr + '@Moudle',
+			summary: answers.summary,
+			languageShort: 'objc',
 		};
 
 		if (answers.link) {
-			snippet['{link}'] = encodeURI(answers.link);
+			snippet.link = encodeURI(answers.link);
 		}
 		isHaveHeader = answers.header;
 	}
@@ -238,7 +262,7 @@ function createCodeSnippets(specFile, answers, updateSnippet, selectedFilePath) 
 
 function readStream(specFile, filePathArr, snippet, isHaveHeader) {
 	if (filePathArr.length === 0) {
-		console.log('未找到由 // ACode 标识的代码块，请检查当前文件目录。');
+		console.log('未找到由 // as:code 或 // autosnippet:code 标识的代码块，请检查当前文件目录。');
 		return;
 	}
 
@@ -260,7 +284,8 @@ function readStream(specFile, filePathArr, snippet, isHaveHeader) {
 		if (canPush) {
 			codeList.push(escapeString(line));
 		}
-		if (line.trim().toLowerCase() === '// acode') {
+		const t = line.trim().toLowerCase();
+		if (t === CODE_MARK_NEW || t === CODE_MARK_SHORT) {
 			canPush = !canPush;
 			positionList.push(lineIndex - 1);
 		}
@@ -271,7 +296,7 @@ function readStream(specFile, filePathArr, snippet, isHaveHeader) {
 			codeList.pop();
 
 			if (filePath.endsWith('.swift')) {
-				snippet['{language}'] = 'Xcode.SourceCodeLanguage.Swift';
+				snippet.languageShort = 'swift';
 			}
 
 			if (isHaveHeader) {
@@ -284,7 +309,7 @@ function readStream(specFile, filePathArr, snippet, isHaveHeader) {
 				findPath.findPackageSwiftPath(thePath).then(async function (packagePath) {
 					if (!packagePath) {
 						console.log('未找到 Package.swift 文件，请检查路径。');
-						snippet['{content}'] = codeList;
+						snippet.body = codeList;
 						// ✅ 查找 target 根目录（Code 或 Sources 的父目录）
 						let targetRootDir = await findTargetRootDir(filePath);
 						if (!targetRootDir) {
@@ -299,7 +324,7 @@ function readStream(specFile, filePathArr, snippet, isHaveHeader) {
 					// 解析 Package.swift 获取模块信息
 					const packageInfo = await findPath.parsePackageSwift(packagePath);
 					if (!packageInfo) {
-						snippet['{content}'] = codeList;
+						snippet.body = codeList;
 						// ✅ 查找 target 根目录（Code 或 Sources 的父目录）
 						let targetRootDir = await findTargetRootDir(filePath);
 						if (!targetRootDir) {
@@ -327,18 +352,18 @@ function readStream(specFile, filePathArr, snippet, isHaveHeader) {
 					// 在 target 根目录下查找（可能包含 Code/ 或 Sources/ 这样的结构）
 					const headerPath = await findPath.findSubHeaderPath(targetRootDir, headerNameWithoutExt, moduleName);
 
-					snippet['{content}'] = codeList;
-					snippet['{specName}'] = moduleName;
+					snippet.body = codeList;
+					snippet.specName = moduleName;
 
 					if (headerPath) {
 						// ✅ headName 存储相对于 target 根目录的相对路径
 						// 例如：target 根目录在 BDNetworkAPI/，头文件在 BDNetworkAPI/Code/xxx.h
 						// 则 headName = "Code/xxx.h"
 						const headerRelativePath = path.relative(targetRootDir, headerPath);
-						snippet['{headName}'] = headerRelativePath;
+						snippet.headName = headerRelativePath;
 					} else {
 						// 如果找不到头文件，使用文件名
-						snippet['{headName}'] = fileName;
+						snippet.headName = fileName;
 					}
 
 					// 查找 README.md（在 target 根目录）
@@ -346,7 +371,7 @@ function readStream(specFile, filePathArr, snippet, isHaveHeader) {
 						const readmePath = path.join(targetRootDir, README_NAME);
 						await fs.promises.access(readmePath);
 						const readmeRelativePath = path.relative(targetRootDir, readmePath);
-						snippet['{readme}'] = encodeURI(readmeRelativePath);
+						snippet.readme = encodeURI(readmeRelativePath);
 					} catch {
 						// README.md 不存在，跳过
 					}
@@ -356,14 +381,14 @@ function readStream(specFile, filePathArr, snippet, isHaveHeader) {
 					await saveFromFile(moduleSpecFile, snippet);
 				}).catch(async function (err) {
 					console.error('Error finding Package.swift:', err);
-					snippet['{content}'] = codeList;
+					snippet.body = codeList;
 					await saveFromFile(specFile, snippet);
 				});
 			} else {
-				snippet['{content}'] = codeList;
+				snippet.body = codeList;
 				await saveFromFile(specFile, snippet);
 			}
-			// 移除ACode标识
+			// 移除 code 标识
 			removeAcodeMark(filePath, positionList);
 		} else {
 			readStream(specFile, filePathArr, snippet, isHaveHeader);
@@ -372,115 +397,8 @@ function readStream(specFile, filePathArr, snippet, isHaveHeader) {
 }
 
 async function saveFromFile(specFile, snippet) {
-	const findPath = require('./findPath.js');
-	let placeholder = null;
-
-	try {
-		// 读取AutoSnippet的占位配置
-		const data = fs.readFileSync(specFile, 'utf8');
-		if (data) {
-			placeholder = JSON.parse(data);
-		}
-	} catch (err) {
-		// ✅ 文件不存在或读取失败，创建新的配置文件
-		if (err.code === 'ENOENT') {
-			// 确保目录存在
-			const specFileDir = path.dirname(specFile);
-			try {
-				fs.mkdirSync(specFileDir, { recursive: true });
-			} catch (mkdirErr) {
-				// 目录可能已存在，忽略错误
-			}
-			// 创建空的配置文件结构
-			placeholder = {
-				list: []
-			};
-		} else {
-			console.error(err);
-			return;
-		}
-	}
-
-	if (placeholder != null) {
-		let isChange = false;
-
-		for (let index = 0; index < placeholder.list.length; index++) {
-			let placeItem = placeholder.list[index];
-
-			if (placeItem['{identifier}'] === snippet['{identifier}']) {
-				placeholder.list[index] = snippet;
-				isChange = true;
-				break;
-			}
-		}
-
-		if (!isChange) {
-			placeholder.list.push(snippet);
-		}
-
-		const content = JSON.stringify(placeholder, null, 4);
-		if (content) {
-			try {
-				fs.writeFileSync(specFile, content);
-				console.log('create success.');
-			} catch (err) {
-				console.log(err);
-			}
-			cache.updateCache(specFile, content);
-			
-			// ✅ 同步到根目录的 AutoSnippetRoot.boxspec.json
-			try {
-				const rootSpecFile = await findPath.getRootSpecFilePath(specFile);
-				if (rootSpecFile) {
-					// 读取根配置文件
-					let rootPlaceholder = null;
-					try {
-						const rootData = fs.readFileSync(rootSpecFile, 'utf8');
-						if (rootData) {
-							rootPlaceholder = JSON.parse(rootData);
-						}
-					} catch (err) {
-						if (err.code === 'ENOENT') {
-							rootPlaceholder = { list: [] };
-						} else {
-							// 忽略错误
-						}
-					}
-					
-					if (rootPlaceholder != null) {
-						// 检查是否已存在相同的 identifier
-						let exists = false;
-						if (rootPlaceholder.list) {
-							for (let i = 0; i < rootPlaceholder.list.length; i++) {
-								if (rootPlaceholder.list[i]['{identifier}'] === snippet['{identifier}']) {
-									// 已存在，更新它
-									rootPlaceholder.list[i] = snippet;
-									exists = true;
-									break;
-								}
-							}
-						} else {
-							rootPlaceholder.list = [];
-						}
-						
-						// 如果不存在，添加到列表
-						if (!exists) {
-							rootPlaceholder.list.push(snippet);
-						}
-						
-						// 写入根配置文件
-						const rootContent = JSON.stringify(rootPlaceholder, null, 4);
-						fs.writeFileSync(rootSpecFile, rootContent, 'utf8');
-					}
-				}
-			} catch (err) {
-					// 忽略错误
-			}
-			
-			// ✅ 只写入刚创建的单个代码片段
-			install.addCodeSnippets(specFile, snippet);
-		}
-	}
+	await specRepository.saveSnippet(specFile, snippet, { syncRoot: true, installSingle: true });
+	console.log('create success.');
 }
 
 function removeAcodeMark(filePath, positionList) {
@@ -495,7 +413,8 @@ function removeAcodeMark(filePath, positionList) {
 		for (let i = 0; i < positionList.length; i++) {
 			const position = positionList[i];
 
-			if (lineArray[position].trim().toLowerCase() === '// acode') {
+			const t = lineArray[position].trim().toLowerCase();
+			if (t === CODE_MARK_NEW || t === CODE_MARK_SHORT) {
 				lineArray.splice(position, 1);
 			}
 		}
@@ -514,7 +433,26 @@ function escapeString(string) {
 	return string;
 }
 
+function createCodeSnippetsFromText(specFile, answers, text, options = {}) {
+	if (!text || !String(text).trim()) {
+		console.error('❌ 剪贴板内容为空，无法创建 snippet。');
+		return;
+	}
+	const snippet = snippetFactory.fromText(answers, text, options);
+	if (!snippet) {
+		console.error('❌ 剪贴板内容为空，无法创建 snippet。');
+		return;
+	}
+
+	if (answers.header) {
+		console.log('⚠️  clipboard 模式无法自动推断头文件位置，已忽略 headerVersion（不写入 headName）。');
+	}
+
+	saveFromFile(specFile, snippet);
+}
+
 exports.createCodeSnippets = createCodeSnippets;
 exports.updateCodeSnippets = updateCodeSnippets;
 exports.saveFromFile = saveFromFile;
 exports.findFilesWithACode = findFilesWithACode;
+exports.createCodeSnippetsFromText = createCodeSnippetsFromText;

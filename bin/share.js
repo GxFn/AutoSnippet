@@ -1,18 +1,31 @@
 #!/usr/bin/env node
 
+/**
+ * 职责：
+ * - 将本地 Xcode CodeSnippets 目录里的 .codesnippet 转换为 AutoSnippet 可共享格式
+ * - 支持交互选择与非交互 preset（用于自动化/测试）
+ *
+ * 核心流程：
+ * - shareCodeSnippets(specFile): 扫描本地 snippets → 交互选择 → 读取 plist → create.saveFromFile() 写入 spec → 删除原文件
+ * - shareWithPreset(specFile, preset): 直接按预置 fileName/category 等完成同样流程
+ *
+ * 核心方法（主要导出）：
+ * - shareCodeSnippets(specFile)
+ * - shareWithPreset(specFile, preset)
+ */
+
 const fs = require('fs');
 const path = require('path');
 const parseString = require('xml2js').parseString;
 // 读取输入命令
 const inquirer = require('inquirer');
-// 全局路径
-const USER_HOME 	= process.env.HOME || process.env.USERPROFILE;
-const SNIPPETS_PATH = USER_HOME + '/Library/Developer/Xcode/UserData/CodeSnippets';
 
-const create = require('./create.js');
-const cache = require('./cache.js');
+const specRepository = require('../lib/snippet/specRepository.js');
+const cache = require('../lib/infra/cacheStore.js');
+const config = require('../lib/infra/paths.js');
 
 function shareCodeSnippets(specFile) {
+	const SNIPPETS_PATH = config.getSnippetsPath();
 	try {
 		fs.accessSync(SNIPPETS_PATH, fs.F_OK);
 	} catch (err) {
@@ -54,6 +67,74 @@ function shareCodeSnippets(specFile) {
 			console.log('不存在本地Snippet。');
 		}
 	});
+}
+
+/**
+ * 预置输入（非交互）分享本地 snippet
+ *
+ * preset 结构示例：
+ * {
+ *   "fileName": "LocalFixture.codesnippet",
+ *   "completion_more": ["@Tool"],
+ *   "completion_first": "sharee2e" // 可选，仅当本地 codesnippet completionPrefix 为空时需要
+ * }
+ */
+function shareWithPreset(specFile, preset) {
+	const SNIPPETS_PATH = config.getSnippetsPath();
+	const fileName = preset && preset.fileName;
+	const completionMore = preset && preset.completion_more;
+	const completionFirst = preset && preset.completion_first;
+
+	if (!fileName || !completionMore) {
+		console.error('❌ share 预置输入不完整：需要 fileName / completion_more');
+		return false;
+	}
+
+	const filedir = path.join(SNIPPETS_PATH, fileName);
+	try {
+		fs.accessSync(filedir, fs.constants.F_OK);
+	} catch {
+		console.error(`❌ 未找到本地 snippet 文件: ${filedir}`);
+		return false;
+	}
+
+	try {
+		const data = fs.readFileSync(filedir, 'utf8');
+		if (!data) return false;
+
+		let ok = false;
+		parseString(data, function (_err, result) {
+			if (result && result.plist && result.plist.dict && result.plist.dict[0].string) {
+				const array = result.plist.dict[0].string;
+
+				if (array[0] === '') {
+					if (!completionFirst) {
+						console.error('❌ 本地 snippet completionPrefix 为空，需要 preset.completion_first');
+						ok = false;
+						return;
+					}
+					array[0] = completionFirst;
+					createFromLocal(specFile, filedir, array, completionMore);
+					ok = true;
+					return;
+				}
+
+				if (array[0].endsWith('@Moudle')) {
+					console.log('这个文件已经是共享版本，不需要再处理。');
+					ok = true;
+					return;
+				}
+
+				createFromLocal(specFile, filedir, array, completionMore);
+				ok = true;
+			}
+		});
+
+		return ok;
+	} catch (err) {
+		console.error(err);
+		return false;
+	}
 }
 
 function askQuestions(specFile, filenameList, filePath) {
@@ -179,18 +260,21 @@ function shareTheSnippet(specFile, filePath, answers) {
 }
 
 function createFromLocal(specFile, filedir, array, completion_more) {
+	const xcodeLang = array[3];
+	const languageShort = xcodeLang === 'Xcode.SourceCodeLanguage.Swift' ? 'swift' : 'objc';
 	const snippet = {
-		'{identifier}': 'AutoSnip_' + array[2],
-		'{title}': array[5],
-		'{completionKey}': array[0],
-		'{completion}': '@' + array[0] + completion_more + '@Moudle',
-		'{summary}': array[4],
-		'{language}': array[3],
-		'{content}': array[1].split('\n')
+		identifier: 'AutoSnip_' + array[2],
+		title: array[5],
+		trigger: '@' + array[0],
+		completion: '@' + array[0] + completion_more + '@Moudle',
+		summary: array[4],
+		languageShort: languageShort,
+		body: array[1].split('\n')
 	};
-	create.saveFromFile(specFile, snippet);
+	specRepository.saveSnippet(specFile, snippet, { syncRoot: true, installSingle: true });
 	// 删除旧文件
 	fs.unlink(filedir, (err, data) => {});
 }
 
 exports.shareCodeSnippets = shareCodeSnippets;
+exports.shareWithPreset = shareWithPreset;

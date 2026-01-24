@@ -1,5 +1,19 @@
 #!/usr/bin/env node
 
+/**
+ * 职责：
+ * - 初始化/聚合 AutoSnippet 配置文件
+ * - 在模块（target）根目录创建 AutoSnippet.boxspec.json，并将所有子模块配置聚合到根配置 AutoSnippetRoot.boxspec.json
+ *
+ * 核心流程：
+ * - initSpec(): 在 target 根目录创建 AutoSnippet.boxspec.json（若不存在）并触发 mergeSubSpecs()
+ * - mergeSubSpecs(mainSpecFile): 扫描项目内所有 AutoSnippet.boxspec.json，将 list 聚合/去重写入根 spec
+ *
+ * 核心方法（主要导出）：
+ * - initSpec()
+ * - mergeSubSpecs(mainSpecFile)
+ */
+
 const fs = require('fs');
 const path = require('path');
 const CMD_PATH = process.cwd();
@@ -13,6 +27,14 @@ const findPath = require('./findPath.js');
 async function mergeSubSpecs(mainSpecFile) {
 	let idsArray = [];
 	let specObj = {
+		schemaVersion: 2,
+		kind: 'root',
+		root: true,
+		skills: {
+			dir: 'skills',
+			format: 'md+frontmatter',
+			index: 'skills/index.json',
+		},
 		list: []
 	};
 
@@ -32,16 +54,18 @@ async function mergeSubSpecs(mainSpecFile) {
 		if (fs.existsSync(rootSpecFile)) {
 			const rootData = fs.readFileSync(rootSpecFile, 'utf8');
 			const rootConfig = JSON.parse(rootData);
-			if (rootConfig && rootConfig.list) {
-				// 将现有内容的 identifier 添加到 idsArray（用于去重）
-				rootConfig.list.forEach(item => {
-					if (item['{identifier}']) {
-						idsArray.push(item['{identifier}']);
-					}
-				});
-				// 先保留现有内容（子模块配置会覆盖相同 identifier 的项）
-				specObj.list = specObj.list.concat(rootConfig.list);
+			// ✅ 保留 rootConfig 的其他字段（skills/schemaVersion/自定义字段）
+			if (rootConfig && typeof rootConfig === 'object') {
+				specObj = Object.assign({}, specObj, rootConfig);
 			}
+			if (!specObj.list || !Array.isArray(specObj.list)) specObj.list = [];
+
+			// 将现有内容的 identifier 添加到 idsArray（用于去重）
+			specObj.list.forEach(item => {
+				if (item && item.identifier) {
+					idsArray.push(item.identifier);
+				}
+			});
 		}
 	} catch (err) {
 		// 如果读取失败，继续执行（可能是文件不存在或格式错误）
@@ -67,7 +91,7 @@ async function mergeSubSpecs(mainSpecFile) {
 			const config = JSON.parse(data);
 			if (config && config.list) {
 				const arr = config.list.filter(function (item, index, array) {
-					const identifier = item['{identifier}'];
+					const identifier = item && item.identifier;
 					if (!identifier) {
 						return false;
 					}
@@ -79,7 +103,7 @@ async function mergeSubSpecs(mainSpecFile) {
 					}
 					// 如果已存在，移除旧项，保留新项（子模块配置优先）
 					// 查找并移除 specObj.list 中相同 identifier 的项
-					specObj.list = specObj.list.filter(oldItem => oldItem['{identifier}'] !== identifier);
+					specObj.list = specObj.list.filter(oldItem => oldItem && oldItem.identifier !== identifier);
 					return true;
 				});
 				specObj.list = specObj.list.concat(arr);
@@ -160,6 +184,11 @@ async function initSpec() {
 		await fs.promises.access(filePath);
 	} catch (error) {
 		const specObj = {
+			schemaVersion: 2,
+			kind: 'module',
+			module: {
+				rootDir: path.basename(targetRootDir) || '',
+			},
 			list: []
 		};
 		const content = JSON.stringify(specObj, null, 4);

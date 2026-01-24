@@ -1,10 +1,26 @@
 {
     "name": "autosnippet",
-    "version": "1.2.15",
+    "version": "1.2.17",
     "description": "A iOS module management tool.",
     "main": "index.js",
     "scripts": {
-        "test": "node bin/asnip.js init"
+        "test": "node bin/asnip.js init",
+        "test:init": "node bin/asnip.js init",
+        "test:version": "node bin/asnip.js -v",
+        "test:help": "node bin/asnip.js -h",
+        "test:install": "node bin/asnip.js i",
+        "test:create": "node bin/asnip.js c",
+        "test:share": "node bin/asnip.js s",
+        "test:update": "node bin/asnip.js u",
+        "test:watch": "node bin/asnip.js w",
+        "test:root": "node bin/asnip.js root",
+        "test:global:install": "npm install -g .",
+        "test:global:install:online": "npm install -g autosnippet",
+        "test:global:install:version": "npm install -g autosnippet@",
+        "test:global:uninstall": "npm uninstall -g autosnippet",
+        "test:global:verify": "which asd && asd -v",
+        "test:global:info": "npm list -g autosnippet",
+        "test:cross:dir": "node scripts/test-cross-directory.js"
     },
     "author": "gaoxuefeng",
     "license": "MIT",
@@ -34,6 +50,7 @@
         "url": "https://github.com/GxFn/AutoSnippet/issues"
     },
     "directories": {
-        "doc": "docs"
+        "doc": "docs",
+        "lib": "lib"
     }
 }

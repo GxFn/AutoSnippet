@@ -1,6 +1,6 @@
 # AutoSnippet
 
-基于SPM的iOS模块管理工具。通过AutoSnippet可以将模块的使用示范写进Xcode的配置文件，支持分类查询和头文件引入。
+基于 SPM 的 iOS 模块 Snippet 工具。通过 AutoSnippet 可以把模块的使用示范写进 Xcode 的 CodeSnippets，并支持分类检索、链接跳转与（可选）依赖头文件注入。
 
 [![npm version](https://img.shields.io/npm/v/autosnippet.svg?style=flat-square)](https://www.npmjs.com/package/autosnippet)
 [![npm downloads](https://img.shields.io/npm/dm/autosnippet.svg?style=flat-square)](https://www.npmjs.com/package/autosnippet)
@@ -29,7 +29,34 @@ Toast模块添加配置时可以选择分类，使用者可以通过`@view`或�
 $ npm install -g autosnippet
 ```
 
-## 命令选项
+## 快速开始
+
+建议在**项目根目录**执行（能找到 `AutoSnippetRoot.boxspec.json`）。
+
+```bash
+# 1) 一键初始化（等价于 init + root）
+asd setup
+
+# 2) 在代码里用新标记圈出 snippet 内容，然后创建
+asd create
+
+# 3) 安装到 Xcode CodeSnippets
+asd install
+
+# 4) 开启监听（用于头文件注入/依赖补齐/ALink 跳转）
+asd watch
+```
+
+## 全局选项（推荐）
+
+- **`--preset <path>`**：指定预置输入（非交互/自动化最常用）。
+- **`--yes`**：非交互模式；缺少必要输入会直接报错退出。
+
+也支持环境变量（方便 CI / 测试脚本）：
+
+- **`ASD_PRESET` / `ASD_TEST_PRESET`**：预置输入 json 路径（优先级低于 `--preset`）
+
+## 命令
 
 请在当前 Xcode 项目文件目录下使用以下所有命令。
 
@@ -51,20 +78,47 @@ $ asd root
 $ asd init
 ```
 
-### create
+### setup（推荐）
 
-创建 Xcode 代码片段的命令，在标记有 `// ACode` 代码的文件目录中：
+初始化快捷命令，等价于 `asd init` + `asd root`：
 
 ```bash
+$ asd setup
+```
+
+### create
+
+创建 Xcode 代码片段（支持从文件标记提取，或直接从剪贴板生成）。
+
+```bash
+$ asd create
+# 或短别名
 $ asd c
 ```
 
-代码示例：
+#### 从文件标记提取
+
+在任意 `.m/.h/.swift` 文件中使用标记圈出代码块（推荐短写法）：
 
 ```
-// ACode
+// as:code
 UIView *view = [[UIView alloc] init];
-// ACode
+// as:code
+```
+
+然后在该文件所在目录（或通过 preset 指定文件）执行 `asd create`。
+
+#### 从剪贴板创建
+
+```bash
+# 默认按 objc 处理
+asd create --clipboard
+
+# 短写法
+asd c -p
+
+# Swift
+asd create --clipboard --lang swift
 ```
 
 ### install
@@ -72,6 +126,8 @@ UIView *view = [[UIView alloc] init];
 将共享的代码片段添加到 Xcode 环境：
 
 ```bash
+$ asd install
+# 或短别名
 $ asd i
 ```
 
@@ -87,15 +143,43 @@ $ asd i
 共享本地代码片段：
 
 ```bash
+$ asd share
+# 或短别名
 $ asd s
+```
+
+### update
+
+更新已创建的 snippet（按 trigger 查找，例如 `cover` 或 `@cover`）：
+
+```bash
+asd update <word> [key] [value]
+# 或短别名
+asd u <word> [key] [value]
 ```
 
 ### watch
 
-在模块化项目中，识别代码片段并自动注入依赖头文件：
+在模块化项目中监听文件变更，识别 `autosnippet:*` 指令并执行：
+- 头文件注入（ObjC `#import` / Swift `import`）
+- ALink 跳转
+-（可选）SPM 依赖自动补齐（见下文）
 
 ```bash
+$ asd watch
+# 或短别名
 $ asd w
+```
+
+常用参数：
+
+```bash
+# 只监听某个子目录/文件/后缀
+asd watch --path Services/Services/ASNetworkCheck --ext m,h
+asd watch --file ./Services/Services/ASNetworkCheck/Code/ASSimplePing.m
+
+# 降噪/退出时打印汇总
+asd watch --quiet --summary
 ```
 
 #### 追加头文件
@@ -107,6 +191,20 @@ $ asd w
 3. `Command + S` 保存文件
 
 在 1 秒内，头文件会自动添加到文件头部。
+
+#### 新指令格式（重要）
+
+- ObjC / C / C++：注入头文件
+
+```
+// as:include <ModuleName/Header.h> [optional/relative/path/Header.h]
+```
+
+- Swift：注入 import
+
+```
+// as:import ModuleName
+```
 
 #### 浏览器查看
 
@@ -123,6 +221,18 @@ $ asd w
 ```
 @view#ALink
 ```
+
+## SPM 依赖自动补齐（可选）
+
+当 `watch` 触发跨 target 引用时，AutoSnippet 可以（按配置）检查/补齐 `Package.swift` 里的依赖关系（target / product / package）。
+
+- 开关：通过环境变量控制
+  - **`ASD_FIX_SPM_DEPS_MODE=off`**：只提示（默认行为）
+  - **`ASD_FIX_SPM_DEPS_MODE=suggest`**：输出可复制的补丁建议
+  - **`ASD_FIX_SPM_DEPS_MODE=fix`**：直接修改 `Package.swift` 自动补齐
+
+- 跨包 product/package 依赖需要映射文件（项目内维护）：
+  - `AutoSnippet.spmmap.json`
 
 ## 其他
 
