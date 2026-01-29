@@ -246,7 +246,7 @@ function shareTheSnippet(specFile, filePath, answers) {
 							array[0] = completion_first;
 							createFromLocal(specFile, filedir, array, answers.completion_more);
 						});
-					} else if (array[0].endsWith('@Moudle')) {
+					} else if (array[0].startsWith('#') || array[0].endsWith('@Moudle')) {
 						console.log('这个文件已经是共享版本，不需要再处理。');
 					} else {
 						createFromLocal(specFile, filedir, array, answers.completion_more);
@@ -262,11 +262,12 @@ function shareTheSnippet(specFile, filePath, answers) {
 function createFromLocal(specFile, filedir, array, completion_more) {
 	const xcodeLang = array[3];
 	const languageShort = xcodeLang === 'Xcode.SourceCodeLanguage.Swift' ? 'swift' : 'objc';
+	const prefix = '#';
 	const snippet = {
 		identifier: 'AutoSnip_' + array[2],
 		title: array[5],
-		trigger: '@' + array[0],
-		completion: '@' + array[0] + completion_more + '@Moudle',
+		trigger: prefix + array[0],
+		completion: prefix + array[0] + completion_more,
 		summary: array[4],
 		languageShort: languageShort,
 		body: array[1].split('\n')

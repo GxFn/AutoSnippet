@@ -594,6 +594,36 @@ async function findSubHeaderPath(filePath, headerName, moduleName) {
 	return null;
 }
 
+/**
+ * 从文件路径确定 target 的根目录（包含 Code 或 Sources 的目录）
+ * @param {string} filePath - 文件路径
+ * @returns {Promise<string|null>} target 根目录路径，如果找不到返回 null
+ */
+async function findTargetRootDir(filePath) {
+	let currentPath = path.dirname(path.resolve(filePath));
+	const maxLevels = 10;
+	let levelsChecked = 0;
+
+	while (currentPath && levelsChecked < maxLevels) {
+		try {
+			const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
+			for (const entry of entries) {
+				if (entry.isDirectory() && (entry.name === 'Code' || entry.name === 'Sources')) {
+					return currentPath;
+				}
+			}
+			const parentPath = path.dirname(currentPath);
+			if (parentPath === currentPath) break;
+			currentPath = parentPath;
+			levelsChecked++;
+		} catch (err) {
+			if (err.code === 'ENOENT' || err.code === 'EACCES') break;
+			throw err;
+		}
+	}
+	return null;
+}
+
 async function findSubASSpecPath(filePath) {
 	let resultArray = [];
 
@@ -680,9 +710,9 @@ async function getRootSpecFilePath(filePath) {
 				kind: 'root',
 				root: true,
 				skills: {
-					dir: 'skills',
+					dir: 'Knowledge/skills',
 					format: 'md+frontmatter',
-					index: 'skills/index.json',
+					index: 'Knowledge/skills/index.json',
 				},
 				list: []
 			};
@@ -700,6 +730,7 @@ exports.findPackageSwiftPath = findPackageSwiftPath;
 exports.parsePackageSwift = parsePackageSwift;
 exports.extractTargetBlocksFromPackageSwift = extractTargetBlocksFromPackageSwift;
 exports.findSubHeaderPath = findSubHeaderPath;
+exports.findTargetRootDir = findTargetRootDir;
 exports.findSubASSpecPath = findSubASSpecPath;
 exports.findProjectRoot = findProjectRoot;
 exports.getRootSpecFilePath = getRootSpecFilePath;

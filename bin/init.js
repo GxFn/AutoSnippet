@@ -31,9 +31,9 @@ async function mergeSubSpecs(mainSpecFile) {
 		kind: 'root',
 		root: true,
 		skills: {
-			dir: 'skills',
+			dir: 'Knowledge/skills',
 			format: 'md+frontmatter',
-			index: 'skills/index.json',
+			index: 'Knowledge/skills/index.json',
 		},
 		list: []
 	};

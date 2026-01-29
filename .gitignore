@@ -8,3 +8,13 @@ docs/
 *.m
 *.pch
 *.swift
+
+# 本地测试 / 密钥（勿提交）
+test-key.js
+*-key.js
+.env
+.env.local
+.env.*.local
+
+# 构建产物（可选：若需提交 dist 可删此行）
+dashboard/dist/

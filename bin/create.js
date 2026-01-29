@@ -25,6 +25,9 @@ const cache = require('../lib/infra/cacheStore.js');
 const findPath = require('./findPath.js');
 const specRepository = require('../lib/snippet/specRepository.js');
 const snippetFactory = require('../lib/snippet/snippetFactory.js');
+const AiFactory = require('../lib/ai/AiFactory');
+const headerResolution = require('../lib/ai/headerResolution.js');
+const markerLine = require('../lib/snippet/markerLine.js');
 // 全局常量
 const README_NAME = 'readme.md';
 // 全局路径
@@ -60,48 +63,6 @@ function determineModuleName(filePath, packageInfo) {
 	
 	// 最后回退到包名
 	return packageInfo.name;
-}
-
-/**
- * 从文件路径确定 target 的根目录（包含 Code 或 Sources 的目录）
- * @param {string} filePath - 文件路径
- * @returns {Promise<string|null>} target 根目录路径，如果找不到返回 null
- */
-async function findTargetRootDir(filePath) {
-	const fs = require('fs');
-	let currentPath = path.dirname(path.resolve(filePath));
-	const maxLevels = 10;
-	let levelsChecked = 0;
-	
-	// ✅ 向上查找包含 Code 或 Sources 目录的目录（target 根目录）
-	// 例如：BDNetworkAPI/Code/xxx.m -> BDNetworkAPI/
-	while (currentPath && levelsChecked < maxLevels) {
-		try {
-			const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
-			
-			// 检查当前目录是否包含 Code 或 Sources 目录
-			for (const entry of entries) {
-				if (entry.isDirectory() && (entry.name === 'Code' || entry.name === 'Sources')) {
-					return currentPath;
-				}
-			}
-			
-			// 继续向上查找
-			const parentPath = path.dirname(currentPath);
-			if (parentPath === currentPath) {
-				break;
-			}
-			currentPath = parentPath;
-			levelsChecked++;
-		} catch (err) {
-			if (err.code === 'ENOENT' || err.code === 'EACCES') {
-				break;
-			}
-			throw err;
-		}
-	}
-	
-	return null;
 }
 
 function updateCodeSnippets(specFile, word, key, value) {
@@ -213,8 +174,8 @@ function createCodeSnippets(specFile, answers, updateSnippet, selectedFilePath) 
 		snippet = {
 			identifier: identifier,
 			title: answers.title,
-			trigger: '@' + answers.completion_first,
-			completion: '@' + answers.completion_first + completionMoreStr + '@Moudle',
+			trigger: '#' + answers.completion_first,
+			completion: '#' + answers.completion_first + completionMoreStr,
 			summary: answers.summary,
 			languageShort: 'objc',
 		};
@@ -311,7 +272,7 @@ function readStream(specFile, filePathArr, snippet, isHaveHeader) {
 						console.log('未找到 Package.swift 文件，请检查路径。');
 						snippet.body = codeList;
 						// ✅ 查找 target 根目录（Code 或 Sources 的父目录）
-						let targetRootDir = await findTargetRootDir(filePath);
+						let targetRootDir = await findPath.findTargetRootDir(filePath);
 						if (!targetRootDir) {
 							// 如果找不到，使用文件所在目录的父目录作为后备
 							targetRootDir = path.dirname(path.dirname(filePath));
@@ -326,7 +287,7 @@ function readStream(specFile, filePathArr, snippet, isHaveHeader) {
 					if (!packageInfo) {
 						snippet.body = codeList;
 						// ✅ 查找 target 根目录（Code 或 Sources 的父目录）
-						let targetRootDir = await findTargetRootDir(filePath);
+						let targetRootDir = await findPath.findTargetRootDir(filePath);
 						if (!targetRootDir) {
 							// 如果找不到，使用 Package.swift 所在目录作为后备
 							targetRootDir = path.dirname(packagePath);
@@ -341,7 +302,7 @@ function readStream(specFile, filePathArr, snippet, isHaveHeader) {
 					const headerNameWithoutExt = fileName.substring(0, fileName.length - 2); // 移除 .h
 
 					// ✅ 查找 target 根目录（Code 或 Sources 的父目录）
-					let targetRootDir = await findTargetRootDir(filePath);
+					let targetRootDir = await findPath.findTargetRootDir(filePath);
 					if (!targetRootDir) {
 						// 如果找不到 target 根目录，使用 Package.swift 所在目录作为后备
 						targetRootDir = packageInfo.path;
@@ -445,10 +406,77 @@ function createCodeSnippetsFromText(specFile, answers, text, options = {}) {
 	}
 
 	if (answers.header) {
-		console.log('⚠️  clipboard 模式无法自动推断头文件位置，已忽略 headerVersion（不写入 headName）。');
+		console.log('⚠️  传统模式：已忽略 headerVersion。建议使用 AI 模式：asd create --clipboard [--path 相对路径]');
 	}
 
 	saveFromFile(specFile, snippet);
+}
+
+/** 从 AI 提取结果创建并保存 snippet（与 web 保存逻辑一致） */
+async function createFromExtracted(projectRoot, rootSpecPath, extracted) {
+	if (!extracted || !extracted.title || !extracted.code) {
+		console.error('❌ AI 结果不完整：需要 title / code');
+		return;
+	}
+	const trigger = (extracted.trigger || '').trim() || ('#' + extracted.title.replace(/\s+/g, ''));
+	const prefix = trigger.startsWith('@') || trigger.startsWith('#') ? '' : '#';
+	const normalizedTrigger = trigger.startsWith('@') || trigger.startsWith('#') ? trigger : prefix + trigger;
+	const category = extracted.category || 'Utility';
+	const categoryPart = category ? (normalizedTrigger.startsWith('@') ? '@' : '#') + category : '';
+	const isSwift = (extracted.language || '').toLowerCase() === 'swift';
+	const codeLines = extracted.code.split('\n').map(s => s.replace(/\r$/, ''));
+	let body = codeLines;
+	const includeHeaders = extracted.includeHeaders !== false;
+	const headers = Array.isArray(extracted.headers) ? extracted.headers : [];
+	const headerPaths = Array.isArray(extracted.headerPaths) ? extracted.headerPaths : [];
+	const moduleName = extracted.moduleName || null;
+
+	if (includeHeaders && headers.length > 0) {
+		const markerLines = headers.map((h, idx) => markerLine.toAsMarkerLine(h, isSwift, headerPaths[idx], moduleName)).filter(Boolean);
+		body = [...markerLines, '', ...body];
+	}
+
+	body = body.map(line => String(line).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+
+	const snippet = {
+		identifier: 'AutoSnip_' + Buffer.from(Date.now() + normalizedTrigger + extracted.title, 'utf-8').toString('base64').replace(/\//g, ''),
+		title: extracted.category ? `[${extracted.category}] ${(extracted.title || '').replace(/^\[.*?\]\s*/, '')}` : extracted.title,
+		trigger: normalizedTrigger,
+		completion: normalizedTrigger + categoryPart,
+		summary: extracted.summary || extracted.summary_cn || extracted.summary_en || '',
+		category: category,
+		headers,
+		includeHeaders,
+		languageShort: isSwift ? 'swift' : 'objc',
+		body
+	};
+
+	await specRepository.saveSnippet(rootSpecPath, snippet, { syncRoot: true, installSingle: true });
+	console.log('create success (AI).');
+}
+
+/** 从带 // as:code 的文件用 AI 提取并创建（与 web 按路径提取一致） */
+async function createFromFileWithAi(projectRoot, specFile, selectedFilePath) {
+	const content = fs.readFileSync(selectedFilePath, 'utf8');
+	const markerRegex = /\/\/\s*(?:as|autosnippet):code\s*\n([\s\S]*?)\n\s*\/\/\s*(?:as|autosnippet):code/i;
+	const match = content.match(markerRegex);
+	const code = match && match[1] ? match[1].trim() : content.slice(0, 5000);
+	const relativePath = path.relative(projectRoot, selectedFilePath);
+
+	const ai = AiFactory.create();
+	const result = await ai.summarize(code, selectedFilePath.endsWith('.swift') ? 'swift' : 'objc');
+	if (result && result.error) {
+		console.error('❌ AI 解析失败:', result.error);
+		return;
+	}
+	const resolved = await headerResolution.resolveHeadersForText(projectRoot, relativePath, code);
+	result.headers = Array.from(new Set([...(result.headers || []), ...resolved.headers]));
+	result.headerPaths = resolved.headerPaths;
+	result.moduleName = resolved.moduleName;
+
+	const rootSpecPath = await findPath.getRootSpecFilePath(specFile);
+	const rootSpecPathResolved = rootSpecPath || path.join(projectRoot, 'AutoSnippetRoot.boxspec.json');
+	await createFromExtracted(projectRoot, rootSpecPathResolved, result);
 }
 
 exports.createCodeSnippets = createCodeSnippets;
@@ -456,3 +484,5 @@ exports.updateCodeSnippets = updateCodeSnippets;
 exports.saveFromFile = saveFromFile;
 exports.findFilesWithACode = findFilesWithACode;
 exports.createCodeSnippetsFromText = createCodeSnippetsFromText;
+exports.createFromExtracted = createFromExtracted;
+exports.createFromFileWithAi = createFromFileWithAi;

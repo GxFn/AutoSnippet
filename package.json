@@ -4,6 +4,7 @@
     "description": "A iOS module management tool.",
     "main": "index.js",
     "scripts": {
+        "build:dashboard": "cd dashboard && npm run build",
         "test": "node bin/asnip.js init",
         "test:init": "node bin/asnip.js init",
         "test:version": "node bin/asnip.js -v",
@@ -19,8 +20,7 @@
         "test:global:install:version": "npm install -g autosnippet@",
         "test:global:uninstall": "npm uninstall -g autosnippet",
         "test:global:verify": "which asd && asd -v",
-        "test:global:info": "npm list -g autosnippet",
-        "test:cross:dir": "node scripts/test-cross-directory.js"
+        "test:global:info": "npm list -g autosnippet"
     },
     "author": "gaoxuefeng",
     "license": "MIT",
@@ -38,14 +38,18 @@
         "url": "git+https://github.com/GxFn/AutoSnippet.git"
     },
     "dependencies": {
+        "@google/generative-ai": "^0.21.0",
+        "axios": "^1.6.7",
         "chokidar": "^3.6.0",
         "commander": "^7.2.0",
+        "cors": "^2.8.5",
+        "express": "^4.18.2",
         "inquirer": "^8.0.0",
         "minimist": "^1.2.5",
         "open": "^8.0.4",
+        "undici": "^6.23.0",
         "xml2js": "^0.6.2"
     },
-    "devDependencies": {},
     "bugs": {
         "url": "https://github.com/GxFn/AutoSnippet/issues"
     },
