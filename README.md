@@ -2,6 +2,8 @@
 
 基于 SPM 的 iOS 模块 Snippet 与 AI 知识库工具。将模块使用示范写入 Xcode CodeSnippets，支持分类检索、头文件注入，以及基于 AI 的知识沉淀与可视化管理。
 
+开发者与 AI 生产的代码，通过人工评审之后沉淀为 Snippet + Skill 知识库，开发者通过 Snippets 得到标准代码与依赖注入， AI 通过 Skills 得到标准代码与项目上下文，项目被迅速解构，产出可视化交互的知识库。
+
 [![npm version](https://img.shields.io/npm/v/autosnippet.svg?style=flat-square)](https://www.npmjs.com/package/autosnippet)
 [![npm downloads](https://img.shields.io/npm/dm/autosnippet.svg?style=flat-square)](https://www.npmjs.com/package/autosnippet)
 [![License](https://img.shields.io/npm/l/autosnippet.svg?style=flat-square)](https://github.com/GxFn/AutoSnippet/blob/main/LICENSE)
@@ -16,7 +18,7 @@ npm install -g autosnippet
 
 ## 快速开始
 
-在**你的业务项目根目录**（如 BiliDemo）执行：
+在**你的业务项目根目录**执行（首次初始化一定要在根目录，后续操作皆以初始化目录为准）：
 
 ```bash
 # 1) 一键初始化（创建 AutoSnippetRoot.boxspec.json 等）
