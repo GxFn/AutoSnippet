@@ -16,17 +16,17 @@ npm install -g autosnippet
 
 ## 快速开始
 
-在**项目根目录**执行（需能找到 `AutoSnippetRoot.boxspec.json`，没有会自己创建，关键是首次创建一定要在根目录）：
+在**你的业务项目根目录**（如 BiliDemo）执行：
 
 ```bash
-# 一键初始化
+# 1) 一键初始化（创建 AutoSnippetRoot.boxspec.json 等）
 asd setup
 
-# 启动 Web 管理后台
+# 2) 启动 Web 管理后台
 asd ui
 ```
 
-浏览器会自动打开 Dashboard，可在 **使用说明** 页查看完整说明。
+**首次运行 `asd ui`** 时，若未检测到 Dashboard 前端，会自动在 AutoSnippet 安装目录执行构建（约 1–2 分钟），**无需手动查找安装路径或执行 `npm run build:dashboard`**。浏览器会自动打开 Dashboard，可在 **使用说明** 页查看完整说明。
 
 ---
 

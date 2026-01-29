@@ -451,19 +451,39 @@ function launch(projectRoot, port = 3000) {
     }
   });
 
-  // 静态资源（前端编译后的代码）
-  const distPath = path.resolve(__dirname, '../dashboard/dist');
+  // 静态资源（前端编译后的代码）；若未构建则自动在包目录执行 install + build（-g 安装也适用）
+  const pkgRoot = path.resolve(__dirname, '..');
+  const dashboardDir = path.join(pkgRoot, 'dashboard');
+  let distPath = path.join(dashboardDir, 'dist');
+  if (!fs.existsSync(distPath)) {
+    console.log('⚠️  未检测到 dashboard/dist，正在自动构建（首次约需 1–2 分钟）...');
+    const { execSync } = require('child_process');
+    try {
+      if (!fs.existsSync(path.join(dashboardDir, 'node_modules'))) {
+        console.log('   安装 dashboard 依赖...');
+        execSync('npm install', { cwd: dashboardDir, stdio: 'inherit' });
+      }
+      execSync('npm run build:dashboard', { cwd: pkgRoot, stdio: 'inherit' });
+    } catch (err) {
+      console.error('❌ 自动构建失败:', err.message);
+    }
+  }
+  distPath = path.join(dashboardDir, 'dist');
   if (fs.existsSync(distPath)) {
-    // 强制使用绝对路径，并避免 express.static 内部可能的路径解析问题
     app.use('/', express.static(distPath));
-    // 捕获所有非 API 请求，返回 index.html (支持客户端路由)
     app.get(/^((?!\/api).)*$/, (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   } else {
     app.get('/', (req, res) => {
-      res.status(200).send('<h1>AutoSnippet Dashboard Server</h1><p>Frontend not built yet. Please run <code>npm run build</code> in the dashboard directory.</p>');
+      res.status(200).send(
+        '<h1>AutoSnippet Dashboard Server</h1>' +
+        '<p>前端构建失败。请检查：</p>' +
+        '<ul><li>在 AutoSnippet 安装目录执行 <code>npm run build:dashboard</code></li>' +
+        '<li>或到 <a href="https://github.com/GxFn/AutoSnippet">GitHub</a> 查看说明</li></ul>'
+      );
     });
+    console.warn('⚠️  构建后仍无 dashboard/dist，请手动在包目录执行: npm run build:dashboard');
   }
 
   app.listen(port, () => {
