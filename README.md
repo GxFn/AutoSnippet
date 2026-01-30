@@ -68,11 +68,11 @@ asd ui
 
 | 指令 | 作用 | 触发时机 |
 |------|------|----------|
-| **`// as:create`** | 用剪贴板 + 当前文件路径创建 Recipe，打开 Dashboard | 保存文件后 watch 检测到 |
-| **`// as:guard`** [关键字] | 按知识库（Recipes）用 AI 审查当前文件，结果输出终端 | 保存文件后 watch 检测到 |
-| **`// as:search`** [关键词] | 从知识库检索 Recipe/Snippet 并插入 | 保存后 watch 检测到 |
-| **`// as:include`** &lt;Module/Header.h&gt; [path] | Snippet 体内的头文件标记，watch 在文件头部注入 `#import` | 保存文件后 watch 检测到 |
-| **`// as:import`** ModuleName | Snippet 体内的 Swift 模块导入标记，watch 注入 `import` | 保存文件后 watch 检测到 |
+| **`// as:create`** | 用剪贴板 + 当前文件路径创建 Recipe，打开 Dashboard | 保存文件后 watch 检测 |
+| **`// as:guard`** [关键词] | 按知识库（Recipes）用 AI 审查当前文件，结果输出终端 | 保存文件后 watch 检测 |
+| **`// as:search`** [关键词] | 从知识库检索 Recipe/Snippet 并插入 | 保存后 watch 检测 |
+| **`// as:include`** Header [path] | Snippet 体内的头文件标记，自动在文件头部注入 `#import` | 保存文件后 watch 检测 |
+| **`// as:import`** ModuleName | Snippet 体内的 Swift 模块标记，自动在文件头部注入 `import` | 保存文件后 watch 检测 |
 
 ### // as:create
 
@@ -133,10 +133,6 @@ export ASD_GOOGLE_API_KEY="你的 API Key"   # 或 ASD_OPENAI_API_KEY、ASD_DEEP
 
 **3. 可选：代理**：设置 `https_proxy` / `http_proxy` 访问外网 API。国内直连 Google/OpenAI 易失败，建议在 `.env` 中配置代理（如 `https_proxy=http://127.0.0.1:7890`）或改用国内可用的 `ASD_AI_PROVIDER=deepseek` 等。
 
-**4. 若出现 `TypeError: fetch failed`**：多为网络/代理问题。请确认：① 在**项目根**（含 `AutoSnippetRoot.boxspec.json` 和 `.env`）执行 `asd ui`，确保 `.env` 被加载；② 国内使用 Google 时在 `.env` 中设置 `https_proxy` 与 `http_proxy`，并保证代理进程可用；③ 或改用 DeepSeek/OpenAI 等，在 `.env` 中设置 `ASD_AI_PROVIDER=deepseek` 并配置 `ASD_DEEPSEEK_API_KEY`。
-
-**5. 切换 DeepSeek 后报「API Key is missing for provider: deepseek」**：说明当前已使用 deepseek（可能来自 boxspec 的 `ai.provider` 或 `.env` 的 `ASD_AI_PROVIDER`），但**项目根** `.env` 里未配置 Key。请在**项目根**（即运行 `asd ui` 的目录）的 `.env` 中增加一行：`ASD_DEEPSEEK_API_KEY=你的DeepSeek密钥`，保存后重启 `asd ui`。Key 仅从项目根 `.env` 读取，不会用 AutoSnippet 安装目录下的 `.env`。
-
 ---
 
 ## Cursor 集成
@@ -149,7 +145,7 @@ export ASD_GOOGLE_API_KEY="你的 API Key"   # 或 ASD_OPENAI_API_KEY、ASD_DEEP
 asd install:cursor-skill
 ```
 
-或 `npm run install:cursor-skill`（在 AutoSnippet 安装目录）。安装后重启 Cursor 或新开 Agent 对话即可生效。升级 AutoSnippet 后重新执行可更新 skill 内容。
+安装后重启 Cursor 或新开 Agent 对话即可生效。更新 AutoSnippet 后重新执行同步更新 skill 内容。
 
 ---
 
@@ -167,7 +163,7 @@ asd install:cursor-skill
 | **Candidates** | 审核 CLI 批量扫描（`asd ais`）产生的候选，入库或忽略 |
 | **依赖关系图** | 展示 SPM 包依赖（packages + edges） |
 | **AI Assistant** | 基于本地 Snippets/Recipes 的 RAG 问答 |
-| **使用说明** | 本说明的 Web 版 |
+| **使用说明** | 使用说明的 Web 版 |
 
 ### 新建 Recipe
 
