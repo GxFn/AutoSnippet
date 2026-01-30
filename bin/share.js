@@ -22,6 +22,7 @@ const inquirer = require('inquirer');
 
 const specRepository = require('../lib/snippet/specRepository.js');
 const cache = require('../lib/infra/cacheStore.js');
+const triggerSymbol = require('../lib/infra/triggerSymbol.js');
 const config = require('../lib/infra/paths.js');
 
 function shareCodeSnippets(specFile) {
@@ -246,7 +247,7 @@ function shareTheSnippet(specFile, filePath, answers) {
 							array[0] = completion_first;
 							createFromLocal(specFile, filedir, array, answers.completion_more);
 						});
-					} else if (array[0].startsWith('#') || array[0].endsWith('@Moudle')) {
+					} else if (triggerSymbol.hasTriggerPrefix(array[0]) || array[0].endsWith('@Moudle')) {
 						console.log('这个文件已经是共享版本，不需要再处理。');
 					} else {
 						createFromLocal(specFile, filedir, array, answers.completion_more);
@@ -262,7 +263,7 @@ function shareTheSnippet(specFile, filePath, answers) {
 function createFromLocal(specFile, filedir, array, completion_more) {
 	const xcodeLang = array[3];
 	const languageShort = xcodeLang === 'Xcode.SourceCodeLanguage.Swift' ? 'swift' : 'objc';
-	const prefix = '#';
+	const prefix = triggerSymbol.TRIGGER_SYMBOL;
 	const snippet = {
 		identifier: 'AutoSnip_' + array[2],
 		title: array[5],

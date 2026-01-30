@@ -967,11 +967,42 @@ commander
 		require(path.join(__dirname, '..', 'scripts', 'install-cursor-skill.js'));
 	});
 
+commander
+	.command('build-parser')
+	.description('build Swift parser (ParsePackage) in AutoSnippet installation dir (run from any dir)')
+	.action(() => {
+		const pkgRoot = path.resolve(__dirname, '..');
+		const parsePackageDir = path.join(pkgRoot, 'tools', 'parse-package');
+		const manifestPath = path.join(parsePackageDir, 'Package.swift');
+		const binaryPath = path.join(parsePackageDir, '.build', 'release', 'ParsePackage');
+		if (!fs.existsSync(manifestPath)) {
+			console.error('未找到 ParsePackage（Package.swift）。');
+			process.exit(1);
+		}
+		if (fs.existsSync(binaryPath)) {
+			console.log('Swift 解析器已存在，无需重新构建。');
+			return;
+		}
+		console.log('正在构建 Swift 解析器（ParsePackage）...');
+		const { spawnSync } = require('child_process');
+		const result = spawnSync('swift', ['build', '-c', 'release'], {
+			cwd: parsePackageDir,
+			stdio: 'inherit',
+			shell: false,
+		});
+		if (result.status === 0 && fs.existsSync(binaryPath)) {
+			console.log('✅ Swift 解析器安装完成。');
+		} else {
+			process.exit(result.status || 1);
+		}
+	});
+
 commander.addHelpText('after', `
 
 Examples:
 	asd setup								# 初始化 + 标记项目根目录
 	asd install:cursor-skill				# 将 skills 安装到项目 .cursor/skills/
+	asd build-parser						# 在 AutoSnippet 安装目录构建 Swift 解析器（任意目录可执行）
 	asd install							# 等价于 asd i
 	asd create							# 等价于 asd c
 	asd share								# 等价于 asd s

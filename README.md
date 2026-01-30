@@ -16,6 +16,8 @@
 npm install -g autosnippet
 ```
 
+安装时默认不构建 Swift 解析器（ParsePackage），安装更快；未构建时 SPM 解析会回退到系统 `swift package dump-package` 或 AST-lite。若需优先使用 Swift 解析器，**在任意目录**执行：`asd build-parser`（或在安装时设置 `ASD_BUILD_SWIFT_PARSER=1 npm install -g autosnippet`）。
+
 ---
 
 ## 快速开始
@@ -52,7 +54,7 @@ asd ui
 2. **组建依赖关系**：在项目根执行 **`asd spm-map`**（或 Dashboard 内刷新依赖关系图），生成 `Knowledge/AutoSnippet.spmmap.json`，供后续查阅「谁依赖谁」、模块边界。
 3. **可选：语义索引**：执行 **`asd embed`**，为 Recipes 构建语义向量索引，便于 **as:guard** 语义检索、**as:search** 与 Dashboard 内语义搜索。
 4. **配合 Cursor**：在项目根执行 **`asd install:cursor-skill`**，将 AutoSnippet 的 skills 安装到项目的 `.cursor/skills/`。Cursor Agent 即可获得「项目 Recipe 上下文」「依赖结构」「创建流程」等说明，按项目规范回答与改代码。
-5. **闭环**：日常开发中，用 Cursor 或其他 AI 基于知识库与依赖结构写代码；写完的模块使用代码通过 **`// as:create`** 或 Dashboard **New Recipe** 提交到 web、加入知识库；用 **`// as:guard`** 按知识库做合规审查；插入标准代码可通过 **`// as:search`** 从知识库检索并插入，或通过 Xcode 内 **Snippet 联想（补全）** 获取。知识库与依赖随人工审核和提交持续更新，AI 始终基于最新上下文，形成「扫描 → 审核 → 沉淀 → Cursor/AI 使用 → 再沉淀」的闭环。
+5. **闭环**：日常开发中，用 Cursor 或其他 AI 基于知识库与依赖结构写代码；写完的模块使用代码通过 **`// as:create`** 或 Dashboard **New Recipe** 提交到 web、加入知识库；用 **`// as:guard`** 按知识库做合规审查；用 **`// as:search`** 从知识库检索并插入标准代码。知识库与依赖随人工审核和提交持续更新，AI 始终基于最新上下文，形成「扫描 → 审核 → 沉淀 → Cursor/AI 使用 → 再沉淀」的闭环。
 
 ---
 
@@ -93,7 +95,7 @@ asd ui
 
 ## 术语
 
-- **Snippet**：写入 Xcode 的代码片段，通过 trigger（补全键）或库面板使用。
+- **Snippet**：写入 Xcode 的代码片段，通过 trigger（补全键）或库面板使用；trigger 以配置的触发符开头（默认 **@**，可通过环境变量 `ASD_TRIGGER_SYMBOL` 更换）。
 - **Recipe（配方）**：存放在 `Knowledge/recipes/` 下的 Markdown 知识，供 AI 检索、Guard 审查与搜索。
 - **项目根**：含 `AutoSnippetRoot.boxspec.json` 的目录。
 

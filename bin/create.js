@@ -22,6 +22,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const cache = require('../lib/infra/cacheStore.js');
+const triggerSymbol = require('../lib/infra/triggerSymbol.js');
 const findPath = require('./findPath.js');
 const specRepository = require('../lib/snippet/specRepository.js');
 const snippetFactory = require('../lib/snippet/snippetFactory.js');
@@ -92,8 +93,8 @@ function updateCodeSnippets(specFile, word, key, value) {
 			let placeItem = placeholder.list[index];
 
 			const t = placeItem && placeItem.trigger ? String(placeItem.trigger) : '';
-			const raw = t.startsWith('@') ? t.slice(1) : t;
-			if (raw === word || t === word || t === ('@' + word)) {
+			const raw = triggerSymbol.stripTriggerPrefix(t);
+			if (raw === word || t === word || t === (triggerSymbol.TRIGGER_SYMBOL + word)) {
 				snippet = placeItem;
 				if (key) {
 					snippet[key] = value;
@@ -174,8 +175,8 @@ function createCodeSnippets(specFile, answers, updateSnippet, selectedFilePath) 
 		snippet = {
 			identifier: identifier,
 			title: answers.title,
-			trigger: '#' + answers.completion_first,
-			completion: '#' + answers.completion_first + completionMoreStr,
+			trigger: triggerSymbol.TRIGGER_SYMBOL + answers.completion_first,
+			completion: triggerSymbol.TRIGGER_SYMBOL + answers.completion_first + completionMoreStr,
 			summary: answers.summary,
 			languageShort: 'objc',
 		};
@@ -418,11 +419,11 @@ async function createFromExtracted(projectRoot, rootSpecPath, extracted) {
 		console.error('❌ AI 结果不完整：需要 title / code');
 		return;
 	}
-	const trigger = (extracted.trigger || '').trim() || ('#' + extracted.title.replace(/\s+/g, ''));
-	const prefix = trigger.startsWith('@') || trigger.startsWith('#') ? '' : '#';
-	const normalizedTrigger = trigger.startsWith('@') || trigger.startsWith('#') ? trigger : prefix + trigger;
+	const trigger = (extracted.trigger || '').trim() || (triggerSymbol.TRIGGER_SYMBOL + extracted.title.replace(/\s+/g, ''));
+	const prefix = triggerSymbol.hasTriggerPrefix(trigger) ? '' : triggerSymbol.TRIGGER_SYMBOL;
+	const normalizedTrigger = triggerSymbol.hasTriggerPrefix(trigger) ? trigger : prefix + trigger;
 	const category = extracted.category || 'Utility';
-	const categoryPart = category ? (normalizedTrigger.startsWith('@') ? '@' : '#') + category : '';
+	const categoryPart = category ? triggerSymbol.getPrefixFromTrigger(normalizedTrigger) + category : '';
 	const isSwift = (extracted.language || '').toLowerCase() === 'swift';
 	const codeLines = extracted.code.split('\n').map(s => s.replace(/\r$/, ''));
 	let body = codeLines;

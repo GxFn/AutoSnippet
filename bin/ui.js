@@ -14,6 +14,7 @@ const targetScanner = require('../lib/spm/targetScanner');
 const candidateService = require('../lib/ai/candidateService');
 const headerResolution = require('../lib/ai/headerResolution');
 const markerLine = require('../lib/snippet/markerLine');
+const triggerSymbol = require('../lib/infra/triggerSymbol');
 
 /**
  * 检测当前进程是否已有控制 Chromium 系浏览器的权限（与 openChrome.applescript 所需一致）
@@ -177,7 +178,7 @@ function launch(projectRoot, port = 3000, options = {}) {
 			const searchMark = /\/\/\s*(?:autosnippet|as):search(\s|$)/;
 			let found = -1;
 			for (let i = 0; i < lines.length; i++) {
-				const t = lines[i].replace(/^[\s@#]+/, '').trim();
+				const t = triggerSymbol.stripTriggerPrefix(lines[i].trim()).trim();
 				if (searchMark.test(t) || t === '// as:search' || t.startsWith('// as:search ') || t.startsWith('// autosnippet:search')) {
 					found = i;
 					break;
@@ -608,12 +609,11 @@ function launch(projectRoot, port = 3000, options = {}) {
 			const { snippet } = req.body;
 			const rootSpecPath = path.join(projectRoot, 'AutoSnippetRoot.boxspec.json');
 
-			// ✅ 映射 Dashboard Snippet 格式到内部 specRepository 格式
-			const triggerBase = snippet.trigger || snippet.completionKey;
-			// 支持 # 作为新触发标识，但也兼容旧的 @
-			const triggerPrefix = triggerBase.startsWith('@') ? '@' : '#';
-			const normalizedTrigger = triggerBase.startsWith(triggerPrefix) ? triggerBase : triggerPrefix + triggerBase;
-			const categoryPart = snippet.category ? `${triggerPrefix}${snippet.category}` : '';
+			// ✅ 映射 Dashboard Snippet 格式到内部 specRepository 格式（Trigger 输入框绑定的是 completionKey，保存时优先用其值以同步用户编辑）
+			const triggerBase = snippet.completionKey ?? snippet.trigger ?? '';
+			const sym = triggerSymbol.TRIGGER_SYMBOL;
+			const normalizedTrigger = triggerSymbol.ensureTriggerPrefix(triggerBase);
+			const categoryPart = snippet.category ? `${sym}${snippet.category}` : '';
 			
 			// 处理 body：确保是数组；若前端误传了已转义内容则先还原，再清理触发符，最后只转义一次写入
 			const rawBody = snippet.body || snippet.content || [];
@@ -624,10 +624,11 @@ function launch(projectRoot, port = 3000, options = {}) {
 				if (firstLine === normalizedTrigger || firstLine === triggerBase || firstLine === normalizedTrigger.slice(1)) {
 					cleanedBody.shift();
 				}
-				while (cleanedBody.length && String(cleanedBody[0]).trim() === '#') cleanedBody.shift();
+				const symEsc = sym.replace(/[\\^$*+?.()|[\]{}]/g, '\\$&');
+				while (cleanedBody.length && new RegExp('^' + symEsc + '$').test(String(cleanedBody[0]).trim())) cleanedBody.shift();
 				if (cleanedBody.length) {
 					firstLine = String(cleanedBody[0]).trim();
-					if (/^#\s*\/\/\s*as:(include|import)\s+/.test(firstLine)) cleanedBody[0] = firstLine.replace(/^#\s*/, '');
+					if (new RegExp('^' + symEsc + '\\s*\\/\\/\\s*as:(include|import)\\s+').test(firstLine)) cleanedBody[0] = firstLine.replace(new RegExp('^' + symEsc + '\\s*'), '');
 				}
 			}
 

@@ -17,7 +17,7 @@ export default defineConfig({
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('framer-motion')) return 'framer-motion'
-            if (id.includes('lucide-react')) return 'lucide-react'
+            // lucide-react 与 React 打在同一 bundle，避免拆包后 React.forwardRef 为 undefined 导致白屏
             if (id.includes('react-syntax-highlighter') || id.includes('react-markdown')) return 'markdown'
             return 'vendor'
           }
