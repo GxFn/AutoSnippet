@@ -1,6 +1,6 @@
 # AutoSnippet
 
-基于 SPM 的 iOS 模块 Snippet 与 AI 知识库工具。将模块使用示范写入 Xcode CodeSnippets，支持分类检索、头文件注入，以及基于 AI 的知识沉淀与可视化管理。
+基于 SPM 的 iOS 模块 Snippet 与 AI 知识库工具。将模块使用示范写入 Xcode Snippets，支持分类检索、头文件注入，以及基于 AI 的知识沉淀与可视化管理。
 
 开发者与 AI 生产的代码，通过人工评审之后沉淀为 Snippet + Recipe 知识库，开发者通过 Snippets 得到标准代码与依赖注入，AI 通过 Recipes 得到标准代码与项目上下文，项目被迅速解构，产出可视化交互的知识库。
 
@@ -65,6 +65,8 @@ asd ui
 ## 编辑器内指令
 
 在源码中写入以下 **as:** 指令并**保存**，由 **watch** 或 **CLI** 解析执行。**需先运行 `asd watch` 或 `asd ui`**（`asd ui` 会在后台启动 watch），编辑器内指令才会在保存时生效。
+
+如果你接入了 AI 开发流程，这些功能会作为 Skills 交给 AI 在恰当的时机提供给你选择执行。
 
 | 指令 | 作用 | 触发时机 |
 |------|------|----------|
@@ -137,7 +139,7 @@ export ASD_GOOGLE_API_KEY="你的 API Key"   # 或 ASD_OPENAI_API_KEY、ASD_DEEP
 
 ## Cursor 集成
 
-若使用 [Cursor](https://cursor.com) 编辑项目，可将 AutoSnippet 自带的 skills 安装到**当前项目**的 Cursor 环境（项目根 `.cursor/skills/`），让 Agent 识别 Recipe、知识库与创建流程。
+若使用 [Cursor](https://cursor.com) 编辑项目，可将 AutoSnippet 自带的 skills 安装到**当前项目**的 Cursor 环境（项目根 `.cursor/skills/`），让 Agent 识别 Recipe、知识库与创建流程，并**在合适时机推荐**对应能力（由 AI 决定是否推荐，不强制）。
 
 在**项目根目录**执行：
 
@@ -145,7 +147,19 @@ export ASD_GOOGLE_API_KEY="你的 API Key"   # 或 ASD_OPENAI_API_KEY、ASD_DEEP
 asd install:cursor-skill
 ```
 
-安装后重启 Cursor 或新开 Agent 对话即可生效。更新 AutoSnippet 后重新执行同步更新 skill 内容。
+安装后重启 Cursor 或新开 Agent 对话即可生效。更新 AutoSnippet 或增删 skills 后重新执行，会同步所有 skill 到 `.cursor/skills/`。
+
+### 安装的 Skills 一览
+
+| Skill | 作用 |
+|-------|------|
+| **autosnippet-when** | 总览：根据用户意图（加入知识库 / 查规范 / 审查 / 补全等）决定何时推荐哪项能力，再跳转到对应 skill。 |
+| **autosnippet-concepts** | 概念：知识库、Recipe、Snippet、Candidates 是什么，放在哪。 |
+| **autosnippet-create** | 创建：如何把代码提交到 Dashboard、加入 Knowledge/recipes（步骤）。 |
+| **autosnippet-recipes** | 项目上下文：Recipe 内容、检索、Guard、按规范建议代码（含 project-recipes-context.md）。 |
+| **autosnippet-search** | 查找/插入：用户想「查项目里怎么写、插入标准代码」时，推荐 as:search / Dashboard 搜索。 |
+| **autosnippet-guard** | 审查：用户想「检查规范、Guard」时，推荐在文件中写 `// as:guard` 并保存。 |
+| **autosnippet-dep-graph** | 依赖结构：SPM 包/模块依赖、AutoSnippet.spmmap.json 的读法与更新。 |
 
 ---
 
