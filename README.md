@@ -51,10 +51,14 @@ asd ui
 新项目在完成「快速开始」后，可按以下方式**用 AI 扫描 + 人工审核**快速组建知识库和依赖关系，再配合 Cursor 与其他 AI 形成闭环：
 
 1. **组建知识库**：在项目根执行 **`asd ais <Target>`** 或 **`asd ais --all`**，对 SPM Target 做批量 AI 扫描；结果进入 Dashboard 的 **Candidates** 页。在 Dashboard 中逐条审核，通过则入库为 Recipe（或 Snippet+Recipe），不需要的删除。反复几轮即可把现有代码中的「标准用法」沉淀到 `Knowledge/recipes/`。
+
 2. **组建依赖关系**：在项目根执行 **`asd spm-map`**（或 Dashboard 内刷新依赖关系图），生成 `Knowledge/AutoSnippet.spmmap.json`，供后续查阅「谁依赖谁」、模块边界。
+
 3. **可选：语义索引**：执行 **`asd embed`**，为 Recipes 构建语义向量索引，便于 **as:guard** 语义检索、**as:search** 与 Dashboard 内语义搜索。
+
 4. **配合 Cursor**：在项目根执行 **`asd install:cursor-skill`**，将 AutoSnippet 的 skills 安装到项目的 `.cursor/skills/`。Cursor Agent 即可获得「项目 Recipe 上下文」「依赖结构」「创建流程」等说明，按项目规范回答与改代码。
-5. **闭环**：日常开发中，用 Cursor 或其他 AI 基于知识库与依赖结构写代码；写完的模块使用代码通过 **`// as:create`** 或 Dashboard **New Recipe** 提交到 web、加入知识库；用 **`// as:guard`** 按知识库做合规审查；用 **`// as:search`** 从知识库检索并插入标准代码。知识库与依赖随人工审核和提交持续更新，AI 始终基于最新上下文，形成「扫描 → 审核 → 沉淀 → Cursor/AI 使用 → 再沉淀」的闭环。
+
+5. **闭环**：日常开发中，用 Cursor 或其他 AI 基于知识库与依赖结构写代码；写完的模块使用代码通过 **`// as:create`** 或 Dashboard **New Recipe** 提交到 web、加入知识库；用 **`// as:guard`** 按知识库做合规审查；用 **`Snippet`** 联想插入标准代码 或 **`// as:search`** 从知识库检索插入标准代码。知识库与依赖随人工审核和提交持续更新，AI 始终基于最新上下文，形成「扫描 → 审核 → 沉淀 → Cursor/AI 使用 → 再沉淀」的闭环。
 
 ---
 
