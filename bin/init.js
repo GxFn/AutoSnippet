@@ -30,10 +30,10 @@ async function mergeSubSpecs(mainSpecFile) {
 		schemaVersion: 2,
 		kind: 'root',
 		root: true,
-		skills: {
-			dir: 'Knowledge/skills',
+		recipes: {
+			dir: 'Knowledge/recipes',
 			format: 'md+frontmatter',
-			index: 'Knowledge/skills/index.json',
+			index: 'Knowledge/recipes/index.json',
 		},
 		list: []
 	};

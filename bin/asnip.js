@@ -79,10 +79,10 @@ function ensureRootMarker(dir) {
 				kind: 'root',
 				root: true,
 				description: 'This file marks the project root directory for AutoSnippet',
-				skills: {
-					dir: 'Knowledge/skills',
+				recipes: {
+					dir: 'Knowledge/recipes',
 					format: 'md+frontmatter',
-					index: 'Knowledge/skills/index.json',
+					index: 'Knowledge/recipes/index.json',
 				},
 				list: []
 			}, null, 4), 'utf8');
@@ -102,15 +102,18 @@ function loadPresetConfig(presetPathFromCli) {
 		if (!content) return null;
 		return JSON.parse(content);
 	} catch (err) {
-		console.warn(`⚠️  读取预置输入失败: ${presetPath}`);
+		console.warn(`⚠️	 读取预置输入失败: ${presetPath}`);
 		console.warn(err && err.message ? err.message : err);
 		return null;
 	}
 }
 
-function getGlobalOptions() {
+function getGlobalOptions(subcommand) {
 	try {
-		const opts = commander.opts ? commander.opts() : {};
+		// 子命令 action 内 commander.opts() 可能只含子命令选项，需从父级取 --preset / --yes
+		const opts = (subcommand && subcommand.parent && subcommand.parent.opts)
+			? subcommand.parent.opts()
+			: (commander.opts ? commander.opts() : {});
 		return {
 			preset: opts.preset,
 			yes: !!opts.yes,
@@ -167,7 +170,7 @@ async function findAndAsk(specFile, projectRoot, useAi) {
 
 	console.log(`找到 ${filesWithACode.length} 个包含 // autosnippet:code 标记的文件：\n`);
 	filesWithACode.forEach((file, index) => {
-		console.log(`  ${index + 1}. ${file.name} (第 ${file.line} 行)`);
+		console.log(`	 ${index + 1}. ${file.name} (第 ${file.line} 行)`);
 	});
 	console.log('');
 
@@ -332,7 +335,7 @@ commander
 				if (error === 0) {
 					console.log(`✅ 安装成功：已安装 ${success} 个代码片段`);
 				} else {
-					console.log(`⚠️  安装完成：成功 ${success} 个，失败 ${error} 个，共 ${total} 个`);
+					console.log(`⚠️	安装完成：成功 ${success} 个，失败 ${error} 个，共 ${total} 个`);
 				}
 			} else {
 				console.log('✅ 安装成功');
@@ -379,10 +382,16 @@ commander
 	.option('--path <relativePath>', 'for clipboard: path for header resolution (e.g. Sources/Mod/Foo.m)')
 	.option('--lang <objc|swift>', 'clipboard language hint (default: objc)')
 	.option('--no-ai', 'use legacy interactive/preset mode (no AI)')
+	.option('--preset <path>', 'preset config JSON path (same as global --preset)')
+	.option('-y, --yes', 'non-interactive mode (same as global -y)')
 	.action(async (cmd) => {
-		const useAi = !(cmd && cmd.noAi);
+		// Commander: --no-ai 会设置 cmd.ai = false，不是 cmd.noAi
+		const useAi = !(cmd && cmd.ai === false);
 		getSpecFile(async (specFile) => {
-			const { preset: presetPath, yes } = getGlobalOptions();
+			// 优先用本子命令的 --preset/--yes，再回退到全局（便于 asd create --no-ai --yes --preset <path>）
+			const globalOpts = getGlobalOptions(cmd);
+			const presetPath = (cmd && cmd.preset) != null ? cmd.preset : globalOpts.preset;
+			const yes = (cmd && cmd.yes) != null ? !!cmd.yes : globalOpts.yes;
 			const preset = loadPresetConfig(presetPath);
 			const createPreset = preset && preset.create;
 			const useClipboard = !!(cmd && (cmd.clipboard || cmd.paste));
@@ -516,7 +525,7 @@ commander
 			console.error(`创建/检查 AutoSnippet.spmmap.json 失败: ${mapRes.error || '未知错误'}`);
 			return;
 		}
-		const res = spmDepMapUpdater.updateSpmDepMap(projectRoot, {
+		const res = await spmDepMapUpdater.updateSpmDepMap(projectRoot, {
 			dryRun: !!(cmd && cmd.dryRun),
 			allowOverwrite: !!(cmd && cmd.overwrite),
 			aggressive: !!(cmd && cmd.aggressive),
@@ -526,14 +535,14 @@ commander
 			return;
 		}
 		if (cmd && cmd.dryRun) {
-			console.log(`ℹ️  (dry-run) 扫描 Package.swift 数量: ${res.scanned}`);
+			console.log(`ℹ️	(dry-run) 扫描 Package.swift 数量: ${res.scanned}`);
 			console.log(JSON.stringify(res.map, null, 4));
 			return;
 		}
 		if (res.changed) {
 			console.log(`✅ 已更新 SPM 映射文件: ${res.path}（扫描 Package.swift: ${res.scanned}）`);
 		} else {
-			console.log(`ℹ️  SPM 映射文件无变化: ${res.path}（扫描 Package.swift: ${res.scanned}）`);
+			console.log(`ℹ️	SPM 映射文件无变化: ${res.path}（扫描 Package.swift: ${res.scanned}）`);
 		}
 	});
 
@@ -581,8 +590,7 @@ commander
 		}
 		// ✅ watch 启动前自动更新映射（扫描 Package.swift 补全 products/packages）
 		try {
-			// 激进模式：允许从 .package(url/path...) 推断 packageName，减少手动维护成本
-			const upd = spmDepMapUpdater.updateSpmDepMap(projectRoot, { dryRun: false, allowOverwrite: false, aggressive: true });
+			const upd = await spmDepMapUpdater.updateSpmDepMap(projectRoot, { dryRun: false, allowOverwrite: false, aggressive: true });
 			if (upd && upd.ok && upd.changed) {
 				console.log(`✅ 已自动更新 SPM 映射文件: ${upd.path}（扫描 Package.swift: ${upd.scanned}）`);
 			}
@@ -660,13 +668,34 @@ commander
 	.command('ui')
 	.description('launch the AutoSnippet Dashboard')
 	.option('-p, --port <number>', 'port to run the dashboard on', '3000')
+	.option('-b, --build', 'force rebuild dashboard frontend before launch')
 	.action(async (cmd) => {
 		const projectRoot = await findPath.findProjectRoot(CMD_PATH);
 		if (!projectRoot) {
 			console.error('未找到项目根目录（AutoSnippetRoot.boxspec.json）。');
 			return;
 		}
-		ui.launch(projectRoot, cmd.port);
+		const forceBuild = !!(cmd.build || process.env.ASD_UI_BUILD === '1' || process.env.ASD_UI_REBUILD === '1');
+		ui.launch(projectRoot, cmd.port, { forceBuild });
+	});
+
+commander
+	.command('ai-test')
+	.description('test current AI provider connectivity (uses .env or boxspec in project root)')
+	.action(async () => {
+		const projectRoot = await findPath.findProjectRoot(CMD_PATH) || CMD_PATH;
+		const AiFactory = require('../lib/ai/AiFactory');
+		const config = AiFactory.getConfigSync(projectRoot);
+		console.log(`当前配置: provider=${config.provider}, model=${config.model}`);
+		try {
+			const ai = await AiFactory.getProvider(projectRoot);
+			const reply = await ai.chat('Reply with exactly one word: OK.');
+			console.log('✅ 当前 AI 可用');
+			console.log('   回复:', (reply || '').trim().slice(0, 80));
+		} catch (err) {
+			console.error('❌ AI 测试失败:', err.message);
+			console.log('提示: 检查 .env 中对应 API Key 与 ASD_AI_PROVIDER/ASD_AI_MODEL，或参阅文档「Foundation-AI提供商免费Key申请与测试.md」');
+		}
 	});
 
 commander
@@ -716,7 +745,7 @@ commander
 		}
 
 		console.log(`准备扫描 ${targetsToScan.length} 个 Target...`);
-		const ai = AiFactory.create();
+		const ai = await AiFactory.getProvider(projectRoot);
 
 		for (const target of targetsToScan) {
 			console.log(`\n[${target.name}] 正在读取源代码...`);
@@ -725,10 +754,14 @@ commander
 				console.warn(`[${target.name}] 未找到源代码文件，跳过。`);
 				continue;
 			}
+			// 命令行显示本次扫描的真实文件列表
+			const relPaths = files.map(f => path.relative(projectRoot, f.path).replace(/\\/g, '/'));
+			console.log(`[${target.name}] 本次扫描的文件 (${relPaths.length}):`);
+			relPaths.forEach(p => console.log(`  - ${p}`));
 
-			console.log(`[${target.name}] 正在提取 AI 知识 (Gemini)...`);
+			console.log(`[${target.name}] 正在将以上 ${files.length} 个文件一并发送给 AI 分析...`);
 			try {
-				const results = await ai.extractSkills(target.name, files);
+				const results = await ai.extractRecipes(target.name, files);
 				if (Array.isArray(results)) {
 					await candidateService.saveCandidates(projectRoot, target.name, results);
 					console.log(`✅ [${target.name}] 扫描完成，发现 ${results.length} 个候选内容。`);
@@ -742,6 +775,173 @@ commander
 
 		console.log('\n✨ 所有扫描任务已完成！');
 		console.log('提示: 请运行 `asd ui` 在 Dashboard 的 "Candidates" 页面进行审核。');
+	});
+
+commander
+	.command('search [keyword]')
+	.alias('s')
+	.description('search snippets and recipes (keyword or semantic)')
+	.option('-m, --semantic', 'use semantic search (requires asd embed)', false)
+	.action(async (keyword, options) => {
+		const projectRoot = await findPath.findProjectRoot(CMD_PATH);
+		if (!projectRoot) {
+			console.error('未找到项目根目录（AutoSnippetRoot.boxspec.json）。');
+			return;
+		}
+
+		if (options.semantic) {
+			if (!keyword) {
+				console.error('使用语义搜索时必须提供关键词。');
+				return;
+			}
+			console.log(`\n🧠 正在进行语义搜索: "${keyword}"...\n`);
+			
+			const VectorStore = require('../lib/ai/vectorStore');
+			const AiFactory = require('../lib/ai/AiFactory');
+			const store = new VectorStore(projectRoot);
+			const ai = await AiFactory.getProvider(projectRoot);
+			
+			if (!ai) {
+				console.error('未配置 AI 密钥。');
+				return;
+			}
+
+			const queryVector = await ai.embed(keyword);
+			const results = store.search(queryVector, 5);
+
+			if (results.length === 0) {
+				console.log('未找到语义相关的知识点。请确保已运行 asd embed 构建索引。');
+				return;
+			}
+
+			console.log(`--- 语义相关知识 (Semantic Match) ---`);
+			results.forEach((res, i) => {
+				const score = (res.similarity * 100).toFixed(1);
+				console.log(`${i + 1}. [${res.metadata.type}] ${res.metadata.name} (相关度: ${score}%)`);
+				if (i === 0) {
+					console.log('\n--- 最佳匹配预览 ---');
+					console.log(res.content.substring(0, 300) + '...');
+					console.log('-------------------\n');
+				}
+			});
+			return;
+		}
+
+		const rootSpecFile = path.join(projectRoot, findPath.ROOT_MARKER_NAME);
+		let specData = {};
+		try {
+			specData = JSON.parse(fs.readFileSync(rootSpecFile, 'utf8'));
+		} catch (e) {
+			specData = { list: [] };
+		}
+
+		console.log(`\n🔍 正在搜索: "${keyword || '所有'}"\n`);
+
+		// 1. 搜索 Snippets
+		const snippets = (specData.list || []).filter(s => {
+			if (!keyword) return true;
+			const k = keyword.toLowerCase();
+			return (s.title && s.title.toLowerCase().includes(k)) ||
+				(s.completion && s.completion.toLowerCase().includes(k)) ||
+				(s.summary && s.summary.toLowerCase().includes(k));
+		});
+
+		if (snippets.length > 0) {
+			console.log(`--- 代码片段 (Snippets) [${snippets.length}] ---`);
+			snippets.forEach((s, i) => {
+				console.log(`${i + 1}. [${s.languageShort || 'objc'}] ${s.title} (${s.completion})`);
+				if (s.summary) console.log(`   摘要: ${s.summary}`);
+			});
+			console.log('');
+		}
+
+		// 2. 搜索 Recipes
+		let matchingRecipes = [];
+		const recipesDir = path.join(projectRoot, specData.recipes?.dir || specData.skills?.dir || 'Knowledge/recipes');
+		if (fs.existsSync(recipesDir)) {
+			const recipeFiles = fs.readdirSync(recipesDir).filter(f => f.endsWith('.md'));
+			
+			for (const file of recipeFiles) {
+				const filePath = path.join(recipesDir, file);
+				const content = fs.readFileSync(filePath, 'utf8');
+				const k = keyword ? keyword.toLowerCase() : '';
+				
+				if (!keyword || file.toLowerCase().includes(k) || content.toLowerCase().includes(k)) {
+					matchingRecipes.push({ name: file, path: filePath, content });
+				}
+			}
+
+			if (matchingRecipes.length > 0) {
+				console.log(`--- 配方 (Recipes) [${matchingRecipes.length}] ---`);
+				matchingRecipes.forEach((s, i) => {
+					console.log(`${i + 1}. ${s.name}`);
+				});
+				console.log('');
+
+				if (matchingRecipes.length === 1 || (keyword && matchingRecipes.length < 5)) {
+					console.log('--- 预览第一个结果 ---\n');
+					console.log(matchingRecipes[0].content);
+				}
+			}
+		}
+
+		if (snippets.length === 0 && (!fs.existsSync(recipesDir) || matchingRecipes.length === 0)) {
+			console.log('未找到匹配的内容。');
+		}
+	});
+
+commander
+	.command('embed')
+	.description('rebuild semantic vector index for semantic search (Recipes → embed → vector_index.json)')
+	.option('--clear', 'clear existing index before indexing', false)
+	.action(async (options) => {
+		const projectRoot = await findPath.findProjectRoot(CMD_PATH);
+		if (!projectRoot) {
+			console.error('未找到项目根目录。请先运行 asd root');
+			return;
+		}
+
+		const VectorStore = require('../lib/ai/vectorStore');
+		const AiFactory = require('../lib/ai/AiFactory');
+		const store = new VectorStore(projectRoot);
+		
+		if (options.clear) {
+			store.clear();
+			console.log('已清理现有索引。');
+		}
+
+		const ai = await AiFactory.getProvider(projectRoot);
+		if (!ai) {
+			console.error('未配置 AI 密钥，请检查 AutoSnippet.boxspec.json 或环境变量。');
+			return;
+		}
+
+		console.log('正在构建语义索引...');
+
+		// 1. 扫描 Recipes
+		const rootSpecPath = path.join(projectRoot, 'AutoSnippetRoot.boxspec.json');
+		const recipesDir = fs.existsSync(rootSpecPath)
+			? (() => { try { const s = JSON.parse(fs.readFileSync(rootSpecPath, 'utf8')); return path.join(projectRoot, s.recipes?.dir || s.skills?.dir || 'Knowledge/recipes'); } catch (_) { return path.join(projectRoot, 'Knowledge/recipes'); } })()
+			: path.join(projectRoot, 'Knowledge/recipes');
+		if (fs.existsSync(recipesDir)) {
+			const files = fs.readdirSync(recipesDir).filter(f => f.endsWith('.md'));
+			console.log(`正在索引 ${files.length} 个 Recipes...`);
+			
+			for (const file of files) {
+				const content = fs.readFileSync(path.join(recipesDir, file), 'utf8');
+				// 提取正文内容，去掉 frontmatter
+				const body = content.replace(/^---[\s\S]*?---/, '').trim();
+				const vector = await ai.embed(body || content);
+				store.upsert(`recipe_${file}`, vector, body || content, { name: file, type: 'recipe' });
+				process.stdout.write('.');
+			}
+			console.log('\nRecipes 索引完成。');
+		}
+
+		// 2. 扫描 Snippets (可选，后续支持)
+		
+		store.save();
+		console.log('✅ 语义索引构建成功！你可以使用 asd search --semantic 进行搜索。');
 	});
 
 commander
@@ -760,17 +960,25 @@ commander
 		}
 	});
 
+commander
+	.command('install:cursor-skill')
+	.description('install AutoSnippet Agent Skills into project .cursor/skills/ (run from project root)')
+	.action(() => {
+		require(path.join(__dirname, '..', 'scripts', 'install-cursor-skill.js'));
+	});
+
 commander.addHelpText('after', `
 
 Examples:
-  asd setup               # 初始化 + 标记项目根目录
-  asd install             # 等价于 asd i
-  asd create              # 等价于 asd c
-  asd share               # 等价于 asd s
-  asd watch               # 等价于 asd w
+	asd setup								# 初始化 + 标记项目根目录
+	asd install:cursor-skill				# 将 skills 安装到项目 .cursor/skills/
+	asd install							# 等价于 asd i
+	asd create							# 等价于 asd c
+	asd share								# 等价于 asd s
+	asd watch								# 等价于 asd w
 
 Notes:
-  - 老命令仍可用：i/c/s/u/w 只是别名，不会破坏现有脚本。
+	- 老命令仍可用：i/c/s/u/w 只是别名，不会破坏现有脚本。
 `);
 
 commander.parse(process.argv);

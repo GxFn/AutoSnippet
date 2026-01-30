@@ -9,5 +9,20 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:3000'
     }
+  },
+  build: {
+    chunkSizeWarningLimit: 1100,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('framer-motion')) return 'framer-motion'
+            if (id.includes('lucide-react')) return 'lucide-react'
+            if (id.includes('react-syntax-highlighter') || id.includes('react-markdown')) return 'markdown'
+            return 'vendor'
+          }
+        }
+      }
+    }
   }
 })

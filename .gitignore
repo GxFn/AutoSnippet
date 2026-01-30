@@ -8,8 +8,14 @@ docs/
 *.m
 *.pch
 *.swift
+# Swift 解析器源码不忽略
+!tools/parse-package/Sources/**/*.swift
+!tools/parse-package/Package.swift
+# Swift 构建产物
+tools/parse-package/.build/
 
 # 本地测试 / 密钥（勿提交）
+test/temp/
 test-key.js
 *-key.js
 .env

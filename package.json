@@ -1,61 +1,63 @@
 {
-    "name": "autosnippet",
-    "version": "1.3.1",
-    "description": "A iOS module management tool.",
-    "main": "index.js",
-    "scripts": {
-        "build:dashboard": "cd dashboard && npm run build",
-        "test": "node bin/asnip.js init",
-        "test:init": "node bin/asnip.js init",
-        "test:version": "node bin/asnip.js -v",
-        "test:help": "node bin/asnip.js -h",
-        "test:install": "node bin/asnip.js i",
-        "test:create": "node bin/asnip.js c",
-        "test:share": "node bin/asnip.js s",
-        "test:update": "node bin/asnip.js u",
-        "test:watch": "node bin/asnip.js w",
-        "test:root": "node bin/asnip.js root",
-        "test:global:install": "npm install -g .",
-        "test:global:install:online": "npm install -g autosnippet",
-        "test:global:install:version": "npm install -g autosnippet@",
-        "test:global:uninstall": "npm uninstall -g autosnippet",
-        "test:global:verify": "which asd && asd -v",
-        "test:global:info": "npm list -g autosnippet"
-    },
-    "author": "gaoxuefeng",
-    "license": "MIT",
-    "bin": {
-        "asd": "bin/asnip.js"
-    },
-    "keywords": [
-        "Xcode",
-        "iOS",
-        "Snippet"
-    ],
-    "homepage": "https://github.com/GxFn/AutoSnippet#readme",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/GxFn/AutoSnippet.git"
-    },
-    "dependencies": {
-        "@google/generative-ai": "^0.21.0",
-        "axios": "^1.6.7",
-        "chokidar": "^3.6.0",
-        "commander": "^7.2.0",
-        "cors": "^2.8.5",
-        "express": "^4.18.2",
-        "inquirer": "^8.0.0",
-        "minimist": "^1.2.5",
-        "open": "^8.0.4",
-        "undici": "^6.23.0",
-        "xml2js": "^0.6.2"
-    },
-    "bugs": {
-        "url": "https://github.com/GxFn/AutoSnippet/issues"
-    },
-    "directories": {
-        "doc": "docs",
-        "lib": "lib"
-    },
-    "devDependencies": {}
+	"name": "autosnippet",
+	"version": "1.3.1",
+	"description": "A iOS module management tool.",
+	"main": "index.js",
+	"scripts": {
+		"postinstall": "node scripts/ensure-parse-package.js",
+		"install:cursor-skill": "node scripts/install-cursor-skill.js",
+		"build:dashboard": "cd dashboard && npm run build",
+		"test": "node test/runner.js",
+		"test:changed": "node test/runner.js --changed",
+		"test:global": "node test/runner.js --global",
+		"dev:link": "npm install -g .",
+		"dev:verify": "which asd && asd -v",
+		"dev:ui": "ASD_UI_BUILD=1 node bin/asnip.js ui",
+		"test:init": "node bin/asnip.js init",
+		"test:version": "node bin/asnip.js -v",
+		"test:help": "node bin/asnip.js -h",
+		"test:install": "node bin/asnip.js i",
+		"test:create": "node bin/asnip.js c",
+		"test:share": "node bin/asnip.js s",
+		"test:update": "node bin/asnip.js u",
+		"test:watch": "node bin/asnip.js w",
+		"test:root": "node bin/asnip.js root"
+	},
+	"author": "gaoxuefeng",
+	"license": "MIT",
+	"bin": {
+		"asd": "bin/asnip.js"
+	},
+	"keywords": [
+		"Xcode",
+		"iOS",
+		"Snippet"
+	],
+	"homepage": "https://github.com/GxFn/AutoSnippet#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/GxFn/AutoSnippet.git"
+	},
+	"dependencies": {
+		"@google/generative-ai": "^0.21.0",
+		"axios": "^1.6.7",
+		"chokidar": "^3.6.0",
+		"commander": "^7.2.0",
+		"cors": "^2.8.5",
+		"dotenv": "^16.3.1",
+		"express": "^4.18.2",
+		"inquirer": "^8.0.0",
+		"minimist": "^1.2.5",
+		"open": "^8.0.4",
+		"undici": "^6.23.0",
+		"xml2js": "^0.6.2"
+	},
+	"bugs": {
+		"url": "https://github.com/GxFn/AutoSnippet/issues"
+	},
+	"directories": {
+		"doc": "docs",
+		"lib": "lib"
+	},
+	"devDependencies": {}
 }

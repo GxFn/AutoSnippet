@@ -21,71 +21,18 @@
 
 const fs = require('fs');
 const path = require('path');
+const fileFinder = require('../lib/infra/FileFinder');
 // 全局常量
 const HOLDER_NAME = 'AutoSnippet.boxspec.json';
 const ROOT_MARKER_NAME = 'AutoSnippetRoot.boxspec.json'; // 项目根目录标记文件
 const PACKAGE_SWIFT = 'Package.swift';
 const README_NAME = 'readme.md';
 
-// 目录缓存（优化：减少重复读取）
-const directoryCache = new Map();
-const CACHE_TTL = 60000; // 缓存 60 秒
-
-async function getDirectoryEntries(dirPath) {
-	const cacheKey = path.resolve(dirPath);
+// 检查是否为项目根目录
+async function isProjectRoot(dirPath) {
+	const entries = await fileFinder.getDirectoryEntries(dirPath);
+	if (!entries) return false;
 	
-	// ✅ 首先检查路径是否是文件，如果是文件，立即返回 null（避免 ENOTDIR 错误）
-	// 注意：这个检查要在缓存检查之前，因为缓存可能包含错误的条目
-	try {
-		const stats = await fs.promises.stat(dirPath);
-		if (stats.isFile()) {
-			directoryCache.delete(cacheKey);
-			return null;
-		}
-	} catch (err) {
-		// 继续
-	}
-	
-	const cached = directoryCache.get(cacheKey);
-	
-	if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-		return cached.entries;
-	}
-	
-	try {
-		const entries = await fs.promises.readdir(dirPath, {
-			withFileTypes: true
-		});
-		
-		if (directoryCache.size > 1000) {
-			const now = Date.now();
-			for (const [key, value] of directoryCache.entries()) {
-				if (now - value.timestamp >= CACHE_TTL) {
-					directoryCache.delete(key);
-				}
-			}
-		}
-		
-		directoryCache.set(cacheKey, {
-			entries,
-			timestamp: Date.now()
-		});
-		
-		return entries;
-	} catch (err) {
-		if (err.code === 'ENOENT' || err.code === 'EACCES' || err.code === 'ENOTDIR') {
-			return null;
-		}
-		throw err;
-	}
-}
-
-function isProjectRoot(dirPath, entries) {
-	if (!entries) {
-		return false;
-	}
-	
-	// 工程根目录标记（按优先级）
 	const rootMarkers = [
 		'.git',
 		PACKAGE_SWIFT,
@@ -95,53 +42,11 @@ function isProjectRoot(dirPath, entries) {
 		'.swiftpm',
 	];
 	
-	for (const entry of entries) {
-		const name = entry.name;
-		if (rootMarkers.includes(name) && (entry.isFile() || entry.isDirectory())) {
-			return true;
-		}
-	}
-	
-	return false;
+	return entries.some(entry => rootMarkers.includes(entry.name));
 }
 
 async function searchUpwardForFile(filePath, fileName) {
-	let currentPath = path.resolve(filePath);
-	const maxLevels = 20;
-	let levelsChecked = 0;
-	
-	while (currentPath && levelsChecked < maxLevels) {
-		try {
-			const entries = await getDirectoryEntries(currentPath);
-			if (entries) {
-				for (const entry of entries) {
-					if (entry.isFile() && entry.name === fileName) {
-						return path.join(currentPath, entry.name);
-					}
-				}
-			}
-			
-			const parentPath = path.dirname(currentPath);
-			if (parentPath === currentPath) {
-				break;
-			}
-			currentPath = parentPath;
-			levelsChecked++;
-		} catch (err) {
-			if (err.code === 'ENOENT' || err.code === 'EACCES') {
-				const parentPath = path.dirname(currentPath);
-				if (parentPath === currentPath) {
-					break;
-				}
-				currentPath = parentPath;
-				levelsChecked++;
-				continue;
-			}
-			throw err;
-		}
-	}
-	
-	return null;
+	return await fileFinder.findUp(filePath, fileName);
 }
 
 async function findASSpecPathAsync(filePath) {
@@ -256,46 +161,7 @@ function findASSpecPath(filePath, callback, configPath, configDir) {
 }
 
 async function findPackageSwiftPath(filePath) {
-	let currentPath = path.resolve(filePath);
-	
-	while (currentPath) {
-		try {
-			const entries = await getDirectoryEntries(currentPath);
-			if (!entries) {
-				const parentPath = path.dirname(currentPath);
-				if (parentPath === currentPath) {
-					break;
-				}
-				currentPath = parentPath;
-				continue;
-			}
-			
-			for (const entry of entries) {
-				if (entry.isFile() && entry.name === PACKAGE_SWIFT) {
-					return path.join(currentPath, entry.name);
-				}
-			}
-			
-			const parentPath = path.dirname(currentPath);
-			if (parentPath === currentPath) {
-				break;
-			}
-			currentPath = parentPath;
-			
-		} catch (err) {
-			if (err.code === 'ENOENT' || err.code === 'EACCES') {
-				const parentPath = path.dirname(currentPath);
-				if (parentPath === currentPath) {
-					break;
-				}
-				currentPath = parentPath;
-				continue;
-			}
-			throw err;
-		}
-	}
-	
-	return null;
+	return await fileFinder.findUp(filePath, PACKAGE_SWIFT);
 }
 
 async function parsePackageSwift(packagePath) {
@@ -536,62 +402,20 @@ function extractTargetBlocksFromPackageSwift(content) {
 }
 
 async function findSubHeaderPath(filePath, headerName, moduleName) {
-	const codePath = path.join(filePath, 'Code');
-	try {
-		const stats = await fs.promises.stat(codePath);
-		if (stats.isDirectory()) {
-			const result = await findSubHeaderPath(codePath, headerName, null);
-			if (result) {
-				return result;
-			}
-		}
-	} catch {
-		// 继续查找
-	}
-	
+	// 优先在 include/moduleName 下查找（快速路径）
 	if (moduleName) {
 		const includePath = path.join(filePath, 'include', moduleName);
 		try {
-			const stats = await fs.promises.stat(includePath);
-			if (stats.isDirectory()) {
-				const headerPath = path.join(includePath, `${headerName}.h`);
-				try {
-					await fs.promises.access(headerPath);
-					return headerPath;
-				} catch {
-					// 继续查找
-				}
-			}
-		} catch {
-			// 继续查找
-		}
+			const headerPath = path.join(includePath, `${headerName}.h`);
+			await fs.promises.access(headerPath);
+			return headerPath;
+		} catch {}
 	}
 	
-	try {
-		const entries = await getDirectoryEntries(filePath);
-		if (!entries) {
-			return null;
-		}
-		
-		for (const entry of entries) {
-			if (entry.isFile() && entry.name === `${headerName}.h`) {
-				return path.join(filePath, entry.name);
-			} else if (entry.isDirectory()) {
-				if (entry.name.startsWith('.') || entry.name === 'node_modules') {
-					continue;
-				}
-				
-				const result = await findSubHeaderPath(path.join(filePath, entry.name), headerName, null);
-				if (result) {
-					return result;
-				}
-			}
-		}
-	} catch (err) {
-		// 忽略错误
-	}
-	
-	return null;
+	// 通用查找
+	return await fileFinder.findDown(filePath, (entry) => {
+		return entry.isFile() && entry.name === `${headerName}.h`;
+	}, { maxDepth: 10, firstMatch: true });
 }
 
 /**
@@ -606,7 +430,7 @@ async function findTargetRootDir(filePath) {
 
 	while (currentPath && levelsChecked < maxLevels) {
 		try {
-			const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
+			const entries = await fileFinder.getDirectoryEntries(currentPath);
 			for (const entry of entries) {
 				if (entry.isDirectory() && (entry.name === 'Code' || entry.name === 'Sources')) {
 					return currentPath;
@@ -625,53 +449,7 @@ async function findTargetRootDir(filePath) {
 }
 
 async function findSubASSpecPath(filePath) {
-	let resultArray = [];
-
-	try {
-		let dirPath = filePath;
-		
-		try {
-			const stats = await fs.promises.stat(filePath);
-			if (stats.isFile()) {
-				dirPath = path.dirname(filePath);
-			} else if (!stats.isDirectory()) {
-				return resultArray;
-			}
-		} catch (err) {
-			if (err.code === 'ENOENT' || err.code === 'EACCES') {
-				if (path.basename(filePath) === HOLDER_NAME || path.extname(filePath) !== '') {
-					dirPath = path.dirname(filePath);
-				} else {
-					return resultArray;
-				}
-			} else {
-				return resultArray;
-			}
-		}
-		const entries = await getDirectoryEntries(dirPath);
-		if (!entries) {
-			return resultArray;
-		}
-
-		for (const entry of entries) {
-			if (entry.isFile() && entry.name === HOLDER_NAME) {
-				resultArray.push(path.join(dirPath, entry.name));
-			} else if (entry.isDirectory()) {
-				if (entry.name.startsWith('.') || entry.name === 'node_modules') {
-					continue;
-				}
-				
-				const array = await findSubASSpecPath(path.join(dirPath, entry.name));
-				resultArray = resultArray.concat(array);
-			}
-		}
-	} catch (err) {
-		if (err.code !== 'ENOTDIR') {
-			// 忽略错误
-		}
-	}
-	
-	return resultArray;
+	return await fileFinder.findDown(filePath, HOLDER_NAME, { maxDepth: 15, firstMatch: false });
 }
 
 async function findProjectRoot(filePath) {
@@ -694,6 +472,31 @@ async function findProjectRoot(filePath) {
 	return rootMarkerPath ? path.dirname(rootMarkerPath) : null;
 }
 
+function findProjectRootSync(filePath) {
+	let currentPath = path.resolve(filePath);
+	
+	try {
+		const stats = fs.statSync(currentPath);
+		if (stats.isFile()) {
+			currentPath = path.dirname(currentPath);
+		}
+	} catch (err) {}
+
+	const maxLevels = 20;
+	let levels = 0;
+	while (levels < maxLevels) {
+		const markerPath = path.join(currentPath, ROOT_MARKER_NAME);
+		if (fs.existsSync(markerPath)) {
+			return currentPath;
+		}
+		const parentPath = path.dirname(currentPath);
+		if (parentPath === currentPath) break;
+		currentPath = parentPath;
+		levels++;
+	}
+	return null;
+}
+
 async function getRootSpecFilePath(filePath) {
 	const projectRoot = await findProjectRoot(filePath);
 	if (!projectRoot) {
@@ -709,10 +512,10 @@ async function getRootSpecFilePath(filePath) {
 				schemaVersion: 2,
 				kind: 'root',
 				root: true,
-				skills: {
-					dir: 'Knowledge/skills',
+				recipes: {
+					dir: 'Knowledge/recipes',
 					format: 'md+frontmatter',
-					index: 'Knowledge/skills/index.json',
+					index: 'Knowledge/recipes/index.json',
 				},
 				list: []
 			};
@@ -733,5 +536,6 @@ exports.findSubHeaderPath = findSubHeaderPath;
 exports.findTargetRootDir = findTargetRootDir;
 exports.findSubASSpecPath = findSubASSpecPath;
 exports.findProjectRoot = findProjectRoot;
+exports.findProjectRootSync = findProjectRootSync;
 exports.getRootSpecFilePath = getRootSpecFilePath;
 exports.ROOT_MARKER_NAME = ROOT_MARKER_NAME;

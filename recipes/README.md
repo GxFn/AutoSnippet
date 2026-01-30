@@ -1,13 +1,13 @@
-# AutoSnippet Skills 规范
+# AutoSnippet Recipe（配方）规范
 
-AutoSnippet Skills 使用 **Markdown + YAML Frontmatter** 格式存储。这种格式既方便人类阅读和编辑，也便于 AI 解析和工具链处理。
+AutoSnippet Recipe 使用 **Markdown + YAML Frontmatter** 格式存储。这种格式既方便人类阅读和编辑，也便于 AI 解析和工具链处理。
 
 ## 目录结构
 
-Skills 存放在根目录下的 `Knowledge/skills/` 文件夹中，建议按模块或功能划分子目录：
+Recipes 存放在项目根目录下的 `Knowledge/recipes/` 文件夹中，建议按模块或功能划分子目录：
 
 ```
-Knowledge/skills/
+Knowledge/recipes/
 ├── README.md
 ├── BDNetworkControl/
 │   └── RequestTemplate.md
