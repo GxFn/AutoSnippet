@@ -11,7 +11,7 @@ This skill tells the agent how to **submit module usage code** (that Cursor has 
 
 1. **Goal**: When you (Cursor) have **finished writing or refining** module usage code, or the user says "把这段提交到 web / 加入知识库", guide them to **submit that code to the Dashboard** so it becomes a **Recipe** in `Knowledge/recipes/`.
 2. **Do not modify Knowledge directly**: Agent **must not** create or modify any files under `Knowledge/recipes/` or `Knowledge/snippets/`. All Recipe and Snippet changes must be submitted via Dashboard Web and saved after human review.
-3. **Primary flow**: Code is ready (in editor or clipboard) → user opens or already has **`asd ui`** running → in the Dashboard click **New Recipe** → **Use Copied Code** (paste the code) → AI fills title/summary/trigger/headers → **user reviews and approves** → user **saves** → Recipe is added to the knowledge base.
+3. **Primary flow**: Code is ready (in editor or clipboard) → user opens browser to **`http://localhost:3000`**（Dashboard 需已运行）→ in the Dashboard click **New Recipe** → **Use Copied Code** (paste the code) → AI fills title/summary/trigger/headers → **user reviews and approves** → user **saves** → Recipe is added to the knowledge base.
 4. **Alternative (in editor)**: User adds **`// as:create`** in the source file, copies the code (or keeps the code you just wrote), saves the file → **watch** (from `asd watch` or `asd ui`) opens the Dashboard with current file path and clipboard → user completes "Use Copied Code" in the web, **reviews**, and saves → added to knowledge base.
 5. **Project root** = directory with `AutoSnippetRoot.boxspec.json`. All commands run from the project root.
 
@@ -26,15 +26,17 @@ This skill tells the agent how to **submit module usage code** (that Cursor has 
 - **Code scenario**: Usage code is in current file or clipboard. If not copied, prompt user to copy the code block you provide.
 - **Agent-drafted Recipe scenario**: If you have generated a full Recipe (frontmatter, Snippet, Usage Guide), **prefer writing to draft file** for user to copy (see "When full copy is difficult" below). Or output in copyable format in chat, guide user to copy → Dashboard → Use Copied Code → paste → review → save. Do not write to `Knowledge/recipes/` or `Knowledge/snippets/`.
 
-### Step 2: Ensure the web (Dashboard) is running
+### Step 2: Open the web (Dashboard) in browser
 
-- In the project root, run **`asd ui`** if the Dashboard is not already open.
-- The Dashboard is the "web" side; submissions go through it to the knowledge base.
+- **Preferred**: Call MCP **`autosnippet_open_create`** to open the page.
+- **If MCP fails or browser doesn't open**: Run in terminal: `open "http://localhost:3000/?action=create&source=clipboard"` (macOS). This opens the browser directly.
+- **Manual fallback**: User opens **`http://localhost:3000`** in browser (Dashboard 需已运行；若未运行，先执行 `asd ui`).
 
 ### Step 3: Submit via Dashboard
 
-1. **If MCP is configured**: After user copies code, Agent can call **`autosnippet_open_create`** to open Dashboard New Recipe page (equivalent to Xcode `// as:create` save-then-jump). Page reads clipboard and fills. Optional: pass current file `path` for header resolution.
-2. **Or**: User manually opens `asd ui` → click **New Recipe** → **Use Copied Code** → paste.
+1. **If MCP is configured**: Call **`autosnippet_open_create`** to open Dashboard New Recipe page. Page reads clipboard and fills. Optional: pass current file `path` for header resolution.
+2. **If MCP doesn't open browser**: Run terminal command `open "http://localhost:3000/?action=create&source=clipboard"` (macOS) to open the browser.
+3. **Manual fallback**: User opens **`http://localhost:3000`** in browser → **New Recipe** → **Use Copied Code** → paste.
 3. Pasted code: **Full Recipe MD** (with `---` frontmatter, `## Snippet / Code Reference`, `## AI Context / Usage Guide`) is parsed directly, **no AI rewrite**. Plain code still goes through AI analysis and fill.
 4. **User reviews and approves** — 人工审核 title/summary/category/trigger 及内容，确认无误后再保存。
 5. User **saves** → Recipe is written to **`Knowledge/recipes/`** — i.e. **added to the knowledge base**.
@@ -73,21 +75,23 @@ All of these **submit through the web (Dashboard)** and result in content in **`
 
 | User / Cursor situation | Action |
 |-------------------------|--------|
-| "把这段提交到 web / 加入知识库" (code just written) | **MCP**：提示用户复制代码 → 调用 **`autosnippet_open_create`**（可选传 path）→ 页面读取剪贴板。或 Copy → **`asd ui`** → New Recipe → Use Copied Code → paste → review → save. |
+| "把这段提交到 web / 加入知识库" (code just written) | 1) 提示用户复制代码；2) 调用 **`autosnippet_open_create`**；3) 若浏览器未打开，运行 `open "http://localhost:3000/?action=create&source=clipboard"`；4) 用户粘贴并保存。 |
 | Agent 起草了 Recipe/Snippet 内容 | **Prefer**: Write to `_draft_recipe.md` (project root) → user opens, copies all → call **`autosnippet_open_create`** or manual Dashboard → Use Copied Code → paste → review → save. |
 | Code in current file, want to open web from editor | **MCP**：`autosnippet_open_create`（传 path）。或 Add **`// as:create`**, copy, save; ensure **`asd watch`** / **`asd ui`** running. |
-| Code already in a file (path known) | **`asd ui`** → New Recipe → enter path → **Scan File** → review → save. |
+| Code already in a file (path known) | 打开 **`http://localhost:3000`** → New Recipe → enter path → **Scan File** → review → save. |
 | Agent 起草内容无法完整复制 | Write to `_draft_recipe.md` → user Scan File or open & copy → Dashboard → review → save. |
-| Batch from Target | **`asd ais <Target>`** → **`asd ui`** → **Candidates** → approve. |
+| Batch from Target | **`asd ais <Target>`** → 打开 **`http://localhost:3000`** → **Candidates** → approve. |
 
 ---
 
-## MCP Tools (when asd ui is running)
+## MCP Tools (when Dashboard is running on localhost:3000)
 
 | Tool | Use |
 |------|-----|
 | `autosnippet_context_search` | On-demand semantic search of knowledge base; pass `query`, `limit?` |
 | `autosnippet_open_create` | Open Dashboard New Recipe page (copy→jump); equivalent to Xcode `// as:create`. Optional `path` for header resolution |
+
+**Fallback when MCP doesn't open browser**: Run in terminal: `open "http://localhost:3000/?action=create&source=clipboard"` (macOS). Agent should try this if `autosnippet_open_create` returns but the browser did not open.
 
 ---
 

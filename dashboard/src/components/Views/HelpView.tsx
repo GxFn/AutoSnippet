@@ -34,6 +34,7 @@ const HelpView: React.FC = () => {
 				</section>
 				<section>
 					<h2 className="text-lg font-bold text-slate-800 mb-3">新建 Recipe</h2>
+					<p className="text-slate-600 mb-2">本页即 Dashboard。若从 Cursor 等外部打开，在浏览器访问 <code className="bg-slate-100 px-1 rounded">http://localhost:3000</code> 即可（Dashboard 需已运行；未运行则终端执行 <code className="bg-slate-100 px-1 rounded">asd ui</code> 启动）。</p>
 					<p className="text-slate-600 mb-2">点击顶部「New Recipe」打开弹窗：</p>
 					<ul className="list-disc pl-6 space-y-2 text-slate-600">
 						<li><strong>按路径</strong>：输入相对路径（如 <code className="bg-slate-100 px-1 rounded">Sources/MyMod/Foo.m</code>），点击「Scan File」→ AI 提取标题/摘要/触发键/头文件，在 SPM Explorer 审核后保存。</li>

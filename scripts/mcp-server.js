@@ -67,7 +67,7 @@ const server = new McpServer({ name: 'autosnippet', version: '1.0.0' });
 server.registerTool(
 	'autosnippet_open_create',
 	{
-		description: '打开 Dashboard 新建 Recipe 页（Use Copied Code 流程）。等价于 Xcode 中 // as:create 复制后保存触发的跳转。用户需先将要提交的代码复制到剪贴板，调用后页面会读取剪贴板并填充。可选 path 用于头文件解析（如 Sources/MyMod/Foo.m）。需先运行 asd ui。',
+		description: '打开浏览器并导航到 Dashboard 新建 Recipe 页（Use Copied Code 流程）。等价于 Xcode 中 // as:create 复制后保存触发的跳转。用户需先将要提交的代码复制到剪贴板，调用后页面会读取剪贴板并填充。可选 path 用于头文件解析（如 Sources/MyMod/Foo.m）。Dashboard 需已运行于 localhost:3000（若未运行，先在终端 asd ui）。',
 		inputSchema: {
 			path: z.string().optional().describe('相对路径，用于头文件解析，如 Sources/MyMod/Foo.m')
 		}
@@ -83,7 +83,7 @@ server.registerTool(
 			};
 		} catch (e) {
 			return {
-				content: [{ type: 'text', text: `打开失败: ${e.message}。请确认 asd ui 已启动。` }]
+				content: [{ type: 'text', text: `打开失败: ${e.message}。请确认 Dashboard 已运行（终端执行 asd ui），或手动打开 http://localhost:3000。` }]
 			};
 		}
 	}
