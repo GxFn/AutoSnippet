@@ -3,7 +3,6 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { execSync } = require('child_process');
-const open = require('open');
 const AiFactory = require('../lib/ai/AiFactory');
 const specRepository = require('../lib/snippet/specRepository');
 const snippetInstaller = require('../lib/snippet/snippetInstaller');
@@ -16,76 +15,8 @@ const headerResolution = require('../lib/ai/headerResolution');
 const markerLine = require('../lib/snippet/markerLine');
 const triggerSymbol = require('../lib/infra/triggerSymbol');
 
-/**
- * 检测当前进程是否已有控制 Chromium 系浏览器的权限（与 openChrome.applescript 所需一致）
- * 用「控制浏览器」的同一类操作检测，避免与「System Events」权限不一致导致已授权仍提示
- * @returns {boolean}
- */
-function hasMacOSBrowserControlGranted() {
-	if (process.platform !== 'darwin') return false;
-	const chromiumBrowsers = [
-		'Google Chrome Canary',
-		'Google Chrome',
-		'Microsoft Edge',
-		'Brave Browser',
-		'Vivaldi',
-		'Chromium'
-	];
-	for (const browser of chromiumBrowsers) {
-		try {
-			execSync(`osascript -e 'tell application "${browser}" to get name'`, {
-				stdio: 'ignore'
-			});
-			return true;
-		} catch (_) {
-			// 未安装或未授权，尝试下一个
-		}
-	}
-	return false;
-}
-
-/**
- * 在 macOS 上尝试复用已打开的同 URL 标签（如 http://localhost:3000），失败则用 open 新开
- * 可通过环境变量 ASD_UI_NO_REUSE_TAB=1 跳过复用，直接使用系统默认方式打开
- * @param {string} url 要打开的地址
- */
-function openBrowserReuseTab(url) {
-	const skipReuse = process.env.ASD_UI_NO_REUSE_TAB === '1' || process.env.ASD_UI_OPEN_REUSE === '0';
-	if (skipReuse) {
-		open(url);
-		return;
-	}
-	if (process.platform === 'darwin') {
-		const chromiumBrowsers = [
-			'Google Chrome Canary',
-			'Google Chrome',
-			'Microsoft Edge',
-			'Brave Browser',
-			'Vivaldi',
-			'Chromium'
-		];
-		const scriptPath = path.join(__dirname, 'openChrome.applescript');
-		if (!fs.existsSync(scriptPath)) {
-			open(url);
-			return;
-		}
-		if (!hasMacOSBrowserControlGranted()) {
-			console.log('💡 若已打开该页将复用标签；若系统弹出「辅助功能」权限请求，允许即可；未授权则自动新开标签。');
-		}
-		for (const browser of chromiumBrowsers) {
-			try {
-				execSync(`osascript "${scriptPath}" "${encodeURI(url)}" "${browser}"`, {
-					cwd: __dirname,
-					stdio: 'ignore'
-				});
-				return;
-			} catch (_) {
-				// 未授权、浏览器未安装或脚本失败，静默回退到 open(url)
-			}
-		}
-	}
-	open(url);
-}
+const openBrowser = require('../lib/infra/openBrowser');
+const openBrowserReuseTab = openBrowser.openBrowserReuseTab;
 
 /** 将 spec 中存储的 XML 转义还原为原始代码，供前端编辑显示，避免保存时重复转义 */
 function unescapeSnippetLine(str) {
@@ -197,20 +128,37 @@ function launch(projectRoot, port = 3000, options = {}) {
 		}
 	});
 
+	// API: 上下文语义搜索（供 Agent/Skill 调用）
+	app.post('/api/context/search', async (req, res) => {
+		try {
+			const { query, limit = 5, filter } = req.body;
+			if (!query || typeof query !== 'string') {
+				return res.status(400).json({ error: 'query is required and must be a string' });
+			}
+			const { getInstance } = require('../lib/context');
+			const ai = await AiFactory.getProvider(projectRoot);
+			if (!ai) return res.status(400).json({ error: 'AI 未配置，无法进行语义检索' });
+			const service = getInstance(projectRoot);
+			const items = await service.search(query, { limit, filter });
+			res.json({ items });
+		} catch (err) {
+			console.error(`[API Error]`, err);
+			res.status(500).json({ error: err.message });
+		}
+	});
+
 	// API: 语义搜索
 	app.post('/api/search/semantic', async (req, res) => {
 		try {
 			const { keyword, limit = 5 } = req.body;
 			if (!keyword) return res.status(400).json({ error: 'Keyword is required' });
 
-			const VectorStore = require('../lib/ai/vectorStore');
-			const store = new VectorStore(projectRoot);
 			const ai = await AiFactory.getProvider(projectRoot);
-			
 			if (!ai) return res.status(500).json({ error: 'AI Provider not configured' });
 
-			const queryVector = await ai.embed(keyword);
-			const results = store.search(queryVector, limit);
+			const { getInstance } = require('../lib/context');
+			const service = getInstance(projectRoot);
+			const results = await service.search(keyword, { limit });
 
 			res.json(results);
 		} catch (err) {
@@ -245,30 +193,9 @@ function launch(projectRoot, port = 3000, options = {}) {
 	// API: 全量重建语义索引（等同 asd embed，可与「刷新项目」等合并使用）
 	app.post('/api/commands/embed', async (req, res) => {
 		try {
-			const VectorStore = require('../lib/ai/vectorStore');
-			const store = new VectorStore(projectRoot);
-			const ai = await AiFactory.getProvider(projectRoot);
-			if (!ai) {
-				return res.status(400).json({ error: '未配置 AI，无法构建语义索引' });
-			}
-			store.clear();
-			const rootSpecPath = path.join(projectRoot, 'AutoSnippetRoot.boxspec.json');
-			const recipesDir = fs.existsSync(rootSpecPath)
-				? (() => { try { const s = JSON.parse(fs.readFileSync(rootSpecPath, 'utf8')); return path.join(projectRoot, s.recipes?.dir || 'Knowledge/recipes'); } catch (_) { return path.join(projectRoot, 'Knowledge/recipes'); } })()
-				: path.join(projectRoot, 'Knowledge/recipes');
-			let count = 0;
-			if (fs.existsSync(recipesDir)) {
-				const files = fs.readdirSync(recipesDir).filter(f => f.endsWith('.md'));
-				for (const file of files) {
-					const content = fs.readFileSync(path.join(recipesDir, file), 'utf8');
-					const body = content.replace(/^---[\s\S]*?---/, '').trim();
-					const vector = await ai.embed(body || content);
-					store.upsert(`recipe_${file}`, vector, body || content, { name: file, type: 'recipe' });
-					count++;
-				}
-			}
-			store.save();
-			res.json({ success: true, indexed: count });
+			const IndexingPipeline = require('../lib/context/IndexingPipeline');
+			const result = await IndexingPipeline.run(projectRoot, { clear: true });
+			res.json({ success: true, indexed: result.indexed, skipped: result.skipped, removed: result.removed });
 		} catch (err) {
 			console.error(`[API Error]`, err);
 			res.status(500).json({ error: err.message });
@@ -331,9 +258,31 @@ function launch(projectRoot, port = 3000, options = {}) {
 	});
 
 	// API: 从文本提取 (针对剪贴板)；可选 relativePath 用于 // as:create 场景，按路径解析头文件
+	// 若检测到完整 Recipe MD 格式（frontmatter + Snippet + Usage Guide），直接解析，不调用 AI，避免重写劣化
 	app.post('/api/extract/text', async (req, res) => {
 		try {
 			const { text, language, relativePath } = req.body;
+			const parseRecipeMd = require('../lib/recipe/parseRecipeMd.js');
+
+			// 检测完整 Recipe MD：有 frontmatter、Snippet / Code Reference、代码块、AI Context / Usage Guide
+			if (parseRecipeMd.isCompleteRecipeMd(text)) {
+				const result = parseRecipeMd.parseRecipeMd(text);
+				if (result) {
+					// 若传入路径，可补充头文件解析（完整 MD 通常已含 headers）
+					if (relativePath && typeof relativePath === 'string') {
+						try {
+							const resolved = await headerResolution.resolveHeadersForText(projectRoot, relativePath, text);
+							if (resolved.headers && resolved.headers.length > 0 && (!result.headers || result.headers.length === 0)) {
+								result.headers = resolved.headers;
+								result.headerPaths = resolved.headerPaths;
+								result.moduleName = resolved.moduleName;
+							}
+						} catch (_) {}
+					}
+					return res.json(result);
+				}
+			}
+
 			const ai = await AiFactory.getProvider(projectRoot);
 			const result = await ai.summarize(text, language);
 
@@ -490,8 +439,8 @@ function launch(projectRoot, port = 3000, options = {}) {
 			const allSnippets = fullSpec.list || [];
 			const recipesDir = path.join(projectRoot, (fullSpec && (fullSpec.recipes?.dir || fullSpec.skills?.dir)) ? (fullSpec.recipes?.dir || fullSpec.skills?.dir) : 'Knowledge/recipes');
 
-			const VectorStore = require('../lib/ai/vectorStore');
-			const store = new VectorStore(projectRoot);
+			const { getInstance } = require('../lib/context');
+			const contextService = getInstance(projectRoot);
 			const aiProvider = await AiFactory.getProvider(projectRoot);
 
 			let filteredSnippets = [];
@@ -499,17 +448,18 @@ function launch(projectRoot, port = 3000, options = {}) {
 
 			if (aiProvider) {
 				try {
-					const queryVector = await aiProvider.embed(prompt);
-					const semanticResults = store.search(queryVector, 5);
+					const semanticResults = await contextService.search(prompt, { limit: 5, filter: { type: 'recipe' } });
 					
 					semanticResults.forEach(res => {
-						if (res.metadata.type === 'recipe') {
-							filteredRecipes.push(`--- RECIPE (Semantic): ${res.metadata.name} ---\n${res.content}`);
+						if (res.metadata?.type === 'recipe') {
+							const name = res.metadata?.name || res.metadata?.sourcePath || res.id;
+							filteredRecipes.push(`--- RECIPE (Semantic): ${name} ---\n${res.content || ''}`);
 						}
 					});
 				} catch (e) {
 					console.warn('[Chat] Semantic search failed, falling back to keyword search:', e.message || e);
-					if (store.data.items.length === 0) {
+					const stats = await contextService.getStats();
+					if (stats && stats.count === 0) {
 						console.warn('[Chat] 提示: 运行 asd embed 可构建语义索引以启用语义检索');
 					}
 				}
@@ -587,12 +537,18 @@ function launch(projectRoot, port = 3000, options = {}) {
 				try {
 					const ai = await AiFactory.getProvider(projectRoot);
 					if (!ai) return;
-					const VectorStore = require('../lib/ai/vectorStore');
-					const store = new VectorStore(projectRoot);
+					const { getInstance } = require('../lib/context');
+					const service = getInstance(projectRoot);
+					const sourcePath = path.relative(projectRoot, filePath).replace(/\\/g, '/');
 					const body = (content || '').replace(/^---[\s\S]*?---/, '').trim();
 					const vector = await ai.embed(body || content);
-					store.upsert(`recipe_${fileName}`, vector, body || content, { name: fileName, type: 'recipe' });
-					store.save();
+					const vec = Array.isArray(vector) && vector[0] !== undefined ? (Array.isArray(vector[0]) ? vector[0] : vector) : [];
+					await service.upsert({
+						id: `recipe_${fileName}`,
+						content: body || content,
+						vector: vec,
+						metadata: { name: fileName, type: 'recipe', sourcePath }
+					});
 				} catch (e) {
 					console.warn('[Index] Recipe 语义索引更新失败:', e.message);
 				}
@@ -687,7 +643,7 @@ function launch(projectRoot, port = 3000, options = {}) {
 	});
 
 	// API: 删除 Recipe（同时从语义索引中移除）
-	app.post('/api/recipes/delete', (req, res) => {
+	app.post('/api/recipes/delete', async (req, res) => {
 		try {
 			const { name } = req.body;
 			const rootSpecPath = path.join(projectRoot, 'AutoSnippetRoot.boxspec.json');
@@ -699,9 +655,17 @@ function launch(projectRoot, port = 3000, options = {}) {
 			if (fs.existsSync(filePath)) {
 				fs.unlinkSync(filePath);
 				try {
-					const VectorStore = require('../lib/ai/vectorStore');
-					const store = new VectorStore(projectRoot);
-					store.remove(`recipe_${fileName}`);
+					const { getInstance } = require('../lib/context');
+					const service = getInstance(projectRoot);
+					const adapter = service.getAdapter();
+					const sourcePath = path.relative(projectRoot, filePath).replace(/\\/g, '/');
+					const items = await adapter.searchByFilter({ type: 'recipe', sourcePath });
+					for (const item of items) {
+						await service.remove(item.id);
+					}
+					if (items.length === 0) {
+						await service.remove(`recipe_${fileName}`);
+					}
 				} catch (e) {
 					console.warn('[Index] 语义索引移除失败:', e.message);
 				}
@@ -875,10 +839,15 @@ function launch(projectRoot, port = 3000, options = {}) {
 		console.warn('⚠️	 构建后仍无 dashboard/dist，请手动在包目录执行: npm run build:dashboard');
 	}
 
+		const autoEmbed = require('../lib/context/autoEmbed');
+
 	app.listen(port, () => {
 		const url = `http://localhost:${port}`;
 		console.log(`🚀 AutoSnippet Dashboard 运行在: ${url}`);
 		openBrowserReuseTab(url);
+
+		// 恰当时机自动执行 embed（可 ASD_AUTO_EMBED=0 关闭）
+		autoEmbed.scheduleAutoEmbed(projectRoot, 5000);
 	});
 }
 

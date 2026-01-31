@@ -38,6 +38,7 @@ const share = require('./share.js');
 const init = require('./init.js');
 const ui = require('./ui.js');
 const config = require('../lib/infra/paths.js');
+const defaults = require('../lib/infra/defaults');
 const spmDepMapUpdater = require('../lib/spm/spmDepMapUpdater.js');
 const { execSync } = require('child_process');
 
@@ -46,7 +47,7 @@ function ensureSpmDepMapFile(projectRootDir) {
 	if (!fs.existsSync(knowledgeDir)) {
 		try { fs.mkdirSync(knowledgeDir, { recursive: true }); } catch (e) {}
 	}
-	const mapPath = path.join(knowledgeDir, 'AutoSnippet.spmmap.json');
+	const mapPath = path.join(knowledgeDir, defaults.SPMMAP_FILENAME);
 	
 	try {
 		fs.accessSync(mapPath, fs.constants.F_OK);
@@ -67,7 +68,7 @@ function ensureSpmDepMapFile(projectRootDir) {
 }
 
 function ensureRootMarker(dir) {
-	const rootMarkerPath = path.join(dir, 'AutoSnippetRoot.boxspec.json');
+	const rootMarkerPath = path.join(dir, defaults.ROOT_SPEC_FILENAME);
 	try {
 		fs.accessSync(rootMarkerPath, fs.constants.F_OK);
 		const m = ensureSpmDepMapFile(dir);
@@ -80,9 +81,9 @@ function ensureRootMarker(dir) {
 				root: true,
 				description: 'This file marks the project root directory for AutoSnippet',
 				recipes: {
-					dir: 'Knowledge/recipes',
+					dir: defaults.RECIPES_DIR,
 					format: 'md+frontmatter',
-					index: 'Knowledge/recipes/index.json',
+					index: defaults.RECIPES_INDEX
 				},
 				list: []
 			}, null, 4), 'utf8');
@@ -458,7 +459,7 @@ commander
 						result.moduleName = resolved.moduleName;
 					}
 					const rootSpecPath = await findPath.getRootSpecFilePath(specFile);
-					const rootSpecPathResolved = rootSpecPath || path.join(projectRoot, 'AutoSnippetRoot.boxspec.json');
+					const rootSpecPathResolved = rootSpecPath || path.join(projectRoot, defaults.ROOT_SPEC_FILENAME);
 					await create.createFromExtracted(projectRoot, rootSpecPathResolved, result);
 				} catch (err) {
 					console.error('❌ 创建失败:', err.message);
@@ -796,18 +797,9 @@ commander
 			}
 			console.log(`\n🧠 正在进行语义搜索: "${keyword}"...\n`);
 			
-			const VectorStore = require('../lib/ai/vectorStore');
-			const AiFactory = require('../lib/ai/AiFactory');
-			const store = new VectorStore(projectRoot);
-			const ai = await AiFactory.getProvider(projectRoot);
-			
-			if (!ai) {
-				console.error('未配置 AI 密钥。');
-				return;
-			}
-
-			const queryVector = await ai.embed(keyword);
-			const results = store.search(queryVector, 5);
+			const { getInstance } = require('../lib/context');
+			const service = getInstance(projectRoot);
+			const results = await service.search(keyword, { limit: 5 });
 
 			if (results.length === 0) {
 				console.log('未找到语义相关的知识点。请确保已运行 asd embed 构建索引。');
@@ -816,11 +808,12 @@ commander
 
 			console.log(`--- 语义相关知识 (Semantic Match) ---`);
 			results.forEach((res, i) => {
-				const score = (res.similarity * 100).toFixed(1);
-				console.log(`${i + 1}. [${res.metadata.type}] ${res.metadata.name} (相关度: ${score}%)`);
-				if (i === 0) {
+				const score = ((res.similarity || 0) * 100).toFixed(1);
+				const name = res.metadata?.name || res.metadata?.sourcePath || res.id;
+				console.log(`${i + 1}. [${res.metadata?.type || 'recipe'}] ${name} (相关度: ${score}%)`);
+				if (i === 0 && res.content) {
 					console.log('\n--- 最佳匹配预览 ---');
-					console.log(res.content.substring(0, 300) + '...');
+					console.log(res.content.substring(0, 300) + (res.content.length > 300 ? '...' : ''));
 					console.log('-------------------\n');
 				}
 			});
@@ -857,7 +850,7 @@ commander
 
 		// 2. 搜索 Recipes
 		let matchingRecipes = [];
-		const recipesDir = path.join(projectRoot, specData.recipes?.dir || specData.skills?.dir || 'Knowledge/recipes');
+		const recipesDir = path.join(projectRoot, specData.recipes?.dir || specData.skills?.dir || defaults.RECIPES_DIR);
 		if (fs.existsSync(recipesDir)) {
 			const recipeFiles = fs.readdirSync(recipesDir).filter(f => f.endsWith('.md'));
 			
@@ -892,7 +885,7 @@ commander
 
 commander
 	.command('embed')
-	.description('rebuild semantic vector index for semantic search (Recipes → embed → vector_index.json)')
+	.description('rebuild semantic vector index for semantic search (Recipes → embed → context/index)')
 	.option('--clear', 'clear existing index before indexing', false)
 	.action(async (options) => {
 		const projectRoot = await findPath.findProjectRoot(CMD_PATH);
@@ -901,47 +894,29 @@ commander
 			return;
 		}
 
-		const VectorStore = require('../lib/ai/vectorStore');
-		const AiFactory = require('../lib/ai/AiFactory');
-		const store = new VectorStore(projectRoot);
-		
-		if (options.clear) {
-			store.clear();
-			console.log('已清理现有索引。');
-		}
-
-		const ai = await AiFactory.getProvider(projectRoot);
-		if (!ai) {
-			console.error('未配置 AI 密钥，请检查 AutoSnippet.boxspec.json 或环境变量。');
-			return;
-		}
+		const IndexingPipeline = require('../lib/context/IndexingPipeline');
 
 		console.log('正在构建语义索引...');
 
-		// 1. 扫描 Recipes
-		const rootSpecPath = path.join(projectRoot, 'AutoSnippetRoot.boxspec.json');
-		const recipesDir = fs.existsSync(rootSpecPath)
-			? (() => { try { const s = JSON.parse(fs.readFileSync(rootSpecPath, 'utf8')); return path.join(projectRoot, s.recipes?.dir || s.skills?.dir || 'Knowledge/recipes'); } catch (_) { return path.join(projectRoot, 'Knowledge/recipes'); } })()
-			: path.join(projectRoot, 'Knowledge/recipes');
-		if (fs.existsSync(recipesDir)) {
-			const files = fs.readdirSync(recipesDir).filter(f => f.endsWith('.md'));
-			console.log(`正在索引 ${files.length} 个 Recipes...`);
-			
-			for (const file of files) {
-				const content = fs.readFileSync(path.join(recipesDir, file), 'utf8');
-				// 提取正文内容，去掉 frontmatter
-				const body = content.replace(/^---[\s\S]*?---/, '').trim();
-				const vector = await ai.embed(body || content);
-				store.upsert(`recipe_${file}`, vector, body || content, { name: file, type: 'recipe' });
-				process.stdout.write('.');
+		try {
+			const result = await IndexingPipeline.run(projectRoot, {
+				clear: options.clear,
+				onProgress: (msg) => {
+					if (msg === '.') process.stdout.write('.');
+					else console.log(msg);
+				}
+			});
+			console.log('\n✅ 语义索引构建成功！');
+			if (result.indexed > 0 || result.removed > 0 || result.skipped > 0) {
+				console.log(`   索引: ${result.indexed} | 跳过: ${result.skipped} | 移除: ${result.removed}`);
 			}
-			console.log('\nRecipes 索引完成。');
+			console.log('你可以使用 asd search -m 进行语义搜索。');
+		} catch (e) {
+			console.error('❌ 语义索引构建失败:', e.message);
+			if (e.message.includes('未配置 AI')) {
+				console.error('请检查 AutoSnippetRoot.boxspec.json 或 .env 中的 AI 配置。');
+			}
 		}
-
-		// 2. 扫描 Snippets (可选，后续支持)
-		
-		store.save();
-		console.log('✅ 语义索引构建成功！你可以使用 asd search --semantic 进行搜索。');
 	});
 
 commander
@@ -963,38 +938,21 @@ commander
 commander
 	.command('install:cursor-skill')
 	.description('install AutoSnippet Agent Skills into project .cursor/skills/ (run from project root)')
+	.option('--mcp', 'also add MCP config for autosnippet_context_search tool')
+	.option('--embed', 'after install, run asd embed to refresh semantic index')
 	.action(() => {
 		require(path.join(__dirname, '..', 'scripts', 'install-cursor-skill.js'));
 	});
 
 commander
-	.command('build-parser')
-	.description('build Swift parser (ParsePackage) in AutoSnippet installation dir (run from any dir)')
-	.action(() => {
-		const pkgRoot = path.resolve(__dirname, '..');
-		const parsePackageDir = path.join(pkgRoot, 'tools', 'parse-package');
-		const manifestPath = path.join(parsePackageDir, 'Package.swift');
-		const binaryPath = path.join(parsePackageDir, '.build', 'release', 'ParsePackage');
-		if (!fs.existsSync(manifestPath)) {
-			console.error('未找到 ParsePackage（Package.swift）。');
-			process.exit(1);
-		}
-		if (fs.existsSync(binaryPath)) {
-			console.log('Swift 解析器已存在，无需重新构建。');
-			return;
-		}
-		console.log('正在构建 Swift 解析器（ParsePackage）...');
-		const { spawnSync } = require('child_process');
-		const result = spawnSync('swift', ['build', '-c', 'release'], {
-			cwd: parsePackageDir,
-			stdio: 'inherit',
-			shell: false,
-		});
-		if (result.status === 0 && fs.existsSync(binaryPath)) {
-			console.log('✅ Swift 解析器安装完成。');
-		} else {
-			process.exit(result.status || 1);
-		}
+	.command('install:full')
+	.description('install AutoSnippet deps (run from any dir): full | --lancedb | --parser')
+	.option('--lancedb', 'only install LanceDB optional dependency')
+	.option('--parser', 'include Swift parser (ParsePackage) build')
+	.action((opts) => {
+		if (opts.lancedb) process.env.ASD_INSTALL_LANCEDB_ONLY = '1';
+		if (opts.parser) process.env.ASD_INSTALL_PARSER = '1';
+		require(path.join(__dirname, '..', 'scripts', 'install-full.js'));
 	});
 
 commander.addHelpText('after', `
@@ -1002,7 +960,9 @@ commander.addHelpText('after', `
 Examples:
 	asd setup								# 初始化 + 标记项目根目录
 	asd install:cursor-skill				# 将 skills 安装到项目 .cursor/skills/
-	asd build-parser						# 在 AutoSnippet 安装目录构建 Swift 解析器（任意目录可执行）
+	asd install:full						# 全量安装
+	asd install:full --parser				# 全量 + Swift 解析器
+	asd install:full --lancedb				# 仅安装 LanceDB
 	asd install							# 等价于 asd i
 	asd create							# 等价于 asd c
 	asd share								# 等价于 asd s

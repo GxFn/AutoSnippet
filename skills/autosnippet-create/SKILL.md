@@ -10,9 +10,10 @@ This skill tells the agent how to **submit module usage code** (that Cursor has 
 ## Instructions for the agent (read this first)
 
 1. **Goal**: When you (Cursor) have **finished writing or refining** module usage code, or the user says "把这段提交到 web / 加入知识库", guide them to **submit that code to the Dashboard** so it becomes a **Recipe** in `Knowledge/recipes/`.
-2. **Primary flow**: Code is ready (in editor or clipboard) → user opens or already has **`asd ui`** running → in the Dashboard click **New Recipe** → **Use Copied Code** (paste the code) → AI fills title/summary/trigger/headers → user reviews and **saves** → Recipe is added to the knowledge base.
-3. **Alternative (in editor)**: User adds **`// as:create`** in the source file, copies the code (or keeps the code you just wrote), saves the file → **watch** (from `asd watch` or `asd ui`) opens the Dashboard with current file path and clipboard → user completes "Use Copied Code" in the web and saves → added to knowledge base.
-4. **Project root** = directory with `AutoSnippetRoot.boxspec.json`. All commands run from the project root.
+2. **Do not modify Knowledge directly**: Agent **must not** create or modify any files under `Knowledge/recipes/` or `Knowledge/snippets/`. All Recipe and Snippet changes must be submitted via Dashboard Web and saved after human review.
+3. **Primary flow**: Code is ready (in editor or clipboard) → user opens or already has **`asd ui`** running → in the Dashboard click **New Recipe** → **Use Copied Code** (paste the code) → AI fills title/summary/trigger/headers → **user reviews and approves** → user **saves** → Recipe is added to the knowledge base.
+4. **Alternative (in editor)**: User adds **`// as:create`** in the source file, copies the code (or keeps the code you just wrote), saves the file → **watch** (from `asd watch` or `asd ui`) opens the Dashboard with current file path and clipboard → user completes "Use Copied Code" in the web, **reviews**, and saves → added to knowledge base.
+5. **Project root** = directory with `AutoSnippetRoot.boxspec.json`. All commands run from the project root.
 
 ---
 
@@ -20,10 +21,10 @@ This skill tells the agent how to **submit module usage code** (that Cursor has 
 
 **Scenario**: Cursor has just written or refined **module usage code** (e.g. how to use a network API, how to load WebView). The user wants to add it to the **knowledge base** via the **web (Dashboard)**.
 
-### Step 1: Code is ready
+### Step 1: Content is ready
 
-- The usage code is either in the current file (that Cursor edited) or the user has copied it to the clipboard.
-- If the user has not copied it yet, tell them to **copy the code block** you provided (or the relevant part of the file).
+- **Code scenario**: Usage code is in current file or clipboard. If not copied, prompt user to copy the code block you provide.
+- **Agent-drafted Recipe scenario**: If you have generated a full Recipe (frontmatter, Snippet, Usage Guide), **prefer writing to draft file** for user to copy (see "When full copy is difficult" below). Or output in copyable format in chat, guide user to copy → Dashboard → Use Copied Code → paste → review → save. Do not write to `Knowledge/recipes/` or `Knowledge/snippets/`.
 
 ### Step 2: Ensure the web (Dashboard) is running
 
@@ -32,11 +33,11 @@ This skill tells the agent how to **submit module usage code** (that Cursor has 
 
 ### Step 3: Submit via Dashboard
 
-1. In the Dashboard, click **New Recipe**.
-2. Click **Use Copied Code** (or equivalent: "Import from Clipboard").
-3. Paste the code (or it may be pre-filled if opened via `// as:create`). The Dashboard uses AI to fill title, summary, trigger, headers.
-4. User reviews and edits title/summary/category/trigger if needed, then **saves**.
-5. The Recipe is written to **`Knowledge/recipes/`** — i.e. **added to the knowledge base**.
+1. **If MCP is configured**: After user copies code, Agent can call **`autosnippet_open_create`** to open Dashboard New Recipe page (equivalent to Xcode `// as:create` save-then-jump). Page reads clipboard and fills. Optional: pass current file `path` for header resolution.
+2. **Or**: User manually opens `asd ui` → click **New Recipe** → **Use Copied Code** → paste.
+3. Pasted code: **Full Recipe MD** (with `---` frontmatter, `## Snippet / Code Reference`, `## AI Context / Usage Guide`) is parsed directly, **no AI rewrite**. Plain code still goes through AI analysis and fill.
+4. **User reviews and approves** — 人工审核 title/summary/category/trigger 及内容，确认无误后再保存。
+5. User **saves** → Recipe is written to **`Knowledge/recipes/`** — i.e. **added to the knowledge base**.
 
 ### Step 4: Optional — refresh Cursor's project context
 
@@ -44,18 +45,11 @@ This skill tells the agent how to **submit module usage code** (that Cursor has 
 
 ---
 
-## Alternative: // as:create (open web from editor)
+## Alternative: Copy then jump to Web (Xcode and Cursor)
 
-When the user is **in the editor** and the usage code is in the current file:
+**Option A — MCP (Cursor)**: After user copies code, Agent calls **`autosnippet_open_create`** to open Dashboard New Recipe page; page reads clipboard and fills. Optional: pass current file path for header resolution. Equivalent to Xcode copy→jump UX.
 
-1. User adds a line **`// as:create`** (e.g. above or below the code block).
-2. User **copies** the usage code to the clipboard.
-3. User **saves** the file.
-4. **Watch** must be running: **`asd watch`** in a terminal, or **`asd ui`** (Dashboard starts watch in the background).
-5. Watch detects the save and **opens the Dashboard** with the current file path; clipboard content can trigger "Use Copied Code" with header resolution from the path.
-6. User completes the form in the web and **saves** → Recipe is added to the knowledge base.
-
-Use this when the user prefers to stay in the editor and have the web open automatically.
+**Option B — // as:create (Xcode / in-editor)**: User adds **`// as:create`**, copies code, saves file. Requires **`asd watch`** or **`asd ui`** running; Watch detects save and opens Dashboard with path and clipboard.
 
 ---
 
@@ -69,16 +63,31 @@ Use this when the user prefers to stay in the editor and have the web open autom
 
 All of these **submit through the web (Dashboard)** and result in content in **`Knowledge/recipes/`** (and optionally Snippet). The main flow above (Use Copied Code) is for **code that Cursor has just written**.
 
+**When generating content**: If Agent has drafted Recipe or Snippet content, pass the full content to user for Dashboard submission. Do not write to `Knowledge/recipes/` or `Knowledge/snippets/`.
+
+**When full copy is difficult**: Long content in chat is hard to copy fully. Agent should **write to draft file** at project root: `_draft_recipe.md` (or `_draft_snippet.md`), outside Knowledge. User can: ① Open draft → select all → copy → Dashboard → Use Copied Code → paste; or ② Dashboard → New Recipe → **Scan File**, enter path `_draft_recipe.md`. Delete draft after save. Optional: add `_draft_*.md` to `.gitignore`.
+
 ---
 
 ## Quick reference
 
 | User / Cursor situation | Action |
 |-------------------------|--------|
-| "把这段提交到 web / 加入知识库" (code just written) | Copy code → **`asd ui`** → New Recipe → **Use Copied Code** → paste → review → save. |
-| Code in current file, want to open web from editor | Add **`// as:create`**, copy code, save; ensure **`asd watch`** or **`asd ui`** is running. |
+| "把这段提交到 web / 加入知识库" (code just written) | **MCP**：提示用户复制代码 → 调用 **`autosnippet_open_create`**（可选传 path）→ 页面读取剪贴板。或 Copy → **`asd ui`** → New Recipe → Use Copied Code → paste → review → save. |
+| Agent 起草了 Recipe/Snippet 内容 | **Prefer**: Write to `_draft_recipe.md` (project root) → user opens, copies all → call **`autosnippet_open_create`** or manual Dashboard → Use Copied Code → paste → review → save. |
+| Code in current file, want to open web from editor | **MCP**：`autosnippet_open_create`（传 path）。或 Add **`// as:create`**, copy, save; ensure **`asd watch`** / **`asd ui`** running. |
 | Code already in a file (path known) | **`asd ui`** → New Recipe → enter path → **Scan File** → review → save. |
+| Agent 起草内容无法完整复制 | Write to `_draft_recipe.md` → user Scan File or open & copy → Dashboard → review → save. |
 | Batch from Target | **`asd ais <Target>`** → **`asd ui`** → **Candidates** → approve. |
+
+---
+
+## MCP Tools (when asd ui is running)
+
+| Tool | Use |
+|------|-----|
+| `autosnippet_context_search` | On-demand semantic search of knowledge base; pass `query`, `limit?` |
+| `autosnippet_open_create` | Open Dashboard New Recipe page (copy→jump); equivalent to Xcode `// as:create`. Optional `path` for header resolution |
 
 ---
 

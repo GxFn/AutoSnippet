@@ -1,7 +1,9 @@
 (*
-  用于 asd ui：在 macOS 上优先复用已打开的同 URL 标签（如 http://localhost:3000），
-  找不到则新建标签。基于 create-react-app 的 openChrome.applescript 逻辑简化。
-  用法: osascript openChrome.applescript "URL" ["浏览器名称"]
+  用于 asd ui / watch (as:create、as:search)：在 macOS 上优先复用已打开的 Dashboard 标签，
+  找不到则新建标签。支持「按 base URL 查找 → 找到则导航到目标 URL」以复用已有前端。
+  用法:
+    osascript openChrome.applescript "URL" ["浏览器名称"]
+    osascript openChrome.applescript "lookupBase" "targetUrl" "浏览器名称"  -- 按 base 查找，导航到 target
 *)
 property targetTab: null
 property targetTabIndex: -1
@@ -9,8 +11,14 @@ property targetWindow: null
 property theProgram: "Google Chrome"
 
 on run argv
-	set theURL to item 1 of argv
-	if (count of argv) > 1 then
+	set lookupUrl to item 1 of argv
+	set targetUrl to lookupUrl
+	if (count of argv) = 3 then
+		-- lookupBase, targetUrl, browser
+		set targetUrl to item 2 of argv
+		set theProgram to item 3 of argv
+	else if (count of argv) = 2 then
+		-- url, browser
 		set theProgram to item 2 of argv
 	end if
 
@@ -20,9 +28,11 @@ on run argv
 				make new window
 			end if
 
-			-- 1: 查找已打开该 URL 的标签，若有则激活并聚焦（不强制刷新）
-			set found to my lookupTabWithUrl(theURL)
+			-- 1: 查找已打开包含 lookupUrl 的标签
+			set found to my lookupTabWithUrl(lookupUrl)
 			if found then
+				-- 复用：激活并导航到目标 URL（支持 as:create / as:search 复用已有 Dashboard 标签）
+				set targetTab's URL to targetUrl
 				set targetWindow's active tab index to targetTabIndex
 				tell targetWindow to activate
 				set index of targetWindow to 1
@@ -32,7 +42,7 @@ on run argv
 			-- 2: 未找到则新开标签
 			tell window 1
 				activate
-				make new tab with properties {URL:theURL}
+				make new tab with properties {URL:targetUrl}
 			end tell
 		end tell
 	end using terms from

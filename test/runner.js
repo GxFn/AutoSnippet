@@ -61,8 +61,16 @@ function cleanup() {
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	}
 
-	// 递归清理可能被注入的临时标记 (简单实现)
-	// 这里通常不需要全盘扫描，但在集成测试中我们可以确保测试过的文件被还原
+	// 清理真实环境测试产生的目录（embed、install-skill 在 testHome 上的输出）
+	const dirsToDelete = [
+		path.join(testHome, 'Knowledge', '.autosnippet'),
+		path.join(testHome, '.cursor', 'skills')
+	];
+	dirsToDelete.forEach(p => {
+		if (fs.existsSync(p)) {
+			try { fs.rmSync(p, { recursive: true, force: true }); } catch (e) {}
+		}
+	});
 }
 
 // --- 3. 随机文件选择 ---
@@ -347,6 +355,65 @@ async function testSpmmap() {
 	console.log('  ✅ asd spm-map --dry-run 通过');
 }
 
+async function testEmbed() {
+	console.log('\n▶️ 运行 embed 测试 (自建项目 + Mock AI)...');
+	const projectDir = await prepareSelfBuiltProject('.asd_embed_test');
+	runAsd('embed --clear', projectDir);
+	const contextIndex = path.join(projectDir, 'Knowledge', '.autosnippet', 'context', 'index', 'vector_index.json');
+	if (!fs.existsSync(contextIndex)) throw new Error('embed 未生成 vector_index.json');
+	const data = JSON.parse(fs.readFileSync(contextIndex, 'utf8'));
+	if (!data.items || data.items.length === 0) throw new Error('embed 索引为空');
+	console.log(`  ✅ asd embed 通过（索引 ${data.items.length} 条）`);
+	fs.rmSync(projectDir, { recursive: true, force: true });
+}
+
+async function testInstallCursorSkill() {
+	console.log('\n▶️ 运行 install:cursor-skill 测试 (自建项目)...');
+	const projectDir = await prepareSelfBuiltProject('.asd_skill_test');
+	const skillsDir = path.join(projectDir, '.cursor', 'skills');
+	execSync(`node ${path.join(projectRoot, 'scripts/install-cursor-skill.js')}`, { cwd: projectDir, env: { ...process.env, ASD_QUIET: 'true' }, encoding: 'utf8' });
+	if (!fs.existsSync(skillsDir)) throw new Error('install:cursor-skill 未创建 .cursor/skills');
+	const autosnippetRecipes = path.join(skillsDir, 'autosnippet-recipes', 'references');
+	if (!fs.existsSync(autosnippetRecipes)) throw new Error('未生成 autosnippet-recipes/references');
+	const projectContext = path.join(autosnippetRecipes, 'project-recipes-context.md');
+	if (!fs.existsSync(projectContext)) throw new Error('未生成 project-recipes-context.md');
+	const byCategory = path.join(autosnippetRecipes, 'by-category');
+	if (!fs.existsSync(byCategory)) throw new Error('未生成 by-category 切片');
+	const catFiles = fs.readdirSync(byCategory).filter(f => f.endsWith('.md'));
+	if (catFiles.length === 0) throw new Error('by-category 下无 md 文件');
+	console.log(`  ✅ install:cursor-skill 通过（by-category: ${catFiles.join(', ')}）`);
+	fs.rmSync(projectDir, { recursive: true, force: true });
+}
+
+async function testEmbedReal() {
+	console.log('\n▶️ 运行 embed 测试 (真实环境 BiliDiliForTest)...');
+	runAsd('init', testHome);
+	runAsd('root', testHome);
+	runAsd('embed --clear', testHome);
+	const contextIndex = path.join(testHome, 'Knowledge', '.autosnippet', 'context', 'index', 'vector_index.json');
+	if (!fs.existsSync(contextIndex)) throw new Error('embed 未生成 vector_index.json');
+	const data = JSON.parse(fs.readFileSync(contextIndex, 'utf8'));
+	if (!data.items || !Array.isArray(data.items)) throw new Error('embed 索引格式异常');
+	console.log(`  ✅ asd embed (真实环境) 通过（索引 ${data.items.length} 条）`);
+}
+
+async function testInstallCursorSkillReal() {
+	console.log('\n▶️ 运行 install:cursor-skill 测试 (真实环境 BiliDiliForTest)...');
+	runAsd('init', testHome);
+	runAsd('root', testHome);
+	execSync(`node ${path.join(projectRoot, 'scripts/install-cursor-skill.js')}`, { cwd: testHome, env: { ...process.env, ASD_QUIET: 'true' }, encoding: 'utf8' });
+	const skillsDir = path.join(testHome, '.cursor', 'skills');
+	if (!fs.existsSync(skillsDir)) throw new Error('install:cursor-skill 未创建 .cursor/skills');
+	const recipesRef = path.join(skillsDir, 'autosnippet-recipes', 'references');
+	if (!fs.existsSync(recipesRef)) throw new Error('未生成 autosnippet-recipes/references');
+	const skillDirs = fs.readdirSync(skillsDir).filter(n => n.startsWith('autosnippet-'));
+	if (skillDirs.length === 0) throw new Error('未安装任何 autosnippet skill');
+	const byCategory = path.join(recipesRef, 'by-category');
+	const hasByCategory = fs.existsSync(byCategory);
+	const catInfo = hasByCategory ? fs.readdirSync(byCategory).filter(f => f.endsWith('.md')).join(', ') : '(无 recipes 时可为空)';
+	console.log(`  ✅ install:cursor-skill (真实环境) 通过（skills: ${skillDirs.length}，by-category: ${catInfo}）`);
+}
+
 async function testWatch() {
 	console.log('\n▶️ 运行 asd watch 模式测试 (自建项目)...');
 	const projectDir = await prepareSelfBuiltProject('.asd_watch_test');
@@ -435,11 +502,11 @@ async function testWatch() {
 }
 
 // --- 5. 根据修改内容选择测试 ---
-const SUITE_NAMES = ['basic', 'create', 'install', 'search', 'update', 'spmmap', 'watch'];
+const SUITE_NAMES = ['basic', 'create', 'install', 'search', 'update', 'spmmap', 'watch', 'embed', 'install-skill', 'embed-real', 'install-skill-real'];
 
 /** 路径模式 → 相关测试套件（匹配到任一条即加入对应套件） */
 const PATH_TO_SUITES = [
-	[/bin\/asnip\.js$/i, ['basic', 'create', 'install', 'search', 'update', 'spmmap', 'watch']],
+	[/bin\/asnip\.js$/i, ['basic', 'create', 'install', 'search', 'update', 'spmmap', 'watch', 'embed']],
 	[/bin\/init\.js$/i, ['basic', 'install']],
 	[/bin\/findPath\.js$/i, ['basic', 'create', 'search', 'spmmap']],
 	[/bin\/create\.js$/i, ['create', 'update']],
@@ -449,10 +516,13 @@ const PATH_TO_SUITES = [
 	[/lib\/snippet\/snippetFactory\.js$/i, ['create']],
 	[/lib\/snippet\/markerLine\.js$/i, ['create']],
 	[/lib\/watch\/fileWatcher\.js$/i, ['watch']],
-	[/lib\/ai\//i, ['create']],
-	[/lib\/infra\/(paths|cacheStore)\.js$/i, ['basic', 'install', 'create']],
+	[/lib\/ai\//i, ['create', 'embed']],
+	[/lib\/infra\/(paths|cacheStore|defaults)\.js$/i, ['basic', 'install', 'create', 'embed', 'install-skill']],
+	[/lib\/context\//i, ['embed', 'install-skill', 'embed-real', 'install-skill-real']],
+	[/scripts\/install-cursor-skill\.js$/i, ['install-skill', 'install-skill-real']],
+	[/lib\/spm\/targetScanner\.js$/i, ['embed']],
 	[/spmDepMapUpdater|spmmap|spm-map/i, ['spmmap']],
-	[/test\/runner\.js$/i, ['basic', 'create', 'install', 'search', 'update', 'spmmap', 'watch']],
+	[/test\/runner\.js$/i, SUITE_NAMES],
 ];
 
 /**
@@ -496,7 +566,7 @@ function getRunChanged() {
 	const changed = getChangedFiles(fileArgs.length > 0 ? fileArgs : null);
 	let suites = selectSuitesFromChanges(changed);
 	// 若选中了依赖 init 的套件，自动加入 basic（保证 init/root 已执行）
-	const needsBasic = ['create', 'install', 'update', 'search', 'spmmap', 'watch'];
+	const needsBasic = ['create', 'install', 'update', 'search', 'spmmap', 'watch', 'embed', 'install-skill', 'embed-real', 'install-skill-real'];
 	if (suites.length > 0 && suites.some(s => needsBasic.includes(s))) {
 		suites = ['basic', ...suites.filter(s => s !== 'basic')];
 		suites = [...new Set(suites)];
@@ -517,7 +587,11 @@ const runOnlyInstall = process.argv.includes('--install');
 const runOnlySearch = process.argv.includes('--search');
 const runOnlyUpdate = process.argv.includes('--update');
 const runOnlySpmmap = process.argv.includes('--spmmap');
-const runAll = !runChanged && !runOnlyBasic && !runOnlyWatch && !runOnlyCreate && !runOnlyInstall && !runOnlySearch && !runOnlyUpdate && !runOnlySpmmap;
+const runOnlyEmbed = process.argv.includes('--embed');
+const runOnlyInstallSkill = process.argv.includes('--install-skill');
+const runOnlyEmbedReal = process.argv.includes('--embed-real');
+const runOnlyInstallSkillReal = process.argv.includes('--install-skill-real');
+const runAll = !runChanged && !runOnlyBasic && !runOnlyWatch && !runOnlyCreate && !runOnlyInstall && !runOnlySearch && !runOnlyUpdate && !runOnlySpmmap && !runOnlyEmbed && !runOnlyInstallSkill && !runOnlyEmbedReal && !runOnlyInstallSkillReal;
 
 async function main() {
 	console.log('🚀 开始 AutoSnippet 自动化自测...');
@@ -535,6 +609,10 @@ async function main() {
 	const runUpdate = runAll || runOnlyUpdate || (runChanged && selected.includes('update'));
 	const runSpmmap = runAll || runOnlySpmmap || (runChanged && selected.includes('spmmap'));
 	const runWatch = runAll || runOnlyWatch || (runChanged && selected.includes('watch'));
+	const runEmbed = runAll || runOnlyEmbed || (runChanged && selected.includes('embed'));
+	const runInstallSkill = runAll || runOnlyInstallSkill || (runChanged && selected.includes('install-skill'));
+	const runEmbedReal = runAll || runOnlyEmbedReal || (runChanged && selected.includes('embed-real'));
+	const runInstallSkillReal = runAll || runOnlyInstallSkillReal || (runChanged && selected.includes('install-skill-real'));
 
 	try {
 		cleanup(); // 运行前清理 (包括清理 tempDir)
@@ -550,6 +628,10 @@ async function main() {
 		if (runUpdate) await testUpdate();
 		if (runSpmmap) await testSpmmap();
 		if (runWatch) await testWatch();
+		if (runEmbed) await testEmbed();
+		if (runInstallSkill) await testInstallCursorSkill();
+		if (runEmbedReal) await testEmbedReal();
+		if (runInstallSkillReal) await testInstallCursorSkillReal();
 
 		console.log('\n✨ 所有测试用例执行完毕！');
 	} catch (err) {

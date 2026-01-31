@@ -16,6 +16,13 @@
 - **update**：验证 Snippet 信息更新能力。
 - **spm-map**：验证 SPM 映射扫描功能。
 - **watch**：在**自建临时项目**中验证 AI 审查输出与标记清理，全方位覆盖 **Swift** 和 **OC**。
+- **embed**：在自建项目中验证 `asd embed --clear`（Mock AI），索引写入 `Knowledge/.autosnippet/context/`。
+- **install-skill**：在自建项目中验证 `install:cursor-skill` 生成 `by-category/`、`project-recipes-context.md` 等。
+- **embed-real**：在**真实环境** BiliDiliForTest 中验证 `asd embed`，多 Recipe/多模块场景。
+- **install-skill-real**：在**真实环境** BiliDiliForTest 中验证 `install:cursor-skill`，多 Skills 与 by-category 切片。
+
+### 单元测试（无外部依赖）
+- **test:unit**：`defaults.inferCategory`、`chunker` 各策略、`context` 常量与 JsonAdapter。
 
 ### 根据修改内容选择测试（`--changed`）
 - **AI 修改完代码后请执行**：`npm run test:changed`（按 git 变更选测），或传入本次修改的文件路径只跑相关测试：`node test/runner.js --changed -- bin/create.js lib/snippet/specRepository.js`。
@@ -44,13 +51,18 @@ npm run test:changed
 # 示例（仅跑与修改文件相关的测试）：node test/runner.js --changed -- bin/create.js lib/snippet/specRepository.js
 
 # 仅运行指定模块
-node test/runner.js --basic    # 仅 asd -v / init / root
-node test/runner.js --create   # 仅 create：AI 模式 + 预置模式
-node test/runner.js --install  # 仅 asd install（校验 .codesnippet 写入）
-node test/runner.js --search   # 仅 asd search（关键词 / 无关键词）
-node test/runner.js --update   # 仅 asd update（修改 snippet summary）
-node test/runner.js --spmmap   # 仅 asd spm-map --dry-run
-node test/runner.js --watch    # 仅 asd watch（含 as:guard / as:create）
+node test/runner.js --basic         # 仅 asd -v / init / root
+node test/runner.js --create        # 仅 create：AI 模式 + 预置模式
+node test/runner.js --install       # 仅 asd install（校验 .codesnippet 写入）
+node test/runner.js --search        # 仅 asd search（关键词 / 无关键词）
+node test/runner.js --update        # 仅 asd update（修改 snippet summary）
+node test/runner.js --spmmap        # 仅 asd spm-map --dry-run
+node test/runner.js --watch         # 仅 asd watch（含 as:guard / as:create）
+node test/runner.js --embed           # 仅 asd embed（Mock AI，自建项目）
+node test/runner.js --install-skill   # 仅 install:cursor-skill（自建项目）
+node test/runner.js --embed-real      # 仅 asd embed（真实环境 BiliDiliForTest）
+node test/runner.js --install-skill-real  # 仅 install:cursor-skill（真实环境）
+npm run test:unit                   # 单元测试（defaults、chunker、context）
 ```
 
 ## 🌍 全局同步开发 (Local-to-Global)
@@ -72,7 +84,8 @@ ASD_UI_BUILD=1 asd ui
 ```
 
 ## 📂 目录结构
-- `runner.js`: 自测运行器（基础 / create / watch 用例）。
+- `runner.js`: 集成测试运行器（basic / create / install / search / update / spmmap / watch / embed / install-skill）。
+- `unit/`: 单元测试（defaults、chunker、context），无外部依赖。
 - `README.md`: 本说明。
 
 临时目录与杂物均不在本目录：测试时 Xcode Snippets 与缓存重定向到测试工程下的 `.asd_test_temp`，测试结束会清理。

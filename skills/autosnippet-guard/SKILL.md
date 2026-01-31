@@ -14,12 +14,16 @@ description: When the user wants to check if the current file meets project stan
 
 ## How to recommend (you choose wording)
 
-- "在文件里写一行 `// as:guard`（或 `// as:guard 关键词`），保存后 watch 会按知识库（Recipes）用 AI 审查当前文件，结果输出到终端。"
+- "Add `// as:guard` (or `// as:guard keyword`) in the file; after save, watch runs AI review against Recipes, output to terminal."
 - Ensure `asd watch` or `asd ui` is running in the project root so watch can detect the save.
 
 ## What Guard uses
 
 - The same **Recipe** content in `Knowledge/recipes/` (and `references/project-recipes-context.md`) is what Guard uses as the standard. No separate config.
+
+## On-Demand Context (when asd ui is running)
+
+Use MCP tool `autosnippet_context_search` for on-demand semantic search; pass `query`, `limit?`. Requires AutoSnippet MCP configured and `asd ui` running.
 
 ## Relation
 

@@ -1,14 +1,18 @@
 {
 	"name": "autosnippet",
-	"version": "1.3.7",
+	"version": "1.4.0",
 	"description": "A iOS module management tool.",
 	"main": "index.js",
 	"scripts": {
 		"postinstall": "node scripts/ensure-parse-package.js",
 		"build:parser": "cd tools/parse-package && swift build -c release",
 		"install:cursor-skill": "node scripts/install-cursor-skill.js",
+		"install:cursor-skill:mcp": "node scripts/install-cursor-skill.js --mcp",
+		"install:full": "node scripts/install-full.js",
+		"verify:context-api": "node scripts/verify-context-api.js",
 		"build:dashboard": "cd dashboard && npm run build",
 		"test": "node test/runner.js",
+		"test:unit": "node test/unit/run-all.js",
 		"test:changed": "node test/runner.js --changed",
 		"test:global": "node test/runner.js --global",
 		"dev:link": "npm install -g .",
@@ -41,6 +45,7 @@
 	},
 	"dependencies": {
 		"@google/generative-ai": "^0.21.0",
+		"@modelcontextprotocol/sdk": "^1.25.3",
 		"axios": "^1.6.7",
 		"chokidar": "^3.6.0",
 		"commander": "^7.2.0",
@@ -51,7 +56,8 @@
 		"minimist": "^1.2.5",
 		"open": "^8.0.4",
 		"undici": "^6.23.0",
-		"xml2js": "^0.6.2"
+		"xml2js": "^0.6.2",
+		"zod": "^4.3.6"
 	},
 	"bugs": {
 		"url": "https://github.com/GxFn/AutoSnippet/issues"
@@ -74,6 +80,9 @@
 		"doc": "docs",
 		"lib": "lib",
 		"test": "test"
+	},
+	"optionalDependencies": {
+		"@lancedb/lancedb": "^0.23.0"
 	},
 	"devDependencies": {}
 }

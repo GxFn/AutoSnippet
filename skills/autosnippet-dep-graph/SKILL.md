@@ -55,6 +55,10 @@ When present, `graph` contains:
 3. **Suggest edits**: When suggesting new dependencies or module changes, align with existing `packages` and `products` and the direction of `graph.edges` (no cycles if policy says so).
 4. **If file missing or stale**: Tell the user to run `asd spm-map` from the project root to generate or update the file.
 
+## On-Demand Context (when asd ui is running)
+
+Use MCP tool `autosnippet_context_search` for on-demand semantic search; pass `query`, `limit?`. Requires AutoSnippet MCP configured and `asd ui` running.
+
 ## Relation to Other AutoSnippet Skills
 
 - **autosnippet-recipes**: Recipes live under `Knowledge/recipes/`; dep graph lives under `Knowledge/AutoSnippet.spmmap.json`. Both are under the same project root.

@@ -1,241 +1,101 @@
 # AutoSnippet
 
-基于 SPM 的 iOS 模块 Snippet 与 AI 知识库工具。将模块使用示范写入 Xcode Snippets，支持分类检索、头文件注入，以及基于 AI 的知识沉淀与可视化管理。
-
-开发者与 AI 生产的代码，通过人工评审之后沉淀为 Snippet + Recipe 知识库，开发者通过 Snippets 得到标准代码与依赖注入，AI 通过 Recipes 得到标准代码与项目上下文，项目被迅速解构，产出可视化交互的知识库。
+连接开发者、AI 与项目知识库：人工审核沉淀标准，知识库存储 Recipe + Snippet，AI 按规范生成代码。基于 SPM，打通 Xcode 补全与 Cursor 按需检索。
 
 [![npm version](https://img.shields.io/npm/v/autosnippet.svg?style=flat-square)](https://www.npmjs.com/package/autosnippet)
-[![npm downloads](https://img.shields.io/npm/dm/autosnippet.svg?style=flat-square)](https://www.npmjs.com/package/autosnippet)
 [![License](https://img.shields.io/npm/l/autosnippet.svg?style=flat-square)](https://github.com/GxFn/AutoSnippet/blob/main/LICENSE)
 
 ---
 
-## 安装
+### 开发者、AI 与知识库
+
+| 角色 | 职责 | 能力 |
+|------|------|------|
+| **开发者** | 审核与决策；维护项目标准 | 在 Dashboard 审核 Candidate、保存 Recipe；使用 Snippet 补全、`// as:search` 插入；运行 `asd embed`、`asd ui` |
+| **Cursor Agent** | 按规范生成代码；检索知识库 | 通过 Skills 理解规范；MCP 按需检索、打开新建 Recipe 页；起草内容供人工审核，不直接改 Knowledge |
+| **项目内 AI** | 提取、摘要、扫描、审查 | `asd ais` 扫描；Use Copied Code 分析填充；Guard 审查；Dashboard RAG。由 `.env` 配置 |
+| **知识库** | 存储与提供项目标准 | Recipes、Snippets、语义向量索引；Guard、搜索、两种 AI 的上下文均依赖此 |
+
+---
+
+## 安装与快速开始
 
 ```bash
 npm install -g autosnippet
 ```
 
-安装时默认不构建 Swift 解析器（ParsePackage），安装更快；未构建时 SPM 解析会回退到系统 `swift package dump-package` 或 AST-lite。若需优先使用 Swift 解析器，**在任意目录**执行：`asd build-parser`（或在安装时设置 `ASD_BUILD_SWIFT_PARSER=1 npm install -g autosnippet`）。
-
----
-
-## 快速开始
-
-**项目根目录**：即将在此目录创建 `AutoSnippetRoot.boxspec.json` 的目录（单仓库用仓库根即可）。后续 `asd ui`、编辑器内指令、命令行等均以此目录为基准。
-
-在**你的业务项目根目录**执行：
-
-```bash
-# 1) 一键初始化（创建 AutoSnippetRoot.boxspec.json 等）
-asd setup
-
-# 2) 启动 Web 管理后台（会同时启动 watch，编辑器内指令才会生效）
-asd ui
-```
-
-**首次运行 `asd ui`** 时，若未检测到 Dashboard 前端，会自动在 AutoSnippet 安装目录执行构建（约 1–2 分钟）。浏览器会自动打开 Dashboard，可在 **使用说明** 页查看完整说明。
-
-### 界面预览
-
-![Dashboard 概览](images/20260131014718_38_167.png)
-
-![依赖关系 / 搜索](images/20260131014843_41_167.png)
-
-![Recipes / 候选](images/20260131014812_40_167.png)
-
----
-
-## 新项目：AI 扫描 + 人工审核 → 知识库与依赖 → 与 Cursor/AI 形成闭环
-
-新项目在完成「快速开始」后，可按以下方式**用 AI 扫描 + 人工审核**快速组建知识库和依赖关系，再配合 Cursor 与其他 AI 形成闭环：
-
-1. **组建知识库**：在项目根执行 **`asd ais <Target>`** 或 **`asd ais --all`**，对 SPM Target 做批量 AI 扫描；结果进入 Dashboard 的 **Candidates** 页。在 Dashboard 中逐条审核，通过则入库为 Recipe（或 Snippet+Recipe），不需要的删除。反复几轮即可把现有代码中的「标准用法」沉淀到 `Knowledge/recipes/`。
-
-2. **组建依赖关系**：在项目根执行 **`asd spm-map`**（或 Dashboard 内刷新依赖关系图），生成 `Knowledge/AutoSnippet.spmmap.json`，供后续查阅「谁依赖谁」、模块边界。
-
-3. **可选：语义索引**：执行 **`asd embed`**，为 Recipes 构建语义向量索引，便于 **as:guard** 语义检索、**as:search** 与 Dashboard 内语义搜索。
-
-4. **配合 Cursor**：在项目根执行 **`asd install:cursor-skill`**，将 AutoSnippet 的 skills 安装到项目的 `.cursor/skills/`。Cursor Agent 即可获得「项目 Recipe 上下文」「依赖结构」「创建流程」等说明，按项目规范回答与改代码。
-
-5. **闭环**：日常开发中，用 Cursor 或其他 AI 基于知识库与依赖结构写代码；写完的模块使用代码通过 **`// as:create`** 或 Dashboard **New Recipe** 提交到 web、加入知识库；用 **`// as:guard`** 按知识库做合规审查；用 **`Snippet`** 联想插入标准代码 或 **`// as:search`** 从知识库检索插入标准代码。知识库与依赖随人工审核和提交持续更新，AI 始终基于最新上下文，形成「扫描 → 审核 → 沉淀 → Cursor/AI 使用 → 再沉淀」的闭环。
-
----
-
-## 编辑器内指令
-
-在源码中写入以下 **as:** 指令并**保存**，由 **watch** 或 **CLI** 解析执行。**需先运行 `asd watch` 或 `asd ui`**（`asd ui` 会在后台启动 watch），编辑器内指令才会在保存时生效。
-
-如果你接入了 AI 开发流程，这些功能会作为 Skills 交给 AI 在恰当的时机提供给你选择执行。
-
-| 指令 | 作用 | 触发时机 |
-|------|------|----------|
-| **`// as:create`** | 用剪贴板 + 当前文件路径创建 Recipe，打开 Dashboard | 保存文件后 watch 检测 |
-| **`// as:guard`** [关键词] | 按知识库（Recipes）用 AI 审查当前文件，结果输出终端 | 保存文件后 watch 检测 |
-| **`// as:search`** [关键词] | 从知识库检索 Recipe/Snippet 并插入 | 保存后 watch 检测 |
-| **`// as:include`** Header [path] | Snippet 体内的头文件标记，自动在文件头部注入 `#import` | 保存文件后 watch 检测 |
-| **`// as:import`** ModuleName | Snippet 体内的 Swift 模块标记，自动在文件头部注入 `import` | 保存文件后 watch 检测 |
-
-### // as:create
-
-在源码中写一行 **`// as:create`**，把要沉淀的代码**复制到剪贴板**，保存文件。watch 检测到后会**打开 Dashboard** 并带当前文件路径；若剪贴板有内容，会走「Use Copied Code」流程并自动解析头文件。适合：在编辑器里写完模块使用代码后，直接提交到 web、加入知识库。
-
-### // as:guard
-
-在源码中写 **`// as:guard`** 或 **`// as:guard 关键字`**，保存文件。watch 会按 **知识库（Recipes）** 用 AI 审查当前文件是否符合项目规范，**结果输出到终端**。若已执行 `asd embed`，会优先用语义检索选取相关 Recipe。
-
-### // as:search
-
-在源码中写 **`// as:search`** 或 **`// as:search 关键词`**，保存文件。watch 检测到后会**打开 Dashboard**，展示从知识库（Recipes）中按关键词检索到的候选；不写关键词则展示全部。在列表中点选一条 Recipe 并点击「插入」，该 Recipe 的代码块会**替换当前行**（即 `// as:search` 所在行）并写回文件，实现「选即插」。插入标准代码也可在 Xcode 中通过 **Snippet 联想（trigger 补全）** 直接选用已同步的 Snippet。
-
-### // as:include 与 // as:import（头文件/模块标记）
-
-用于 **Snippet 体内**（写入 `.codesnippet` 的 body），表示插入该 Snippet 时需要的头文件/模块；**watch** 在用户保存文件时，会在**文件头部**自动注入对应的 `#import` 或 `import`。
-
-- **ObjC 头文件**：`// as:include <ModuleName/Header.h> [相对路径]`
-- **Swift**：`// as:import ModuleName`
-
-保存时可勾选「引入头文件」，会写入上述标记；在项目根运行 `asd watch`（或 `asd ui`）后，在 Xcode 中选中 Snippet 的 headerVersion 并保存，即可在文件头部注入依赖。
-
----
-
-## 术语
-
-- **Snippet**：写入 Xcode 的代码片段，通过 trigger（补全键）或库面板使用；trigger 以配置的触发符开头（默认 **@**，可通过环境变量 `ASD_TRIGGER_SYMBOL` 更换）。
-- **Recipe（配方）**：存放在 `Knowledge/recipes/` 下的 Markdown 知识，供 AI 检索、Guard 审查与搜索。
-- **项目根**：含 `AutoSnippetRoot.boxspec.json` 的目录。
-
----
-
-## AI 支持与配置
-
-### 当前支持的 AI
-
-| 提供商 | 默认模型 | 说明 |
-|--------|----------|------|
-| **Google Gemini** | `gemini-2.0-flash` | 用于 Snippet 提取、摘要、RAG 问答等 |
-| **OpenAI** | `gpt-4o` | 支持 OpenAI 标准接口 |
-| **DeepSeek** | `deepseek-chat` | 深度求索系列模型 |
-| **Anthropic Claude** | `claude-3-5-sonnet-20240620` | 支持 Claude 系列模型 |
-| **Ollama** | `llama3` | **本地 AI 支持**，默认地址 `http://localhost:11434/v1` |
-
-### 配置指南
-
-**1. 必填：API Key**
-
-在**项目根目录**创建 `.env` 文件（可复制 `.env.example`），或通过环境变量传入 API Key：
-
-```bash
-export ASD_GOOGLE_API_KEY="你的 API Key"   # 或 ASD_OPENAI_API_KEY、ASD_DEEPSEEK_API_KEY、ASD_CLAUDE_API_KEY
-```
-
-在项目根执行 `asd ai-test` 可验证当前配置是否可用。未配置时，依赖 AI 的功能会报错或提示。
-
-**2. 可选**：`ASD_AI_PROVIDER`、`ASD_AI_MODEL`、各提供商 `_BASE_URL` 等，见项目内 `.env.example`。
-
-**3. 可选：代理**：设置 `https_proxy` / `http_proxy` 访问外网 API。国内直连 Google/OpenAI 易失败，建议在 `.env` 中配置代理（如 `https_proxy=http://127.0.0.1:7890`）或改用国内可用的 `ASD_AI_PROVIDER=deepseek` 等。
-
----
-
-## Cursor 集成
-
-若使用 [Cursor](https://cursor.com) 编辑项目，可将 AutoSnippet 自带的 skills 安装到**当前项目**的 Cursor 环境（项目根 `.cursor/skills/`），让 Agent 识别 Recipe、知识库与创建流程，并**在合适时机推荐**对应能力（由 AI 决定是否推荐，不强制）。
-
 在**项目根目录**执行：
 
 ```bash
-asd install:cursor-skill
+asd setup      # 初始化
+asd ui         # 启动 Dashboard（建议常驻）
 ```
 
-安装后重启 Cursor 或新开 Agent 对话即可生效。更新 AutoSnippet 或增删 skills 后重新执行，会同步所有 skill 到 `.cursor/skills/`。
+`asd ui` 会启动 Web 管理后台并后台 watch；首次运行若前端不存在会自动构建。浏览器会自动打开 Dashboard。
 
-### 安装的 Skills 一览
+![Dashboard 概览](./images/20260131014718_38_167.png)
 
-| Skill | 作用 |
-|-------|------|
-| **autosnippet-when** | 总览：根据用户意图（加入知识库 / 查规范 / 审查 / 补全等）决定何时推荐哪项能力，再跳转到对应 skill。 |
-| **autosnippet-concepts** | 概念：知识库、Recipe、Snippet、Candidates 是什么，放在哪。 |
-| **autosnippet-create** | 创建：如何把代码提交到 Dashboard、加入 Knowledge/recipes（步骤）。 |
-| **autosnippet-recipes** | 项目上下文：Recipe 内容、检索、Guard、按规范建议代码（含 project-recipes-context.md）。 |
-| **autosnippet-search** | 查找/插入：用户想「查项目里怎么写、插入标准代码」时，推荐 as:search / Dashboard 搜索。 |
-| **autosnippet-guard** | 审查：用户想「检查规范、Guard」时，推荐在文件中写 `// as:guard` 并保存。 |
-| **autosnippet-dep-graph** | 依赖结构：SPM 包/模块依赖、AutoSnippet.spmmap.json 的读法与更新。 |
+## 核心流程
 
----
+1. **组建知识库**：`asd ais <Target>` 或 `asd ais --all` → Dashboard Candidates 审核 → Recipe 入库
+2. **依赖关系**：`asd spm-map` 或 Dashboard 刷新
+3. **Cursor 集成**：`asd install:cursor-skill --mcp`（安装 Skills + MCP，需 `asd ui` 运行）
+4. **语义索引**：`asd ui` 启动时自动 embed；也可手动 `asd embed`
 
-## Web Dashboard（asd ui）
+### 闭环
 
-启动后访问 `http://localhost:3000`。**若已运行 `asd ui`，watch 会在后台启动，编辑器内指令（as:create、as:guard、头文件注入等）在保存时生效。**
+**扫描 → 审核 → 沉淀 → Cursor/AI 使用 → 再沉淀**：项目 AI 通过扫描 target 批量提交候选，Cursor 完成的代码通过 Skill 提交候选，开发者完成的代码通过剪切板提交候选，Dashboard 中的候选经过人工审核进入知识库；知识库内 Recipe 为第一公民，拥有最高优先级。开发者通过 Snippet 获取 Recipe 内容插入编辑器， Cursor 通过 Skills 把 Recipe 产生的 context 当做上下文使用，对向量库进行查询；AI 用知识库产生的代码，过审后添加到知识库，成为了 AI 新的上下文，使得 AI 的开发趋于标准化。
 
-- **macOS**：再次运行 `asd ui` 会复用已有 `localhost:3000` 标签并聚焦（Chromium 系浏览器）。
+知识库随人工审核持续更新，AI 始终基于最新上下文，Recipe 会在使用中获得评级调整。
 
-| 页面 | 说明 |
+## 编辑器内指令
+
+需先运行 `asd watch` 或 `asd ui`。在源码中写入并保存：
+
+| 指令 | 作用 |
 |------|------|
-| **Snippets** | 查看、编辑、删除代码片段；同步到 Xcode |
-| **Recipes** | 管理配方（Recipes）文档，与 Snippet 关联 |
-| **SPM Explorer** | 按 Target 扫描源码，AI 提取候选；从路径/剪贴板创建 Recipe |
-| **Candidates** | 审核 CLI 批量扫描（`asd ais`）产生的候选，入库或忽略 |
-| **依赖关系图** | 展示 SPM 包依赖（packages + edges） |
-| **AI Assistant** | 基于本地 Snippets/Recipes 的 RAG 问答 |
-| **使用说明** | 使用说明的 Web 版 |
+| `// as:create` | 剪贴板代码 → 打开 Dashboard 新建 Recipe |
+| `// as:guard` [关键词] | 按知识库 AI 审查当前文件，输出到终端 |
+| `// as:search` [关键词] | 从知识库检索并插入 Recipe/Snippet |
+| `// as:include` / `// as:import` | Snippet 内头文件/模块标记，保存时自动注入 |
 
-### 新建 Recipe
-
-- **按路径**：输入相对路径（如 `Sources/MyMod/Foo.m`）→ **Scan File** → AI 提取标题/摘要/触发键/头文件，审核后保存到 `Knowledge/recipes/`。
-- **按剪贴板**：复制代码后点击 **Use Copied Code** → AI 分析并填充；若由 `// as:create` 打开会带当前文件路径，自动解析头文件。
-
----
-
-## 命令行
-
-以下命令均在**项目根目录**执行。**编辑器内指令**已在上文优先说明；此处为 CLI 能力速查与补充。
-
-### 常用命令
+## 常用命令
 
 | 命令 | 说明 |
 |------|------|
-| `asd ui` | 启动 Web Dashboard（并后台启动 watch，使编辑器内指令生效） |
-| `asd watch` / `asd w` | 仅启动 watch，不打开浏览器；用于头文件注入、`// as:create`、`// as:guard` |
-| `asd create --clipboard` | 从剪贴板用 AI 创建 Snippet；可选 `--path`、`--lang` |
-| `asd create` | 从带 `// as:code` 的文件用 AI 提取并创建 Snippet |
-| `asd install` / `asd i` | 将 Snippets 同步到 Xcode |
-| `asd ais [Target]` / `asd ais --all` | AI 扫描 SPM Target，结果进 Candidates，在 Dashboard 审核 |
-| `asd search [keyword]` | 关键词搜索 Snippets 与 Recipes；加 `-m` 为语义搜索（需先 `asd embed`） |
-| `asd embed` | 重建语义索引；语义搜索与 Guard 语义检索依赖此命令 |
-| `asd install:cursor-skill` | 将 AutoSnippet skills 安装到项目 `.cursor/skills/` |
+| `asd ui` | 启动 Dashboard + watch |
+| `asd create --clipboard` | 从剪贴板创建 Recipe/Snippet |
+| `asd install` / `asd i` | 同步 Snippets 到 Xcode |
+| `asd ais [Target]` | AI 扫描 Target → Candidates |
+| `asd search [keyword]` | 关键词搜索；加 `-m` 语义搜索 |
+| `asd install:cursor-skill --mcp` | 安装 Skills 并配置 MCP |
+| `asd install:full` | 全量安装；`--parser` 含 Swift 解析器；`--lancedb` 仅 LanceDB |
 
-### create 补充
+## 全量安装与可选依赖
 
-- **剪贴板**：`asd create --clipboard`，可选 `asd create --clipboard --path Sources/MyMod/Foo.m`、`--lang swift`。
-- **从文件**：源码中用 `// as:code` 包裹要提炼的片段，再执行 `asd create` 并选择该文件。
-- **传统模式**：`asd create --no-ai`、`asd --preset preset.json create`。
+克隆或需完整能力时，**任意目录**执行：
 
-### 其他命令
+```bash
+asd install:full           # 核心 + 可选依赖 + Dashboard（前端不存在时构建）
+asd install:full --parser  # 上述 + Swift 解析器（ParsePackage，SPM 解析更准确）
+asd install:full --lancedb # 仅安装 LanceDB（向量检索更快）
+```
 
-- `asd setup`：等价于 init + root，推荐在单仓库根执行一次。
-- `asd root`：在当前目录创建/更新项目根标记（`AutoSnippetRoot.boxspec.json`）。
-- `asd init`：在 SPM 模块目录创建模块工作空间。
-- `asd share`：共享本地 Snippet。
-- `asd u <word> [key] [value]`：按 trigger 更新 Snippet 字段。
+**Swift 解析器**：默认回退 `dump-package`；`--parser` 构建 ParsePackage 后 SPM 解析更准确，需本机已装 Swift。
 
-### 全局选项
+## 配置
 
-- `--preset <path>`：预置输入 JSON（非交互/自动化）。
-- `--yes`：非交互；缺必要输入则报错退出。
-- 环境变量：`ASD_PRESET` / `ASD_TEST_PRESET` 指定预置路径。
+- **AI**：项目根 `.env`，设置 `ASD_GOOGLE_API_KEY` 等（见 `.env.example`）。可选 `ASD_AI_PROVIDER`、代理等。
+- **LanceDB**：`asd install:full --lancedb`，在 boxspec 的 `context.storage.adapter` 中配置 `"lance"`。
 
----
+## 术语
 
-## install 之后
+- **Recipe**：`Knowledge/recipes/` 下的 Markdown 知识，供 AI 检索、Guard、搜索
+- **Snippet**：Xcode 代码片段，通过 trigger（默认 `@`）补全
+- **项目根**：含 `AutoSnippetRoot.boxspec.json` 的目录
 
-执行 `asd install` 后，Snippets 会同步到 Xcode 的 **Code Snippets** 库。在 Xcode 中通过触发词（completion）或库面板使用；若未生效可尝试重启 Xcode。Snippet 代码中可使用 `<#placeholder#>`，Xcode 会识别为占位符，用 Tab 切换。
+**详细介绍**：启动 `asd ui` 后访问 Dashboard → **使用说明** 页，可查看完整文档（含 Skills 一览、AI 配置、闭环详解等）。
 
 ---
 
-## 贡献
-
-欢迎提交 Issue 与 Pull Request。
-
-## 许可证
-
-MIT，见 [LICENSE](LICENSE).
+欢迎 [Issue](https://github.com/GxFn/AutoSnippet/issues) 与 [PR](https://github.com/GxFn/AutoSnippet/pulls)。MIT 许可证。

@@ -14,14 +14,20 @@ description: When the user wants to find or insert standard code from the knowle
 
 ## How to recommend (you choose wording)
 
-- **In editor**: "可以在当前行写 `// as:search 关键词`，保存后 watch 会打开 Dashboard，选一条 Recipe 插入替换该行。"
-- **Terminal**: "在项目根运行 `asd search 关键词` 或 `asd search --semantic 关键词` 查看候选。"
-- **Dashboard open**: "在 Dashboard 搜索框输入关键词，选一条点击插入到当前文件。"
+- **In editor**: "Add `// as:search keyword` on the current line; after save, watch opens Dashboard; pick a Recipe to insert and replace that line."
+- **Terminal**: "Run `asd search keyword` or `asd search --semantic keyword` in project root to see candidates."
+- **Dashboard open**: "Enter keyword in Dashboard search box; pick one and click to insert into current file."
 
 ## Actual lookup
 
 - For **finding** the right Recipe content (title, summary, code block), use the **autosnippet-recipes** skill: read `references/project-recipes-context.md` or call search API.
 - This skill only tells you **when** to recommend search and **how** to describe it to the user.
+
+## On-Demand Context (when asd ui is running)
+
+Use MCP tool `autosnippet_context_search` for on-demand semantic search; pass `query`, `limit?`. Requires AutoSnippet MCP configured and `asd ui` running.
+
+---
 
 ## Relation
 

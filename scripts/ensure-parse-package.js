@@ -41,7 +41,7 @@ if (process.env.ASD_BUILD_SWIFT_PARSER === '1' || process.env.ASD_BUILD_SWIFT_PA
 	return;
 }
 
-const swiftParserTip = '提示：Swift 解析器（ParsePackage）未安装；需要时执行 asd build-parser（任意目录均可），或安装时设置 ASD_BUILD_SWIFT_PARSER=1。';
+const swiftParserTip = '提示：Swift 解析器（ParsePackage）未安装；需要时执行 asd install:full --parser（任意目录均可），或安装时设置 ASD_BUILD_SWIFT_PARSER=1。';
 
 // 非交互（无 TTY）时打印提示后跳过，不阻塞 CI 等（npm install 时通常无 TTY）
 if (!process.stdin.isTTY) {

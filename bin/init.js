@@ -18,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const CMD_PATH = process.cwd();
 const findPath = require('./findPath.js');
+const defaults = require('../lib/infra/defaults');
 
 /**
  * 聚合子模块的 AutoSnippet.boxspec.json 到主配置文件
@@ -31,9 +32,16 @@ async function mergeSubSpecs(mainSpecFile) {
 		kind: 'root',
 		root: true,
 		recipes: {
-			dir: 'Knowledge/recipes',
+			dir: defaults.RECIPES_DIR,
 			format: 'md+frontmatter',
-			index: 'Knowledge/recipes/index.json',
+			index: defaults.RECIPES_INDEX
+		},
+		context: {
+			storage: { adapter: defaults.DEFAULT_STORAGE_ADAPTER },
+			index: {
+				sources: [...defaults.DEFAULT_SOURCES],
+				chunking: { ...defaults.DEFAULT_CHUNKING }
+			}
 		},
 		list: []
 	};
@@ -57,6 +65,15 @@ async function mergeSubSpecs(mainSpecFile) {
 			// ✅ 保留 rootConfig 的其他字段（skills/schemaVersion/自定义字段）
 			if (rootConfig && typeof rootConfig === 'object') {
 				specObj = Object.assign({}, specObj, rootConfig);
+			}
+			if (!specObj.context) {
+				specObj.context = {
+					storage: { adapter: defaults.DEFAULT_STORAGE_ADAPTER },
+					index: {
+						sources: [...defaults.DEFAULT_SOURCES],
+						chunking: { ...defaults.DEFAULT_CHUNKING }
+					}
+				};
 			}
 			if (!specObj.list || !Array.isArray(specObj.list)) specObj.list = [];
 

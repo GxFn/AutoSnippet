@@ -22,11 +22,12 @@
 const fs = require('fs');
 const path = require('path');
 const fileFinder = require('../lib/infra/FileFinder');
-// 全局常量
+const defaults = require('../lib/infra/defaults');
+
 const HOLDER_NAME = 'AutoSnippet.boxspec.json';
-const ROOT_MARKER_NAME = 'AutoSnippetRoot.boxspec.json'; // 项目根目录标记文件
+const ROOT_MARKER_NAME = defaults.ROOT_SPEC_FILENAME;
 const PACKAGE_SWIFT = 'Package.swift';
-const README_NAME = 'readme.md';
+const README_NAME = defaults.README_NAMES[defaults.README_NAMES.length - 1]; // readme.md
 
 // 检查是否为项目根目录
 async function isProjectRoot(dirPath) {
