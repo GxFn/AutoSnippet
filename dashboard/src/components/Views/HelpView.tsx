@@ -43,12 +43,14 @@ const HelpView: React.FC = () => {
 				</section>
 				<section>
 					<h2 className="text-lg font-bold text-slate-800 mb-3">编辑器内指令</h2>
-					<p className="text-slate-600 mb-2">需先运行 <code className="bg-slate-100 px-1 rounded">asd watch</code> 或 <code className="bg-slate-100 px-1 rounded">asd ui</code>。在源码中写入以下指令并保存：</p>
+					<p className="text-slate-600 mb-2">需先运行 <code className="bg-slate-100 px-1 rounded">asd watch</code> 或 <code className="bg-slate-100 px-1 rounded">asd ui</code>。支持简写：<code className="bg-slate-100 px-1 rounded">as:c</code>=as:create、<code className="bg-slate-100 px-1 rounded">as:s</code>=as:search、<code className="bg-slate-100 px-1 rounded">as:g</code>=as:guard。</p>
 					<ul className="list-disc pl-6 space-y-2 text-slate-600">
-						<li><code className="bg-slate-100 px-1 rounded">// as:create</code>：剪贴板 + 当前路径创建 Recipe，打开本页。复制代码后保存即可。</li>
-						<li><code className="bg-slate-100 px-1 rounded">// as:guard</code> [关键词]：按知识库 AI 审查当前文件，结果输出终端。需 <code className="bg-slate-100 px-1 rounded">asd embed</code> 后优先用语义检索。</li>
-						<li><code className="bg-slate-100 px-1 rounded">// as:search</code> [关键词]：从知识库检索 Recipe/Snippet，选一条插入替换该行。</li>
+						<li><code className="bg-slate-100 px-1 rounded">// as:create</code> / <code className="bg-slate-100 px-1 rounded">// as:c</code>：无选项时只打开本页（路径已填），由您点 Scan File 或 Use Copied Code。<code className="bg-slate-100 px-1 rounded">-c</code> 强制用剪切板（静默创建或打开），<code className="bg-slate-100 px-1 rounded">-f</code> 强制用路径（打开本页并自动执行 Scan File）。</li>
+						<li><code className="bg-slate-100 px-1 rounded">// as:guard</code> / <code className="bg-slate-100 px-1 rounded">// as:g</code> [关键词]：按知识库 AI 审查当前文件，结果输出终端。需 <code className="bg-slate-100 px-1 rounded">asd embed</code> 后优先用语义检索。</li>
+						<li><code className="bg-slate-100 px-1 rounded">// as:search</code> / <code className="bg-slate-100 px-1 rounded">// as:s</code> [关键词]：从知识库检索 Recipe/Snippet，选一条插入替换该行。</li>
+						<li><code className="bg-slate-100 px-1 rounded">// as:include</code> / <code className="bg-slate-100 px-1 rounded">// as:import</code>：Snippet 内头文件/模块标记；watch 保存时自动在文件头部注入对应 <code className="bg-slate-100 px-1 rounded">#import</code> 或 <code className="bg-slate-100 px-1 rounded">import</code>。</li>
 					</ul>
+					<p className="text-slate-600 mt-3"><strong>静默候选</strong>：在 Cursor 内用户提出保存案例，Cursor 生成草案；后台用草案静默创建候选，无需打开浏览器，到本页 <strong>Candidates</strong> 审核即可。在 Xcode 等编辑器内也可写 <code className="bg-slate-100 px-1 rounded">// as:c -c</code>、复制代码后保存，剪贴板内容同样静默入库。<strong>搜索无跳转</strong>：<code className="bg-slate-100 px-1 rounded">// as:search</code> / <code className="bg-slate-100 px-1 rounded">// as:s</code> 在编辑器内弹窗或终端选择，即选即插，无需跳转本页，不打断当前编辑。</p>
 				</section>
 				<section>
 					<h2 className="text-lg font-bold text-slate-800 mb-3">语义能力</h2>
@@ -59,8 +61,12 @@ const HelpView: React.FC = () => {
 					</ul>
 				</section>
 				<section>
+					<h2 className="text-lg font-bold text-slate-800 mb-3">Recipe 格式</h2>
+					<p className="text-slate-600 mb-2">完整 Recipe 为 Markdown：<strong>Frontmatter</strong>（<code className="bg-slate-100 px-1 rounded">---</code> 包裹，<code className="bg-slate-100 px-1 rounded">title</code>、<code className="bg-slate-100 px-1 rounded">trigger</code> 必填）+ <strong>## Snippet / Code Reference</strong>（下接代码块）+ <strong>## AI Context / Usage Guide</strong>（使用说明）。粘贴完整 Recipe MD 时直接解析入库，不调用 AI。多段 Recipe 用「空行 + <code className="bg-slate-100 px-1 rounded">---</code> + 下一段 frontmatter」分隔可批量解析。</p>
+				</section>
+				<section>
 					<h2 className="text-lg font-bold text-slate-800 mb-3">头文件与 watch</h2>
-					<p className="text-slate-600 mb-2">保存时可勾选「引入头文件」，会写入 <code className="bg-slate-100 px-1 rounded text-xs">// as:include &lt;TargetName/Header.h&gt; path</code>。在项目目录运行 <code className="bg-slate-100 px-1 rounded">asd watch</code>（或 <code className="bg-slate-100 px-1 rounded">asd ui</code>）后，在 Xcode 中选中 Snippet 的 headerVersion 并保存，会自动在文件头部注入对应 <code className="bg-slate-100 px-1 rounded">#import</code>。</p>
+					<p className="text-slate-600 mb-2">保存时可勾选「引入头文件」，会写入 <code className="bg-slate-100 px-1 rounded text-xs">// as:include &lt;TargetName/Header.h&gt;</code>（ObjC）或 <code className="bg-slate-100 px-1 rounded text-xs">// as:import ModuleName</code>（Swift）。在项目目录运行 <code className="bg-slate-100 px-1 rounded">asd watch</code>（或 <code className="bg-slate-100 px-1 rounded">asd ui</code>）后，在 Xcode 中选中 Snippet 的 headerVersion 并保存，会自动在文件头部注入对应 <code className="bg-slate-100 px-1 rounded">#import</code> / <code className="bg-slate-100 px-1 rounded">import</code>。</p>
 				</section>
 				<section>
 					<h2 className="text-lg font-bold text-slate-800 mb-3">全量安装与可选依赖</h2>

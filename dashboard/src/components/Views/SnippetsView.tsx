@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Edit3, Trash2 } from 'lucide-react';
 import { Snippet } from '../../types';
 import { categoryConfigs } from '../../constants';
+import Pagination from '../Shared/Pagination';
 
 interface SnippetsViewProps {
 	snippets: Snippet[];
@@ -10,9 +11,33 @@ interface SnippetsViewProps {
 }
 
 const SnippetsView: React.FC<SnippetsViewProps> = ({ snippets, openSnippetEdit, handleDeleteSnippet }) => {
+	const [currentPage, setCurrentPage] = useState(1);
+	const [pageSize, setPageSize] = useState(12);
+
+	// 当 snippets 数据变化时（如搜索/过滤），重置到第一页
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [snippets.length]);
+
+	const totalPages = Math.ceil(snippets.length / pageSize);
+	const startIndex = (currentPage - 1) * pageSize;
+	const paginatedSnippets = snippets.slice(startIndex, startIndex + pageSize);
+
+	const handlePageChange = (page: number) => {
+		setCurrentPage(page);
+		// 滚动到顶部
+		window.scrollTo({ top: 0, behavior: 'smooth' });
+	};
+
+	const handlePageSizeChange = (size: number) => {
+		setPageSize(size);
+		setCurrentPage(1);
+	};
+
 	return (
-		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-			{snippets.map((snippet) => (
+		<div>
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+				{paginatedSnippets.map((snippet) => (
 				<div key={snippet.identifier} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group relative">
 					<div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
 						<button onClick={(e) => { e.stopPropagation(); openSnippetEdit(snippet); }} className="p-1.5 bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"><Edit3 size={14} /></button>
@@ -47,6 +72,16 @@ const SnippetsView: React.FC<SnippetsViewProps> = ({ snippets, openSnippetEdit, 
 					</div>
 				</div>
 			))}
+			</div>
+
+			<Pagination
+				currentPage={currentPage}
+				totalPages={totalPages}
+				totalItems={snippets.length}
+				pageSize={pageSize}
+				onPageChange={handlePageChange}
+				onPageSizeChange={handlePageSizeChange}
+			/>
 		</div>
 	);
 };

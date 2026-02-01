@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Zap, Edit3, Cpu, CheckCircle, Pencil, Check } from 'lucide-react';
-import { SPMTarget, ExtractedRecipe } from '../../types';
+import { SPMTarget, ExtractedRecipe, ScanResultItem } from '../../types';
 import { categories } from '../../constants';
 import CodeBlock from '../Shared/CodeBlock';
 
@@ -11,7 +11,7 @@ interface SPMExplorerViewProps {
 	isScanning: boolean;
 	scanProgress: { current: number; total: number; status: string };
 	scanFileList: { name: string; path: string }[];
-	scanResults: (ExtractedRecipe & { mode: 'full' | 'preview', lang: 'cn' | 'en', includeHeaders?: boolean })[];
+	scanResults: ScanResultItem[];
 	handleScanTarget: (target: SPMTarget) => void;
 	handleUpdateScanResult: (index: number, updates: any) => void;
 	handleSaveExtracted: (res: any) => void;

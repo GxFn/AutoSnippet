@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Snippet, Recipe, ProjectData, SPMTarget, ExtractedRecipe } from './types';
+import { Toaster } from 'react-hot-toast';
+import { notify } from './utils/notification';
+import { Snippet, Recipe, ProjectData, SPMTarget, ExtractedRecipe, ScanResultItem } from './types';
 import { TabType, validTabs } from './constants';
-import { isShellTarget } from './utils';
+import { isShellTarget, isSilentTarget, isPendingTarget } from './utils';
 
 // Components
 import Sidebar from './components/Layout/Sidebar';
@@ -23,7 +25,7 @@ import SearchModal from './components/Modals/SearchModal';
 const App: React.FC = () => {
 	const getTabFromPath = (): TabType => {
 		const path = window.location.pathname.replace(/^\//, '').split('/')[0] || '';
-		return (validTabs.includes(path as any) ? path : 'snippets') as any;
+		return (validTabs.includes(path as any) ? path : 'recipes') as any;
 	};
 
 	// State
@@ -38,7 +40,7 @@ const App: React.FC = () => {
 	const [isScanning, setIsScanning] = useState(false);
 	const [scanProgress, setScanProgress] = useState<{ current: number, total: number, status: string }>({ current: 0, total: 0, status: '' });
 	const [scanFileList, setScanFileList] = useState<{ name: string; path: string }[]>([]);
-	const [scanResults, setScanResults] = useState<(ExtractedRecipe & { mode: 'full' | 'preview', lang: 'cn' | 'en', includeHeaders?: boolean })[]>([]);
+	const [scanResults, setScanResults] = useState<ScanResultItem[]>([]);
 	const [selectedCategory, setSelectedCategory] = useState<string>('All');
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [createPath, setCreatePath] = useState('');
@@ -141,7 +143,6 @@ const App: React.FC = () => {
 		const params = new URLSearchParams(window.location.search);
 		const action = params.get('action');
 		const path = params.get('path');
-		const source = params.get('source');
 		const q = params.get('q') || '';
 
 		if (action === 'search' && path) {
@@ -149,18 +150,11 @@ const App: React.FC = () => {
 		} else if (action === 'create' && path) {
 			setCreatePath(path);
 			setShowCreateModal(true);
-			setTimeout(async () => {
-				if (source === 'clipboard') {
-					try {
-						const text = await navigator.clipboard.readText();
-						if (text && text.trim()) {
-							handleCreateFromClipboard(path);
-							return;
-						}
-					} catch (_) {}
-				}
-				handleCreateFromPathWithSpecifiedPath(path);
-			}, 500);
+			const autoScan = params.get('autoScan') === '1';
+			if (autoScan) {
+				// as:create -f：先显示 New Recipe 窗口，再在该窗口内自动执行 Scan File（AI 分析），完成后跳转
+				setTimeout(() => handleCreateFromPathWithSpecifiedPath(path), 500);
+			}
 		}
 	}, []);
 
@@ -187,9 +181,9 @@ const App: React.FC = () => {
 	const handleSyncToXcode = async () => {
 		try {
 			await axios.post('/api/commands/install');
-			alert('✅ Successfully synced to Xcode CodeSnippets!');
+			notify('已同步到 Xcode CodeSnippets');
 		} catch (err) {
-			alert('❌ Sync failed');
+			notify('同步失败', { type: 'error' });
 		}
 	};
 
@@ -197,9 +191,9 @@ const App: React.FC = () => {
 		try {
 			await axios.post('/api/commands/spm-map');
 			fetchTargets();
-			alert('✅ Project structure refreshed!');
+			notify('项目结构已刷新');
 		} catch (err) {
-			alert('❌ Refresh failed');
+			notify('刷新失败', { type: 'error' });
 		}
 	};
 
@@ -218,8 +212,12 @@ const App: React.FC = () => {
 			})));
 			navigateToTab('spm', { preserveSearch: true });
 			setShowCreateModal(false);
+			fetchData();
+			if (res.data.result?.length > 0) {
+				notify('提取完成，已加入候选池，请在 Candidates 页审核');
+			}
 		} catch (err) {
-			alert('Extraction failed.');
+			notify('Extraction failed', { type: 'error' });
 		} finally {
 			setIsExtracting(false);
 		}
@@ -241,13 +239,14 @@ const App: React.FC = () => {
 			})));
 			navigateToTab('spm');
 			setShowCreateModal(false);
-			if (res.data.isMarked) {
-				alert('🎯 Precision Lock: Successfully extracted code between // as:code markers.');
-			} else {
-				alert('ℹ️ No markers found. AI is analyzing the full file.');
+			fetchData();
+			if (res.data.result?.length > 0) {
+				notify(res.data.isMarked ? '提取完成（精准锁定），已加入候选池' : '提取完成，已加入候选池');
+			} else if (!res.data.isMarked) {
+				notify('未找到标记，AI 正在分析完整文件');
 			}
 		} catch (err) {
-			alert('Extraction failed. Check path.');
+			notify('Extraction failed', { type: 'error' });
 		} finally {
 			setIsExtracting(false);
 		}
@@ -256,28 +255,48 @@ const App: React.FC = () => {
 	const handleCreateFromClipboard = async (contextPath?: string) => {
 		try {
 			const text = await navigator.clipboard.readText();
-			if (!text) return alert('Clipboard is empty');
+			if (!text) return notify('剪贴板为空');
+			
+			// 立即提示收到代码
+			notify('已收到剪贴板内容，正在调用 AI 识别...');
 			
 			setIsExtracting(true);
 			const relativePath = contextPath || createPath;
-			const res = await axios.post<ExtractedRecipe>('/api/extract/text', {
-				text,
-				...(relativePath ? { relativePath } : {})
-			});
-			const item = res.data;
-			setScanResults([{ 
-				...item, 
-				mode: 'full', 
-				lang: 'cn',
-				includeHeaders: true,
-				category: item.category || 'Utility',
-				summary: item.summary_cn || item.summary || '',
-				usageGuide: item.usageGuide_cn || item.usageGuide || ''
-			}]);
-			navigateToTab('spm', { preserveSearch: true });
-			setShowCreateModal(false);
+			
+			try {
+				const res = await axios.post<ExtractedRecipe>('/api/extract/text', {
+					text,
+					...(relativePath ? { relativePath } : {})
+				});
+				const item = res.data;
+				
+				const multipleCount = (item as ExtractedRecipe & { _multipleCount?: number })._multipleCount;
+				setScanResults([{ 
+					...item, 
+					mode: 'full', 
+					lang: 'cn',
+					includeHeaders: true,
+					category: item.category || 'Utility',
+					summary: item.summary_cn || item.summary || '',
+					usageGuide: item.usageGuide_cn || item.usageGuide || ''
+				}]);
+				navigateToTab('spm', { preserveSearch: true });
+				setShowCreateModal(false);
+				fetchData();
+				notify(multipleCount ? `已识别 ${multipleCount} 条 Recipe，已加入候选池` : 'AI 识别成功，已加入候选池');
+			} catch (err: any) {
+				// 区分 AI 错误和其他错误
+				const isAiError = err.response?.data?.aiError === true;
+				const errorMsg = err.response?.data?.error || err.message;
+				
+				if (isAiError) {
+					notify(`AI 识别失败: ${errorMsg}`, { type: 'error' });
+				} else {
+					notify(`操作失败: ${errorMsg}`, { type: 'error' });
+				}
+			}
 		} catch (err) {
-			alert('Failed to read clipboard or AI error');
+			notify('剪贴板读取失败', { type: 'error' });
 		} finally {
 			setIsExtracting(false);
 		}
@@ -343,15 +362,19 @@ const App: React.FC = () => {
 					usageGuide: item.usageGuide_cn || item.usageGuide || ''
 				})));
 				setScanFileList(scannedFiles);
+				fetchData(); // 刷新候选数
+				if (recipes.length > 0) {
+					notify(`${recipes.length} 条已加入候选池（24h），请在 Candidates 页审核`);
+				}
 			} else if (typeof data === 'object' && data !== null && 'message' in data) {
-				alert((data as { message?: string }).message || 'Scan failed: No source files.');
+				notify((data as { message?: string }).message || 'Scan failed: No source files.', { type: 'error' });
 			} else {
-				alert('Scan failed: Unexpected response format');
+				notify('Scan failed: Unexpected response format', { type: 'error' });
 			}
 		} catch (err: any) {
 			clearInterval(progressTimer);
 			if (axios.isCancel(err)) return;
-			alert(`Scan failed: ${err.response?.data?.error || err.message}`);
+			notify(`Scan failed: ${err.response?.data?.error || err.message}`, { type: 'error' });
 		} finally {
 			if (abortControllerRef.current === controller) {
 				setIsScanning(false);
@@ -361,7 +384,7 @@ const App: React.FC = () => {
 		}
 	};
 
-	const handleUpdateScanResult = (index: number, updates: Partial<ExtractedRecipe & { mode: 'full' | 'preview', lang: 'cn' | 'en'; includeHeaders?: boolean }>) => {
+	const handleUpdateScanResult = (index: number, updates: Partial<ScanResultItem>) => {
 		const newResults = [...scanResults];
 		const current = { ...newResults[index], ...updates };
 		
@@ -383,7 +406,7 @@ const App: React.FC = () => {
 		setScanResults(newResults);
 	};
 
-	const handleSaveExtracted = async (extracted: ExtractedRecipe & { mode: 'full' | 'preview' }) => {
+	const handleSaveExtracted = async (extracted: ScanResultItem) => {
 		try {
 			const triggers = extracted.trigger.split(/[,，\s]+/).map(t => t.trim()).filter(Boolean);
 			const primarySnippetId = crypto.randomUUID().toUpperCase();
@@ -433,11 +456,19 @@ ${extracted.usageGuide}
 `;
 			await axios.post('/api/recipes/save', { name: recipeName, content: recipeContent });
 			
-			alert(extracted.mode === 'full' ? '✅ Saved as Snippet & Recipe!' : '✅ Saved to KB!');
-			fetchData();
+			notify(extracted.mode === 'full' ? '已保存为 Snippet 和 Recipe' : '已保存到 KB');
 			setScanResults(prev => prev.filter(item => item.title !== extracted.title));
+			// 若来自候选池，保存后从候选池移除
+			const candTarget = extracted.candidateTargetName;
+			const candId = extracted.candidateId;
+			if (candTarget && candId) {
+				try {
+					await axios.post('/api/candidates/delete', { targetName: candTarget, candidateId: candId });
+				} catch (_) {}
+			}
+			fetchData();
 		} catch (err) {
-			alert('❌ Failed to save');
+			notify('保存失败', { type: 'error' });
 		}
 	};
 
@@ -448,7 +479,7 @@ ${extracted.usageGuide}
 			closeRecipeEdit();
 			fetchData();
 		} catch (err) {
-			alert('Failed to save recipe');
+			notify('保存 Recipe 失败', { type: 'error' });
 		}
 	};
 
@@ -458,7 +489,7 @@ ${extracted.usageGuide}
 			await axios.post('/api/recipes/delete', { name });
 			fetchData();
 		} catch (err) {
-			alert('Failed to delete');
+			notify('删除失败', { type: 'error' });
 		}
 	};
 
@@ -467,7 +498,18 @@ ${extracted.usageGuide}
 			await axios.post('/api/candidates/delete', { targetName, candidateId });
 			fetchData();
 		} catch (err) {
-			alert('Action failed.');
+			notify('操作失败', { type: 'error' });
+		}
+	};
+
+	const handleDeleteAllInTarget = async (targetName: string) => {
+		if (!window.confirm(`确定移除「${targetName}」下的全部候选？`)) return;
+		try {
+			await axios.post('/api/candidates/delete-target', { targetName });
+			fetchData();
+			notify(`已移除 ${targetName} 下的全部候选`);
+		} catch (err) {
+			notify('操作失败', { type: 'error' });
 		}
 	};
 
@@ -478,7 +520,7 @@ ${extracted.usageGuide}
 			closeSnippetEdit();
 			fetchData();
 		} catch (err) {
-			alert('Failed to save snippet');
+			notify('保存 Snippet 失败', { type: 'error' });
 		}
 	};
 
@@ -488,7 +530,7 @@ ${extracted.usageGuide}
 			await axios.post('/api/snippets/delete', { identifier });
 			fetchData();
 		} catch (err) {
-			alert('Failed to delete');
+			notify('删除失败', { type: 'error' });
 		}
 	};
 
@@ -565,6 +607,7 @@ ${extracted.usageGuide}
 
 	return (
 		<div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans">
+			<Toaster position="top-center" toastOptions={{ duration: 3000 }} />
 			<Sidebar 
 				activeTab={activeTab} 
 				navigateToTab={navigateToTab} 
@@ -618,19 +661,37 @@ ${extracted.usageGuide}
 					) : activeTab === 'candidates' ? (
 						<CandidatesView 
 							data={data} 
-							isShellTarget={isShellTarget} 
+							isShellTarget={isShellTarget}
+							isSilentTarget={isSilentTarget}
+							isPendingTarget={isPendingTarget}
 							handleDeleteCandidate={handleDeleteCandidate} 
-							onAuditCandidate={(cand) => {
+							onAuditCandidate={(cand, targetName) => {
 								setScanResults([{ 
 									...cand, 
 									mode: 'full',
 									lang: 'cn',
 									includeHeaders: true,
 									summary: cand.summary_cn || cand.summary || '',
-									usageGuide: cand.usageGuide_cn || cand.usageGuide || ''
+									usageGuide: cand.usageGuide_cn || cand.usageGuide || '',
+									candidateId: cand.id,
+									candidateTargetName: targetName
 								}]);
 								navigateToTab('spm');
-							}} 
+							}}
+							onAuditAllInTarget={(items, targetName) => {
+								setScanResults(items.map(cand => ({
+									...cand,
+									mode: 'full' as const,
+									lang: 'cn' as const,
+									includeHeaders: true,
+									summary: cand.summary_cn || cand.summary || '',
+									usageGuide: cand.usageGuide_cn || cand.usageGuide || '',
+									candidateId: cand.id,
+									candidateTargetName: targetName
+								})));
+								navigateToTab('spm');
+							}}
+							handleDeleteAllInTarget={handleDeleteAllInTarget} 
 						/>
 					) : activeTab === 'depgraph' ? (
 						<DepGraphView />

@@ -1,11 +1,12 @@
 {
 	"name": "autosnippet",
-	"version": "1.4.2",
+	"version": "1.4.3",
 	"description": "A iOS module management tool.",
 	"main": "index.js",
 	"scripts": {
-		"postinstall": "node scripts/ensure-parse-package.js",
+		"postinstall": "node scripts/ensure-parse-package.js && node scripts/build-native-ui.js",
 		"build:parser": "cd tools/parse-package && swift build -c release",
+		"build:native-ui": "swiftc tools/native-ui/main.swift -o bin/native-ui -framework AppKit",
 		"install:cursor-skill": "node scripts/install-cursor-skill.js",
 		"install:cursor-skill:mcp": "node scripts/install-cursor-skill.js --mcp",
 		"install:full": "node scripts/install-full.js",
@@ -74,7 +75,8 @@
 		"tools/parse-package/Package.swift",
 		"tools/parse-package/Package.resolved",
 		"tools/parse-package/README.md",
-		"tools/parse-package/Sources"
+		"tools/parse-package/Sources",
+		"tools/native-ui/main.swift"
 	],
 	"directories": {
 		"doc": "docs",

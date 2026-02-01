@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Edit3, Trash2 } from 'lucide-react';
 import { Recipe } from '../../types';
 import { categoryConfigs } from '../../constants';
+import Pagination from '../Shared/Pagination';
 
 interface RecipesViewProps {
 	recipes: Recipe[];
@@ -10,9 +11,33 @@ interface RecipesViewProps {
 }
 
 const RecipesView: React.FC<RecipesViewProps> = ({ recipes, openRecipeEdit, handleDeleteRecipe }) => {
+	const [currentPage, setCurrentPage] = useState(1);
+	const [pageSize, setPageSize] = useState(12);
+
+	// 当 recipes 数据变化时（如搜索/过滤），重置到第一页
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [recipes.length]);
+
+	const totalPages = Math.ceil(recipes.length / pageSize);
+	const startIndex = (currentPage - 1) * pageSize;
+	const paginatedRecipes = recipes.slice(startIndex, startIndex + pageSize);
+
+	const handlePageChange = (page: number) => {
+		setCurrentPage(page);
+		// 滚动到顶部
+		window.scrollTo({ top: 0, behavior: 'smooth' });
+	};
+
+	const handlePageSizeChange = (size: number) => {
+		setPageSize(size);
+		setCurrentPage(1);
+	};
+
 	return (
-		<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-			{recipes.map((recipe) => (
+		<div>
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+				{paginatedRecipes.map((recipe) => (
 				<div key={recipe.name} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group relative">
 					<div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
 						<button onClick={(e) => { e.stopPropagation(); openRecipeEdit(recipe); }} className="p-1.5 bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"><Edit3 size={14} /></button>
@@ -42,6 +67,16 @@ const RecipesView: React.FC<RecipesViewProps> = ({ recipes, openRecipeEdit, hand
 					</div>
 				</div>
 			))}
+			</div>
+
+			<Pagination
+				currentPage={currentPage}
+				totalPages={totalPages}
+				totalItems={recipes.length}
+				pageSize={pageSize}
+				onPageChange={handlePageChange}
+				onPageSizeChange={handlePageSizeChange}
+			/>
 		</div>
 	);
 };

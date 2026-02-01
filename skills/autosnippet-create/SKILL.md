@@ -13,7 +13,9 @@ This skill tells the agent how to **submit module usage code** (that Cursor has 
 2. **Do not modify Knowledge directly**: Agent **must not** create or modify any files under `Knowledge/recipes/` or `Knowledge/snippets/`. All Recipe and Snippet changes must be submitted via Dashboard Web and saved after human review.
 3. **Primary flow**: Code is ready (in editor or clipboard) → user opens browser to **`http://localhost:3000`**（Dashboard 需已运行）→ in the Dashboard click **New Recipe** → **Use Copied Code** (paste the code) → AI fills title/summary/trigger/headers → **user reviews and approves** → user **saves** → Recipe is added to the knowledge base.
 4. **Alternative (in editor)**: User adds **`// as:create`** in the source file, copies the code (or keeps the code you just wrote), saves the file → **watch** (from `asd watch` or `asd ui`) opens the Dashboard with current file path and clipboard → user completes "Use Copied Code" in the web, **reviews**, and saves → added to knowledge base.
-5. **Project root** = directory with `AutoSnippetRoot.boxspec.json`. All commands run from the project root.
+5. **Draft & clipboard auto-add**: When you write to **`_draft_recipe.md`** (project root) or user uses **`// as:create`** with clipboard content, **watch** automatically reads the draft/clipboard, adds it to **Candidates** (target `_draft` or `_watch`), and shows a **friendly prompt** (e.g. "已创建候选「xxx」，请在 Candidates 页审核" in notification and console). User only needs to open Dashboard **Candidates** to review and save — no manual copy-paste required.
+6. **Multiple recipes in one draft**: One draft file can contain **multiple Recipes**. Format: each Recipe is a **full block** (frontmatter `---` + body with `## Snippet / Code Reference` and `## AI Context / Usage Guide`). **Separate blocks with a blank line and the next block starting with `---`**. Example: first block `---\ntitle: A\n...\n---\n\n## Snippet...\n## Usage...`; then blank line(s); then second block `---\ntitle: B\n...\n---\n\n## Snippet...\n## Usage...`. Watch and Dashboard parse all blocks and add each as a separate candidate.
+7. **Project root** = directory with `AutoSnippetRoot.boxspec.json`. All commands run from the project root.
 
 ---
 
@@ -24,7 +26,7 @@ This skill tells the agent how to **submit module usage code** (that Cursor has 
 ### Step 1: Content is ready
 
 - **Code scenario**: Usage code is in current file or clipboard. If not copied, prompt user to copy the code block you provide.
-- **Agent-drafted Recipe scenario**: If you have generated a full Recipe (frontmatter, Snippet, Usage Guide), **prefer writing to draft file** for user to copy (see "When full copy is difficult" below). Or output in copyable format in chat, guide user to copy → Dashboard → Use Copied Code → paste → review → save. Do not write to `Knowledge/recipes/` or `Knowledge/snippets/`.
+- **Agent-drafted Recipe scenario**: If you have generated a full Recipe (frontmatter, Snippet, Usage Guide), **prefer writing to draft file** `_draft_recipe.md` at project root. On save, **watch automatically reads the draft**, adds it to **Candidates** (target `_draft`), and shows a **friendly prompt** ("已创建候选「xxx」，请在 Candidates 页审核"). User opens Dashboard **Candidates** to review and save — no manual copy needed. Or output in copyable format in chat and guide user to copy → Dashboard → Use Copied Code → paste → review → save. Do not write to `Knowledge/recipes/` or `Knowledge/snippets/`.
 
 ### Step 2: Open the web (Dashboard) in browser
 
@@ -51,7 +53,7 @@ This skill tells the agent how to **submit module usage code** (that Cursor has 
 
 **Option A — MCP (Cursor)**: After user copies code, Agent calls **`autosnippet_open_create`** to open Dashboard New Recipe page; page reads clipboard and fills. Optional: pass current file path for header resolution. Equivalent to Xcode copy→jump UX.
 
-**Option B — // as:create (Xcode / in-editor)**: User adds **`// as:create`**, copies code, saves file. Requires **`asd watch`** or **`asd ui`** running; Watch detects save and opens Dashboard with path and clipboard.
+**Option B — // as:create (Xcode / in-editor)**: User adds **`// as:create`**, copies code, saves file. Requires **`asd watch`** or **`asd ui`** running. If clipboard has content, watch **automatically adds to Candidates** and shows a **friendly prompt** ("已创建候选「xxx」，请在 Candidates 页审核"); user opens Dashboard **Candidates** to review and save. If no clipboard, watch opens Dashboard with path for manual paste.
 
 ---
 
@@ -65,9 +67,37 @@ This skill tells the agent how to **submit module usage code** (that Cursor has 
 
 All of these **submit through the web (Dashboard)** and result in content in **`Knowledge/recipes/`** (and optionally Snippet). The main flow above (Use Copied Code) is for **code that Cursor has just written**.
 
-**When generating content**: If Agent has drafted Recipe or Snippet content, pass the full content to user for Dashboard submission. Do not write to `Knowledge/recipes/` or `Knowledge/snippets/`.
+**Friendly prompt (友好提示)**: When draft file or `// as:create` with clipboard is used, the system adds content to **Candidates** and shows: ① Console message "已创建候选「xxx」，请在 Candidates 页审核"; ② On macOS, a notification "已创建候选「xxx」，请在 Candidates 页审核". Tell the user: "内容已加入候选池，请打开 Dashboard 的 **Candidates** 页审核并保存即可。"
 
-**When full copy is difficult**: Long content in chat is hard to copy fully. Agent should **write to draft file** at project root: `_draft_recipe.md` (or `_draft_snippet.md`), outside Knowledge. User can: ① Open draft → select all → copy → Dashboard → Use Copied Code → paste; or ② Dashboard → New Recipe → **Scan File**, enter path `_draft_recipe.md`. Delete draft after save. Optional: add `_draft_*.md` to `.gitignore`.
+**When generating content**: If Agent has drafted Recipe or Snippet content, prefer writing to `_draft_recipe.md` so watch can auto-add to Candidates with friendly prompt. Or pass the full content to user for Dashboard submission. Do not write to `Knowledge/recipes/` or `Knowledge/snippets/`.
+
+**When full copy is difficult**: Long content in chat is hard to copy fully. Agent should **write to draft file** at project root: `_draft_recipe.md` (or `_draft_snippet.md`), outside Knowledge. **Watch automatically reads the draft on save** and adds it to **Candidates** (target `_draft`), then shows a **friendly prompt** ("已创建候选「xxx」，请在 Candidates 页审核"). User opens Dashboard **Candidates** → review and save — no manual copy or Scan File needed. Optional: add `_draft_*.md` to `.gitignore`. Delete draft after save if desired.
+
+**Multiple recipes in one draft**: To submit **several Recipes at once**, write them in one `_draft_recipe.md`. Each Recipe is a **complete block** starting with `---` (frontmatter). **Separate blocks with a blank line, then the next block starts with `---`**. Example structure:
+```
+---
+title: Recipe A
+trigger: @foo
+...
+---
+
+## Snippet / Code Reference
+```objc
+code A
+```
+
+## AI Context / Usage Guide
+usage A
+
+---
+title: Recipe B
+...
+---
+
+## Snippet / Code Reference
+...
+```
+Watch parses all such blocks and adds each as a separate candidate; prompt may say "已创建 N 条候选".
 
 ---
 
@@ -76,10 +106,10 @@ All of these **submit through the web (Dashboard)** and result in content in **`
 | User / Cursor situation | Action |
 |-------------------------|--------|
 | "把这段提交到 web / 加入知识库" (code just written) | 1) 提示用户复制代码；2) 调用 **`autosnippet_open_create`**；3) 若浏览器未打开，运行 `open "http://localhost:3000/?action=create&source=clipboard"`；4) 用户粘贴并保存。 |
-| Agent 起草了 Recipe/Snippet 内容 | **Prefer**: Write to `_draft_recipe.md` (project root) → user opens, copies all → call **`autosnippet_open_create`** or manual Dashboard → Use Copied Code → paste → review → save. |
-| Code in current file, want to open web from editor | **MCP**：`autosnippet_open_create`（传 path）。或 Add **`// as:create`**, copy, save; ensure **`asd watch`** / **`asd ui`** running. |
+| Agent 起草了 Recipe/Snippet 内容 | **Prefer**: Write to `_draft_recipe.md` (project root) → save → **watch 自动读取并加入候选池**，并给出友好提示 → 用户打开 Dashboard **Candidates** 审核并保存。无需手动复制。 |
+| Code in current file, want to open web from editor | **MCP**：`autosnippet_open_create`（传 path）。或 Add **`// as:create`**, copy, save；确保 **`asd watch`** / **`asd ui`** 运行；有剪贴板时自动加入候选并友好提示。 |
 | Code already in a file (path known) | 打开 **`http://localhost:3000`** → New Recipe → enter path → **Scan File** → review → save. |
-| Agent 起草内容无法完整复制 | Write to `_draft_recipe.md` → user Scan File or open & copy → Dashboard → review → save. |
+| Agent 起草内容无法完整复制 | Write to `_draft_recipe.md` → save → **watch 自动读取草稿、加入候选并友好提示** → 用户打开 **Candidates** 审核保存。 |
 | Batch from Target | **`asd ais <Target>`** → 打开 **`http://localhost:3000`** → **Candidates** → approve. |
 
 ---

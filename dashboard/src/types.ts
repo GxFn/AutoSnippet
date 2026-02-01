@@ -69,3 +69,13 @@ export interface ExtractedRecipe {
 	/** 是否引入头文件：true 时 snippet 内写入 // as:include 标记，watch 按标记注入依赖 */
 	includeHeaders?: boolean;
 }
+
+/** 候选池中的候选项（含 id）或 SPM 审核页中的项（含 candidateId/candidateTargetName） */
+export type ScanResultItem = ExtractedRecipe & {
+	mode: 'full' | 'preview';
+	lang: 'cn' | 'en';
+	includeHeaders?: boolean;
+	id?: string;
+	candidateId?: string;
+	candidateTargetName?: string;
+};

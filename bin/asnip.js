@@ -779,10 +779,72 @@ commander
 	});
 
 commander
+	.command('candidate')
+	.description('create candidate from clipboard (AI extract → Candidates, review in Dashboard)')
+	.option('-c, --clipboard', 'read from clipboard (default)')
+	.option('-f, --file <path>', 'read from file')
+	.option('--lang <objc|swift>', 'language hint (default: objc)')
+	.action(async (options) => {
+		const projectRoot = await findPath.findProjectRoot(CMD_PATH);
+		if (!projectRoot) {
+			console.error('未找到项目根目录（AutoSnippetRoot.boxspec.json）。');
+			return;
+		}
+		let text = '';
+		const lang = (options && options.lang) ? String(options.lang).toLowerCase() : 'objc';
+		if (options && options.file) {
+			const fp = path.isAbsolute(options.file) ? options.file : path.join(projectRoot, options.file);
+			try {
+				text = fs.readFileSync(fp, 'utf8');
+			} catch (e) {
+				console.error('❌ 读取文件失败:', e.message);
+				return;
+			}
+		} else {
+			text = readClipboardText();
+		}
+		if (!text || !text.trim()) {
+			console.error('❌ 剪贴板/文件为空');
+			return;
+		}
+		try {
+			const AiFactory = require('../lib/ai/AiFactory');
+			const candidateService = require('../lib/ai/candidateService');
+			const ai = await AiFactory.getProvider(projectRoot);
+			const result = await ai.summarize(text, lang);
+			if (result && result.error) {
+				console.error('❌ AI 解析失败:', result.error);
+				return;
+			}
+			if (!result || !result.title || !result.code) {
+				console.error('❌ AI 结果不完整');
+				return;
+			}
+			const item = {
+				title: result.title,
+				summary: result.summary || result.summary_cn || '',
+				trigger: result.trigger || '@' + result.title.replace(/\s+/g, ''),
+				category: result.category || 'Utility',
+				language: (result.language || 'objc').toLowerCase().startsWith('swift') ? 'swift' : 'objc',
+				code: result.code,
+				usageGuide: result.usageGuide_cn || result.usageGuide_en || '',
+				headers: result.headers || []
+			};
+			await candidateService.appendCandidates(projectRoot, '_cli', [item], 'cli-clipboard');
+			console.log(`✅ 已创建候选「${item.title}」，请在 Dashboard Candidates 页审核`);
+		} catch (e) {
+			console.error('❌ 创建失败:', e.message);
+		}
+	});
+
+commander
 	.command('search [keyword]')
 	.alias('s')
 	.description('search snippets and recipes (keyword or semantic)')
 	.option('-m, --semantic', 'use semantic search (requires asd embed)', false)
+	.option('-c, --copy', 'copy first result code to clipboard')
+	.option('-p, --pick', 'interactive pick (native dialog or terminal list)')
+	.option('-i, --insert <file>', 'insert selected code into file (requires --pick)')
 	.action(async (keyword, options) => {
 		const projectRoot = await findPath.findProjectRoot(CMD_PATH);
 		if (!projectRoot) {
@@ -790,96 +852,79 @@ commander
 			return;
 		}
 
-		if (options.semantic) {
-			if (!keyword) {
-				console.error('使用语义搜索时必须提供关键词。');
-				return;
-			}
-			console.log(`\n🧠 正在进行语义搜索: "${keyword}"...\n`);
-			
-			const { getInstance } = require('../lib/context');
-			const service = getInstance(projectRoot);
-			const results = await service.search(keyword, { limit: 5 });
+		const searchService = require('../lib/search/searchService');
+		const nativeUi = require('../lib/infra/nativeUi');
 
-			if (results.length === 0) {
-				console.log('未找到语义相关的知识点。请确保已运行 asd embed 构建索引。');
-				return;
-			}
+		const results = await searchService.search(projectRoot, keyword || '', {
+			semantic: options.semantic,
+			limit: options.semantic ? 5 : 20
+		});
 
-			console.log(`--- 语义相关知识 (Semantic Match) ---`);
-			results.forEach((res, i) => {
-				const score = ((res.similarity || 0) * 100).toFixed(1);
-				const name = res.metadata?.name || res.metadata?.sourcePath || res.id;
-				console.log(`${i + 1}. [${res.metadata?.type || 'recipe'}] ${name} (相关度: ${score}%)`);
-				if (i === 0 && res.content) {
-					console.log('\n--- 最佳匹配预览 ---');
-					console.log(res.content.substring(0, 300) + (res.content.length > 300 ? '...' : ''));
-					console.log('-------------------\n');
-				}
-			});
+		if (results.length === 0) {
+			console.log('未找到匹配的内容。');
+			if (options.semantic) console.log('提示: 请确保已运行 asd embed 构建语义索引。');
 			return;
 		}
 
-		const rootSpecFile = path.join(projectRoot, findPath.ROOT_MARKER_NAME);
-		let specData = {};
-		try {
-			specData = JSON.parse(fs.readFileSync(rootSpecFile, 'utf8'));
-		} catch (e) {
-			specData = { list: [] };
+		// --copy: 复制第一条到剪贴板
+		if (options.copy) {
+			const code = results[0].code || results[0].content || '';
+			if (nativeUi.writeClipboard(code)) {
+				console.log(`✅ 已复制到剪贴板 (${results[0].title})，Cmd+V 粘贴`);
+			} else {
+				console.log('--- 第一条结果 ---\n');
+				console.log(code);
+			}
+			return;
 		}
 
-		console.log(`\n🔍 正在搜索: "${keyword || '所有'}"\n`);
+		// --pick: 交互选择
+		if (options.pick) {
+			console.log(`🔍 找到 ${results.length} 个匹配，请选择...`);
+			const titles = results.map(r => r.title);
+			const idx = await nativeUi.pickFromList(titles, 'AutoSnippet 搜索结果', '请选择要插入的代码:');
+			if (idx < 0) {
+				console.log('已取消');
+				return;
+			}
+			const selected = results[idx];
+			const code = selected.code || selected.content || '';
+			const confirmed = await nativeUi.showPreview(selected.title, code);
+			if (!confirmed) {
+				console.log('已取消');
+				return;
+			}
+			if (options.insert) {
+				const insertPath = path.isAbsolute(options.insert) ? options.insert : path.join(projectRoot, options.insert);
+				try {
+					const raw = fs.readFileSync(insertPath, 'utf8');
+					const lines = raw.split(/\r?\n/);
+					const insertLines = code.split(/\r?\n/);
+					const newLines = [...lines, '', '// AutoSnippet insert:', ...insertLines];
+					fs.writeFileSync(insertPath, newLines.join('\n'), 'utf8');
+					console.log(`✅ 已插入到 ${options.insert}`);
+				} catch (e) {
+					console.error('❌ 插入失败:', e.message);
+				}
+			} else {
+				if (nativeUi.writeClipboard(code)) {
+					console.log('✅ 已复制到剪贴板，Cmd+V 粘贴');
+				} else {
+					console.log('\n--- 选中内容 ---\n');
+					console.log(code);
+				}
+			}
+			return;
+		}
 
-		// 1. 搜索 Snippets
-		const snippets = (specData.list || []).filter(s => {
-			if (!keyword) return true;
-			const k = keyword.toLowerCase();
-			return (s.title && s.title.toLowerCase().includes(k)) ||
-				(s.completion && s.completion.toLowerCase().includes(k)) ||
-				(s.summary && s.summary.toLowerCase().includes(k));
+		// 默认: 仅输出
+		console.log(`\n🔍 搜索: "${keyword || '所有'}" [${results.length} 个结果]\n`);
+		results.forEach((r, i) => {
+			console.log(`${i + 1}. ${r.title}`);
 		});
-
-		if (snippets.length > 0) {
-			console.log(`--- 代码片段 (Snippets) [${snippets.length}] ---`);
-			snippets.forEach((s, i) => {
-				console.log(`${i + 1}. [${s.languageShort || 'objc'}] ${s.title} (${s.completion})`);
-				if (s.summary) console.log(`   摘要: ${s.summary}`);
-			});
-			console.log('');
-		}
-
-		// 2. 搜索 Recipes
-		let matchingRecipes = [];
-		const recipesDir = path.join(projectRoot, specData.recipes?.dir || specData.skills?.dir || defaults.RECIPES_DIR);
-		if (fs.existsSync(recipesDir)) {
-			const recipeFiles = fs.readdirSync(recipesDir).filter(f => f.endsWith('.md'));
-			
-			for (const file of recipeFiles) {
-				const filePath = path.join(recipesDir, file);
-				const content = fs.readFileSync(filePath, 'utf8');
-				const k = keyword ? keyword.toLowerCase() : '';
-				
-				if (!keyword || file.toLowerCase().includes(k) || content.toLowerCase().includes(k)) {
-					matchingRecipes.push({ name: file, path: filePath, content });
-				}
-			}
-
-			if (matchingRecipes.length > 0) {
-				console.log(`--- 配方 (Recipes) [${matchingRecipes.length}] ---`);
-				matchingRecipes.forEach((s, i) => {
-					console.log(`${i + 1}. ${s.name}`);
-				});
-				console.log('');
-
-				if (matchingRecipes.length === 1 || (keyword && matchingRecipes.length < 5)) {
-					console.log('--- 预览第一个结果 ---\n');
-					console.log(matchingRecipes[0].content);
-				}
-			}
-		}
-
-		if (snippets.length === 0 && (!fs.existsSync(recipesDir) || matchingRecipes.length === 0)) {
-			console.log('未找到匹配的内容。');
+		if (results.length <= 3) {
+			console.log('\n--- 预览 ---\n');
+			console.log((results[0].code || results[0].content || '').slice(0, 500) + '...');
 		}
 	});
 
@@ -917,6 +962,70 @@ commander
 				console.error('请检查 AutoSnippetRoot.boxspec.json 或 .env 中的 AI 配置。');
 			}
 		}
+	});
+
+commander
+	.command('status')
+	.description('check AutoSnippet environment (root, .env, embed, watch)')
+	.action(async () => {
+		const projectRoot = await findPath.findProjectRoot(CMD_PATH);
+		const rootMarker = defaults.ROOT_SPEC_FILENAME;
+		const ok = '✅';
+		const fail = '❌';
+
+		console.log('\n--- AutoSnippet 环境自检 ---\n');
+
+		// 1. 项目根
+		if (projectRoot) {
+			console.log(`${ok} 项目根: ${projectRoot}`);
+		} else {
+			console.log(`${fail} 项目根: 未找到 ${rootMarker}，请先运行 asd root 或 asd setup`);
+			console.log('');
+			return;
+		}
+
+		// 2. .env 与 AI
+		const envPath = path.join(projectRoot, '.env');
+		if (fs.existsSync(envPath)) {
+			console.log(`${ok} .env: 已存在`);
+			try {
+				const AiFactory = require('../lib/ai/AiFactory');
+				const config = AiFactory.getConfigSync(projectRoot);
+				const hasKey = !!(config.apiKey || config.googleApiKey);
+				console.log(`   ${hasKey ? ok : fail} AI 配置: ${hasKey ? `provider=${config.provider}` : '未配置 API Key'}`);
+			} catch (_) {
+				console.log(`   ${fail} AI 配置: 无法读取`);
+			}
+		} else {
+			console.log(`${fail} .env: 不存在，请从 .env.example 复制并填写 API Key`);
+		}
+
+		// 3. 语义索引
+		const contextDir = path.join(projectRoot, 'Knowledge', '.autosnippet');
+		const hasContext = fs.existsSync(path.join(contextDir, 'context.json')) ||
+			fs.existsSync(path.join(contextDir, 'embeddings'));
+		console.log(`${hasContext ? ok : fail} 语义索引: ${hasContext ? '已构建' : '未构建，运行 asd embed'}`);
+
+		// 4. watch / ui
+		try {
+			const net = require('net');
+			const port = 3000;
+			const check = () => new Promise(res => {
+				const s = net.connect(port, '127.0.0.1', () => { s.destroy(); res(true); });
+				s.on('error', () => res(false));
+			});
+			const uiRunning = await Promise.race([check(), new Promise(r => setTimeout(() => r(false), 500))]);
+			console.log(`${uiRunning ? ok : fail} Dashboard: ${uiRunning ? 'http://localhost:3000 已运行' : '未运行，执行 asd ui'}`);
+		} catch (_) {
+			console.log(`${fail} Dashboard: 无法检测`);
+		}
+
+		// 5. native-ui
+		const nativeUi = require('../lib/infra/nativeUi');
+		const hasNative = !!nativeUi.getNativeUiPath();
+		console.log(`${hasNative ? ok : fail} Native UI: ${hasNative ? '已就绪 (Swift Helper)' : '未构建，执行 npm run build:native-ui (macOS)'}`);
+
+		console.log('');
 	});
 
 commander
@@ -959,6 +1068,11 @@ commander.addHelpText('after', `
 
 Examples:
 	asd setup								# 初始化 + 标记项目根目录
+	asd status								# 环境自检
+	asd search table --copy					# 搜索并复制第一条到剪贴板
+	asd search table --pick					# 交互选择后复制
+	asd candidate							# 从剪贴板创建候选（Dashboard 审核）
+	asd candidate --file path/to/draft.md	# 从文件创建候选
 	asd install:cursor-skill				# 将 skills 安装到项目 .cursor/skills/
 	asd install:full						# 全量安装
 	asd install:full --parser				# 全量 + Swift 解析器

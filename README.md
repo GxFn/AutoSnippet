@@ -56,22 +56,30 @@ asd ui         # 启动 Dashboard（建议常驻）
 
 | 指令 | 作用 |
 |------|------|
-| `// as:create` | 剪贴板代码 → 打开 Dashboard 新建 Recipe |
-| `// as:guard` [关键词] | 按知识库 AI 审查当前文件，输出到终端 |
-| `// as:search` [关键词] | 从知识库检索并插入 Recipe/Snippet |
+| `// as:create` / `// as:c` | 无选项时只打开 Dashboard（路径已填），由用户点 Scan File 或 Use Copied Code。`-c` 强制用剪切板（静默创建或打开）；`-f` 强制用路径（打开 Dashboard 并自动执行 Scan File） |
+| `// as:guard` / `// as:g` [关键词] | 按知识库 AI 审查当前文件，输出到终端 |
+| `// as:search` / `// as:s` [关键词] | 从知识库检索并插入 Recipe/Snippet |
 | `// as:include` / `// as:import` | Snippet 内头文件/模块标记，保存时自动注入 |
+
+**静默候选**：在 Cursor 内用户提出保存案例，Cursor 生成草案；后台用草案静默创建候选，无需打开浏览器，到 Dashboard **Candidates** 页审核即可。在 Xcode 等编辑器内也可写 `// as:c -c`、复制代码后保存，剪贴板内容同样静默入库。  
+**搜索无跳转**：`// as:search` / `// as:s` 在编辑器内弹窗或终端选择，即选即插，无需跳转 Dashboard，不打断当前编辑。
 
 ## 常用命令
 
 | 命令 | 说明 |
 |------|------|
 | `asd ui` | 启动 Dashboard + watch |
+| `asd status` | 环境自检（项目根、AI、索引、Native UI） |
 | `asd create --clipboard` | 从剪贴板创建 Recipe/Snippet |
+| `asd candidate` | 从剪贴板创建候选（Dashboard 审核） |
 | `asd install` / `asd i` | 同步 Snippets 到 Xcode |
 | `asd ais [Target]` | AI 扫描 Target → Candidates |
-| `asd search [keyword]` | 关键词搜索；加 `-m` 语义搜索 |
-| `asd install:cursor-skill --mcp` | 安装 Skills 并配置 MCP |
+| `asd search [keyword] --copy` | 搜索并复制第一条到剪贴板 |
+| `asd search [keyword] --pick` | 交互选择后复制/插入 |
+| `asd install:cursor-skill --mcp` | 安装 Skills 并配置 MCP（需 `asd ui` 运行） |
 | `asd install:full` | 全量安装；`--parser` 含 Swift 解析器；`--lancedb` 仅 LanceDB |
+| `asd embed` | 手动构建语义向量索引（`asd ui` 启动时也会自动执行） |
+| `asd spm-map` | 刷新 SPM 依赖映射（依赖关系图数据来源） |
 
 ## 全量安装与可选依赖
 
@@ -89,6 +97,15 @@ asd install:full --lancedb # 仅安装 LanceDB（向量检索更快）
 
 - **AI**：项目根 `.env`，设置 `ASD_GOOGLE_API_KEY` 等（见 `.env.example`）。可选 `ASD_AI_PROVIDER`、代理等。
 - **LanceDB**：`asd install:full --lancedb`，在 boxspec 的 `context.storage.adapter` 中配置 `"lance"`。
+- **Native UI**（可选）：macOS 上 `npm install` 会尝试构建 `bin/native-ui`（需本机 Swift）；未构建时回退到 AppleScript/inquirer，功能正常。
+
+## Recipe 格式
+
+完整 Recipe 为 Markdown 文件，需包含：
+
+- **Frontmatter**（`---` 包裹的 YAML）：`title`、`trigger` 必填；可选 `category`、`language`、`headers` 等
+- **## Snippet / Code Reference**：下接代码块，供 Snippet 与检索使用
+- **## AI Context / Usage Guide**：使用说明，供 AI 与 Guard 检索
 
 ## 术语
 
@@ -96,7 +113,8 @@ asd install:full --lancedb # 仅安装 LanceDB（向量检索更快）
 - **Snippet**：Xcode 代码片段，通过 trigger（默认 `@`）补全
 - **项目根**：含 `AutoSnippetRoot.boxspec.json` 的目录
 
-**详细介绍**：启动 `asd ui` 后访问 Dashboard → **使用说明** 页，可查看完整文档（含 Skills 一览、AI 配置、闭环详解等）。
+**详细介绍**：启动 `asd ui` 后访问 Dashboard → **使用说明** 页；或参阅 [使用文档](docs/使用文档.md)（含 Skills 一览、AI 配置、闭环详解等）。  
+**发布流程**：CI 与 npm 发布见 [发布流程](docs/发布流程.md)（打 tag `v*` 触发自动发布）。
 
 ---
 

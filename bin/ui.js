@@ -106,17 +106,17 @@ function launch(projectRoot, port = 3000, options = {}) {
 			}
 			const raw = fs.readFileSync(fullPath, 'utf8');
 			const lines = raw.split(/\r?\n/);
-			const searchMark = /\/\/\s*(?:autosnippet|as):search(\s|$)/;
+			const searchMark = /\/\/\s*(?:autosnippet:search|as:search|as:s)(\s|$)/;
 			let found = -1;
 			for (let i = 0; i < lines.length; i++) {
 				const t = triggerSymbol.stripTriggerPrefix(lines[i].trim()).trim();
-				if (searchMark.test(t) || t === '// as:search' || t.startsWith('// as:search ') || t.startsWith('// autosnippet:search')) {
+				if (searchMark.test(t) || t === '// as:search' || t.startsWith('// as:search ') || t === '// as:s' || t.startsWith('// as:s ') || t.startsWith('// autosnippet:search')) {
 					found = i;
 					break;
 				}
 			}
 			if (found < 0) {
-				return res.status(404).json({ error: 'No // as:search line found in file' });
+				return res.status(404).json({ error: 'No // as:search or // as:s line found in file' });
 			}
 			const insertLines = String(content).split(/\r?\n/);
 			const newLines = [...lines.slice(0, found), ...insertLines, ...lines.slice(found + 1)];
@@ -248,6 +248,8 @@ function launch(projectRoot, port = 3000, options = {}) {
 					item.headerPaths = await Promise.all(headerList.map(h => headerResolution.resolveHeaderRelativePath(h, targetRootDir)));
 					item.moduleName = moduleName;
 				}
+				// 未保存内容进入候选池，分类 _recipe，无过期
+				await candidateService.appendCandidates(projectRoot, '_recipe', result, 'new-recipe');
 			}
 
 			res.json({ result, isMarked });
@@ -258,17 +260,39 @@ function launch(projectRoot, port = 3000, options = {}) {
 	});
 
 	// API: 从文本提取 (针对剪贴板)；可选 relativePath 用于 // as:create 场景，按路径解析头文件
-	// 若检测到完整 Recipe MD 格式（frontmatter + Snippet + Usage Guide），直接解析，不调用 AI，避免重写劣化
+	// 若检测到完整 Recipe MD 格式（含多个时按约定 --- 分隔），直接解析，不调用 AI
 	app.post('/api/extract/text', async (req, res) => {
 		try {
 			const { text, language, relativePath } = req.body;
 			const parseRecipeMd = require('../lib/recipe/parseRecipeMd.js');
 
-			// 检测完整 Recipe MD：有 frontmatter、Snippet / Code Reference、代码块、AI Context / Usage Guide
+			// 优先按多 Recipe 约定解析（每个 Recipe 以 --- 开头，块间用空行 + --- 分隔）
+			const allRecipes = parseRecipeMd.parseRecipeMdAll(text);
+			if (allRecipes.length > 0) {
+				// 若传入路径，可为首条补充头文件解析
+				if (relativePath && typeof relativePath === 'string' && allRecipes[0]) {
+					try {
+						const resolved = await headerResolution.resolveHeadersForText(projectRoot, relativePath, text);
+						if (resolved.headers && resolved.headers.length > 0 && (!allRecipes[0].headers || allRecipes[0].headers.length === 0)) {
+							allRecipes[0].headers = resolved.headers;
+							allRecipes[0].headerPaths = resolved.headerPaths;
+							allRecipes[0].moduleName = resolved.moduleName;
+						}
+					} catch (_) {}
+				}
+				await candidateService.appendCandidates(projectRoot, '_recipe', allRecipes, 'new-recipe');
+				// 返回第一条供前端展示；多条时前端可提示「已加入 N 条候选」
+				const first = allRecipes[0];
+				if (allRecipes.length > 1) {
+					first._multipleCount = allRecipes.length;
+				}
+				return res.json(first);
+			}
+
+			// 单块完整 Recipe MD
 			if (parseRecipeMd.isCompleteRecipeMd(text)) {
 				const result = parseRecipeMd.parseRecipeMd(text);
 				if (result) {
-					// 若传入路径，可补充头文件解析（完整 MD 通常已含 headers）
 					if (relativePath && typeof relativePath === 'string') {
 						try {
 							const resolved = await headerResolution.resolveHeadersForText(projectRoot, relativePath, text);
@@ -279,12 +303,27 @@ function launch(projectRoot, port = 3000, options = {}) {
 							}
 						} catch (_) {}
 					}
+					await candidateService.appendCandidates(projectRoot, '_recipe', [result], 'new-recipe');
 					return res.json(result);
 				}
 			}
 
 			const ai = await AiFactory.getProvider(projectRoot);
-			const result = await ai.summarize(text, language);
+			if (!ai) {
+				return res.status(500).json({ error: 'AI provider not available', aiError: true });
+			}
+
+			let result;
+			try {
+				result = await ai.summarize(text, language);
+			} catch (aiErr) {
+				console.error('[AI Error]', aiErr);
+				return res.status(500).json({ error: `AI 识别失败: ${aiErr.message}`, aiError: true });
+			}
+
+			if (!result || result.error) {
+				return res.status(500).json({ error: result?.error || 'AI 识别失败，未返回有效结果', aiError: true });
+			}
 
 			// 若由 // as:create 传入路径，则按该文件所在 target 解析头文件（与 create/headName 一致）
 			if (relativePath && typeof relativePath === 'string' && result && !result.error) {
@@ -294,10 +333,15 @@ function launch(projectRoot, port = 3000, options = {}) {
 				result.moduleName = resolved.moduleName;
 			}
 
+			// 未保存内容进入候选池，分类 _recipe，无过期
+			if (result && !result.error && result.title && result.code) {
+				await candidateService.appendCandidates(projectRoot, '_recipe', [result], 'new-recipe');
+			}
+
 			res.json(result);
 		} catch (err) {
 			console.error(`[API Error]`, err);
-			res.status(500).json({ error: err.message });
+			res.status(500).json({ error: err.message, aiError: false });
 		}
 	});
 
@@ -363,10 +407,19 @@ function launch(projectRoot, port = 3000, options = {}) {
 			}
 
 			const aiConfig = AiFactory.getConfigSync(projectRoot);
+			// 过滤过期项，_pending 排到底端
+			let candidates = candidateService.listCandidatesWithPrune(projectRoot);
+			const sorted = Object.entries(candidates).sort(([a], [b]) => {
+				if (a === '_pending' && b !== '_pending') return 1;
+				if (a !== '_pending' && b === '_pending') return -1;
+				return a.localeCompare(b);
+			});
+			candidates = Object.fromEntries(sorted);
+
 			res.json({ 
 				rootSpec, 
 				recipes, 
-				candidates: candidateService.listCandidates(projectRoot),
+				candidates,
 				projectRoot,
 				watcherStatus: 'active',
 				aiConfig: { provider: aiConfig.provider, model: aiConfig.model }
@@ -775,6 +828,8 @@ function launch(projectRoot, port = 3000, options = {}) {
 					recipe.headerPaths = await Promise.all(headerList.map(h => headerResolution.resolveHeaderRelativePath(h, targetRootDir)));
 					recipe.moduleName = moduleName;
 				}
+				// 未保存内容进入候选池，分类 _pending，保留 24 小时
+				await candidateService.appendCandidates(projectRoot, '_pending', recipes, 'spm-scan', 24);
 			}
 			res.json({ recipes, scannedFiles });
 		} catch (err) {
@@ -792,6 +847,18 @@ function launch(projectRoot, port = 3000, options = {}) {
 		try {
 			const { targetName, candidateId } = req.body;
 			await candidateService.removeCandidate(projectRoot, targetName, candidateId);
+			res.json({ success: true });
+		} catch (err) {
+			console.error(`[API Error]`, err);
+			res.status(500).json({ error: err.message });
+		}
+	});
+
+	// API: 按 target 全部移除
+	app.post('/api/candidates/delete-target', async (req, res) => {
+		try {
+			const { targetName } = req.body;
+			await candidateService.removeAllInTarget(projectRoot, targetName);
 			res.json({ success: true });
 		} catch (err) {
 			console.error(`[API Error]`, err);

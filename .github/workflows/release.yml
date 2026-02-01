@@ -1,0 +1,38 @@
+# AutoSnippet 发布：打 tag v* 时构建、测试并发布到 npm
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Dashboard
+        run: npm run build:dashboard
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Set version from tag
+        run: npm version $(echo ${{ github.ref_name }} | sed 's/^v//') --no-git-tag-version --allow-same-version
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
