@@ -545,6 +545,37 @@ function launch(projectRoot, port = 3000, options = {}) {
 		}
 	});
 
+	// API: AI 翻译（中文 → 英文，用于 Recipe summary/usageGuide）
+	app.post('/api/ai/translate', async (req, res) => {
+		try {
+			const { summary, usageGuide } = req.body;
+			if (!summary && !usageGuide) {
+				return res.json({ summary_en: '', usageGuide_en: '' });
+			}
+			const ai = await AiFactory.getProvider(projectRoot);
+			const sys = 'You are a technical translator. Translate the following from Chinese to English. Keep technical terms (e.g. API names, class names) unchanged. Return ONLY valid JSON: { "summary_en": "...", "usageGuide_en": "..." }. Use empty string for missing input. Preserve Markdown in usageGuide.';
+			const parts = [];
+			if (summary) parts.push(`summary (摘要):\n${summary}`);
+			if (usageGuide) parts.push(`usageGuide (使用指南):\n${usageGuide}`);
+			const prompt = parts.join('\n\n');
+			const text = await ai.chat(prompt, [], sys);
+			const raw = (text || '').replace(/```json?\s*/gi, '').replace(/```\s*$/g, '').trim();
+			let out = { summary_en: '', usageGuide_en: '' };
+			try {
+				const parsed = JSON.parse(raw);
+				if (parsed.summary_en != null) out.summary_en = String(parsed.summary_en);
+				if (parsed.usageGuide_en != null) out.usageGuide_en = String(parsed.usageGuide_en);
+			} catch (_) {
+				// 若解析失败，尝试提取第一段作为 summary_en
+				if (summary) out.summary_en = raw.split('\n')[0] || summary;
+			}
+			res.json(out);
+		} catch (err) {
+			console.error(`[API Error]`, err);
+			res.status(500).json({ error: err.message });
+		}
+	});
+
 	// API: AI 聊天
 	app.post('/api/ai/chat', async (req, res) => {
 		try {

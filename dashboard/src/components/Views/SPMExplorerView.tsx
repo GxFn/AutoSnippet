@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { Box, Zap, Edit3, Cpu, CheckCircle, Pencil, Check, GitCompare, X, Copy } from 'lucide-react';
+import { Box, Zap, Edit3, Cpu, CheckCircle, Pencil, Check, GitCompare, X, Copy, Loader2 } from 'lucide-react';
 import { SPMTarget, ExtractedRecipe, ScanResultItem, Recipe } from '../../types';
 import { notify } from '../../utils/notification';
 import { categories } from '../../constants';
@@ -43,6 +43,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 	recipes = []
 }) => {
 	const [editingCodeIndex, setEditingCodeIndex] = useState<number | null>(null);
+	const [translatingIndex, setTranslatingIndex] = useState<number | null>(null);
 	const [similarityMap, setSimilarityMap] = useState<Record<string, SimilarRecipe[]>>({});
 	const [similarityLoading, setSimilarityLoading] = useState<string | null>(null);
 	const [compareModal, setCompareModal] = useState<{
@@ -54,6 +55,8 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 		recipeContents: Record<string, string>;
 	} | null>(null);
 	const fetchedSimilarRef = useRef<Set<string>>(new Set());
+	const prevSimilarKeysRef = useRef<string[]>([]);
+	const translateInFlightRef = useRef(false);
 
 	const codeLang = (res: { language?: string }) => {
 		const l = (res.language || '').toLowerCase();
@@ -95,10 +98,55 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 		setCompareModal({ candidate: res, targetName, recipeName, recipeContent, similarList: similarList.slice(0, 3), recipeContents: initialCache });
 	}, [recipes]);
 
+	const handleContentLangChange = useCallback(async (i: number, newLang: 'cn' | 'en') => {
+		if (translateInFlightRef.current) return;
+		if (newLang === 'cn') {
+			handleUpdateScanResult(i, { lang: 'cn' });
+			return;
+		}
+		const res = scanResults[i];
+		if (!res) return;
+		const cnSummary = res.summary_cn ?? res.summary ?? '';
+		const cnUsage = res.usageGuide_cn ?? res.usageGuide ?? '';
+		const needSummary = !res.summary_en && cnSummary.trim().length > 0;
+		const needUsage = !res.usageGuide_en && cnUsage.trim().length > 0;
+		if (needSummary || needUsage) {
+			translateInFlightRef.current = true;
+			setTranslatingIndex(i);
+			try {
+				const resp = await axios.post<{ summary_en?: string; usageGuide_en?: string }>('/api/ai/translate', {
+					summary: needSummary ? cnSummary : undefined,
+					usageGuide: needUsage ? cnUsage : undefined
+				});
+				const updates: any = { lang: 'en' };
+				if (cnSummary) updates.summary_cn = cnSummary;
+				if (cnUsage) updates.usageGuide_cn = cnUsage;
+				if (resp.data.summary_en != null) updates.summary_en = resp.data.summary_en;
+				if (resp.data.usageGuide_en != null) updates.usageGuide_en = resp.data.usageGuide_en;
+				handleUpdateScanResult(i, updates);
+				notify('已翻译为英文');
+			} catch (err: any) {
+				notify(err?.response?.data?.error || err?.message || '翻译失败', { type: 'error' });
+				handleUpdateScanResult(i, { lang: 'en' });
+			} finally {
+				translateInFlightRef.current = false;
+				setTranslatingIndex(null);
+			}
+		} else {
+			handleUpdateScanResult(i, { lang: 'en' });
+		}
+	}, [scanResults, handleUpdateScanResult]);
+
 	useEffect(() => {
-		fetchedSimilarRef.current.clear();
+		const keys = scanResults.map((r, i) => r.candidateId ?? `scan-${i}`);
+		const prevKeys = prevSimilarKeysRef.current;
+		const keysChanged = keys.length !== prevKeys.length || keys.some((k, i) => k !== prevKeys[i]);
+		if (keysChanged) {
+			fetchedSimilarRef.current.clear();
+			prevSimilarKeysRef.current = keys;
+		}
 		scanResults.forEach((res, i) => {
-			const key = res.candidateId ? res.candidateId : `scan-${i}`;
+			const key = res.candidateId ?? `scan-${i}`;
 			if (res.candidateId && res.candidateTargetName) {
 				fetchSimilarity(key, { targetName: res.candidateTargetName, candidateId: res.candidateId });
 			} else {
@@ -232,9 +280,12 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 									 </div>
 									 <div className="flex flex-col">
 											<label className="text-[9px] font-bold text-slate-400 uppercase ml-1 mb-0.5">Content Lang</label>
-											<div className="flex bg-slate-100 p-1 rounded-lg">
-												<button onClick={() => handleUpdateScanResult(i, { lang: 'cn' })} className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${res.lang === 'cn' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}>CN</button>
-												<button onClick={() => handleUpdateScanResult(i, { lang: 'en' })} className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${res.lang === 'en' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}>EN</button>
+											<div className="flex bg-slate-100 p-1 rounded-lg items-center gap-1">
+												<button onClick={() => handleContentLangChange(i, 'cn')} disabled={translatingIndex !== null} className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${res.lang === 'cn' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>CN</button>
+												<button onClick={() => handleContentLangChange(i, 'en')} disabled={translatingIndex !== null} className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all flex items-center gap-1 ${res.lang === 'en' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>
+													{translatingIndex === i ? <Loader2 size={10} className="animate-spin" /> : null}
+													EN
+												</button>
 											</div>
 									 </div>
 									 <div className="flex flex-col">
