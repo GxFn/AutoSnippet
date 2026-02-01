@@ -9,6 +9,9 @@ on:
 jobs:
   build-test-publish:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # 供 npm publish --provenance 生成来源证明
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
