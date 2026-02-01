@@ -23,6 +23,7 @@
 
 ### 单元测试（无外部依赖）
 - **test:unit**：`defaults.inferCategory`、`chunker` 各策略、`context` 常量与 JsonAdapter。
+- **test:unit:lance**：LanceDB 适配器本地测试（不纳入 CI）。先 `asd install:full --lancedb`，再 `npm run test:unit:lance`。未安装时自动跳过。
 
 ### 根据修改内容选择测试（`--changed`）
 - **AI 修改完代码后请执行**：`npm run test:changed`（按 git 变更选测），或传入本次修改的文件路径只跑相关测试：`node test/runner.js --changed -- bin/create.js lib/snippet/specRepository.js`。

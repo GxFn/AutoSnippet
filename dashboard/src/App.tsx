@@ -501,12 +501,14 @@ ${extracted.usageGuide}
 		}
 	};
 
-	const handleDeleteCandidate = async (targetName: string, candidateId: string) => {
+	const handleDeleteCandidate = async (targetName: string, candidateId: string): Promise<void> => {
 		try {
 			await axios.post('/api/candidates/delete', { targetName, candidateId });
+			setScanResults(prev => prev.filter(r => !(r.candidateId === candidateId && r.candidateTargetName === targetName)));
 			fetchData();
 		} catch (err) {
 			notify('操作失败', { type: 'error' });
+			throw err;
 		}
 	};
 
@@ -683,6 +685,7 @@ ${extracted.usageGuide}
 							isSilentTarget={isSilentTarget}
 							isPendingTarget={isPendingTarget}
 							handleDeleteCandidate={handleDeleteCandidate} 
+							onEditRecipe={openRecipeEdit}
 							onAuditCandidate={(cand, targetName) => {
 								setScanResults([{ 
 									...cand, 
@@ -725,7 +728,10 @@ ${extracted.usageGuide}
 							handleScanTarget={handleScanTarget}
 							handleUpdateScanResult={handleUpdateScanResult}
 							handleSaveExtracted={handleSaveExtracted}
+							handleDeleteCandidate={handleDeleteCandidate}
+							onEditRecipe={openRecipeEdit}
 							isShellTarget={isShellTarget}
+							recipes={data?.recipes ?? []}
 						/>
 					) : (
 						<AiChatView 

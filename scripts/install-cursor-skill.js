@@ -242,6 +242,7 @@ if (addMcp && fs.existsSync(mcpServerScript)) {
 		} catch (_) {}
 	}
 	mcp.mcpServers.autosnippet = {
+		type: 'stdio',
 		command: 'node',
 		args: [mcpServerScript],
 		env: { ASD_UI_URL: process.env.ASD_UI_URL || defaults.DEFAULT_ASD_UI_URL }

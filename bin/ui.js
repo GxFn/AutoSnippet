@@ -461,8 +461,18 @@ function launch(projectRoot, port = 3000, options = {}) {
 			}
 
 			const aiConfig = AiFactory.getConfigSync(projectRoot);
-			// 过滤过期项，_pending 排到底端
+			// 过滤过期项，_pending 排到底端；按质量分排序候选（高分靠前）
+			const qualityRules = require('../lib/candidate/qualityRules');
 			let candidates = candidateService.listCandidatesWithPrune(projectRoot);
+			for (const [targetName, group] of Object.entries(candidates)) {
+				if (group && Array.isArray(group.items)) {
+					group.items.sort((a, b) => {
+						const sa = qualityRules.evaluateCandidate(a);
+						const sb = qualityRules.evaluateCandidate(b);
+						return sb - sa;
+					});
+				}
+			}
 			const sorted = Object.entries(candidates).sort(([a], [b]) => {
 				if (a === '_pending' && b !== '_pending') return 1;
 				if (a !== '_pending' && b === '_pending') return -1;
@@ -1089,6 +1099,70 @@ function launch(projectRoot, port = 3000, options = {}) {
 			const { targetName } = req.body;
 			await candidateService.removeAllInTarget(projectRoot, targetName);
 			res.json({ success: true });
+		} catch (err) {
+			console.error(`[API Error]`, err);
+			res.status(500).json({ error: err.message });
+		}
+	});
+
+	// API: 候选与已有 Recipe 的相似度
+	// 支持两种入参：① targetName + candidateId（从候选池查找）② candidate（直接传入内容，用于深度扫描等无 candidateId 的项）
+	app.post('/api/candidates/similarity', async (req, res) => {
+		try {
+			const { targetName, candidateId, candidate } = req.body;
+			let cand = null;
+			if (targetName && candidateId) {
+				const candidates = candidateService.listCandidates(projectRoot);
+				const group = candidates[targetName];
+				if (group && Array.isArray(group.items)) {
+					cand = group.items.find(i => i.id === candidateId);
+				}
+			} else if (candidate && typeof candidate === 'object') {
+				cand = { title: candidate.title, summary: candidate.summary, code: candidate.code, usageGuide: candidate.usageGuide };
+			}
+			if (!cand) {
+				return res.json({ similar: [] });
+			}
+			const similarityService = require('../lib/candidate/similarityService');
+			const similar = await similarityService.findSimilarRecipes(projectRoot, cand);
+			res.json({ similar });
+		} catch (err) {
+			console.error(`[API Error]`, err);
+			res.status(500).json({ error: err.message });
+		}
+	});
+
+	// API: 获取单个 Recipe 内容（供候选对比弹窗）
+	app.get('/api/recipes/get', (req, res) => {
+		try {
+			const name = req.query.name;
+			if (!name) return res.status(400).json({ error: '需要 name 参数' });
+			const rootSpecPath = path.join(projectRoot, 'AutoSnippetRoot.boxspec.json');
+			const rootSpec = specRepository.readSpecFile(rootSpecPath);
+			const recipesDir = path.join(projectRoot, (rootSpec && (rootSpec.recipes?.dir || rootSpec.skills?.dir)) ? (rootSpec.recipes?.dir || rootSpec.skills?.dir) : 'Knowledge/recipes');
+			const fileName = name.endsWith('.md') ? name : `${name}.md`;
+			const recipesResolved = path.resolve(recipesDir);
+			let filePath = path.resolve(recipesDir, fileName.replace(/\.\./g, ''));
+			if (!filePath.startsWith(recipesResolved)) {
+				return res.status(400).json({ error: '非法路径' });
+			}
+			if (!fs.existsSync(filePath)) {
+				const findByName = (dir) => {
+					const entries = fs.readdirSync(dir, { withFileTypes: true });
+					for (const e of entries) {
+						const full = path.join(dir, e.name);
+						if (e.isDirectory() && !e.name.startsWith('.')) {
+							const found = findByName(full);
+							if (found) return found;
+						} else if (e.name === fileName) return full;
+					}
+					return null;
+				};
+				filePath = findByName(recipesDir);
+				if (!filePath) return res.status(404).json({ error: 'Recipe 不存在' });
+			}
+			const content = fs.readFileSync(filePath, 'utf8');
+			res.json({ name: path.basename(filePath), content });
 		} catch (err) {
 			console.error(`[API Error]`, err);
 			res.status(500).json({ error: err.message });

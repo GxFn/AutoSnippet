@@ -1,6 +1,6 @@
 {
 	"name": "autosnippet",
-	"version": "1.5.2",
+	"version": "1.5.3",
 	"description": "A iOS module management tool.",
 	"main": "index.js",
 	"scripts": {
@@ -14,6 +14,7 @@
 		"build:dashboard": "cd dashboard && npm run build",
 		"test": "node test/runner.js",
 		"test:unit": "node test/unit/run-all.js",
+		"test:unit:lance": "node test/unit/context-lance.test.js",
 		"test:changed": "node test/runner.js --changed",
 		"test:global": "node test/runner.js --global",
 		"dev:link": "npm install -g .",

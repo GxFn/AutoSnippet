@@ -32,6 +32,38 @@
 
 ---
 
+## 存储适配器切换
+
+如需在 `json` 与 `lance` 之间切换，按以下步骤操作。
+
+### json → lance
+
+1. 安装 LanceDB：执行 `asd install:full --lancedb` 或 `npm install @lancedb/lancedb`（在项目根或 AutoSnippet 包目录）。
+2. 修改 `AutoSnippetRoot.boxspec.json`，在 `context.storage` 中设置 `"adapter": "lance"`。
+3. 重启 `asd ui`（若在运行）。
+4. 执行 `asd embed` 重建索引（新索引写入 `Knowledge/.autosnippet/context/index/lancedb/`）。
+
+### lance → json
+
+1. 修改 boxspec，将 `context.storage.adapter` 设为 `"json"`。
+2. 重启 `asd ui`（若在运行）。
+3. 执行 `asd embed` 重建索引（新索引写入 `vector_index.json`）。
+4. （可选）删除旧 LanceDB 目录 `Knowledge/.autosnippet/context/index/lancedb/` 以释放空间。
+
+### 注意事项
+
+- 切换后**必须**执行 `asd embed`，索引不会自动迁移；两种适配器使用不同存储格式，需重新构建。
+- JSON 数据存于 `Knowledge/.autosnippet/context/index/vector_index.json`，LanceDB 存于同目录下 `lancedb/` 子目录，二者互不覆盖。
+
+---
+
+## 测试覆盖
+
+- **JsonAdapter**：`npm run test:unit` 覆盖。
+- **LanceDB 适配器**：提供本地测试，不纳入 CI。先安装 `asd install:full --lancedb`，再执行 `npm run test:unit:lance`。覆盖 upsert、getById、searchByFilter、searchVector、remove、getStats。未安装时自动跳过。
+
+---
+
 ## index.sources（数据源）
 
 语义索引的数据来源，未配置时默认仅索引 Recipe。

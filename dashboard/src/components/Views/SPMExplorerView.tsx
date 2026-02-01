@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
-import { Box, Zap, Edit3, Cpu, CheckCircle, Pencil, Check } from 'lucide-react';
-import { SPMTarget, ExtractedRecipe, ScanResultItem } from '../../types';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import axios from 'axios';
+import { Box, Zap, Edit3, Cpu, CheckCircle, Pencil, Check, GitCompare, X, Copy } from 'lucide-react';
+import { SPMTarget, ExtractedRecipe, ScanResultItem, Recipe } from '../../types';
+import { notify } from '../../utils/notification';
 import { categories } from '../../constants';
 import CodeBlock from '../Shared/CodeBlock';
+import MarkdownWithHighlight, { stripFrontmatter } from '../Shared/MarkdownWithHighlight';
+
+interface SimilarRecipe { recipeName: string; similarity: number; }
 
 interface SPMExplorerViewProps {
 	targets: SPMTarget[];
@@ -15,7 +20,10 @@ interface SPMExplorerViewProps {
 	handleScanTarget: (target: SPMTarget) => void;
 	handleUpdateScanResult: (index: number, updates: any) => void;
 	handleSaveExtracted: (res: any) => void;
+	handleDeleteCandidate?: (targetName: string, candidateId: string) => void;
+	onEditRecipe?: (recipe: Recipe) => void;
 	isShellTarget: (name: string) => boolean;
+	recipes?: Recipe[];
 }
 
 const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
@@ -29,10 +37,75 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 	handleScanTarget,
 	handleUpdateScanResult,
 	handleSaveExtracted,
-	isShellTarget
+	handleDeleteCandidate,
+	onEditRecipe,
+	isShellTarget,
+	recipes = []
 }) => {
 	const [editingCodeIndex, setEditingCodeIndex] = useState<number | null>(null);
-	const codeLang = (res: { language?: string }) => (res.language === 'objectivec' || res.language === 'objc' ? 'objectivec' : (res.language || 'swift'));
+	const [similarityMap, setSimilarityMap] = useState<Record<string, SimilarRecipe[]>>({});
+	const [similarityLoading, setSimilarityLoading] = useState<string | null>(null);
+	const [compareModal, setCompareModal] = useState<{
+		candidate: ScanResultItem;
+		targetName: string;
+		recipeName: string;
+		recipeContent: string;
+		similarList: SimilarRecipe[];
+		recipeContents: Record<string, string>;
+	} | null>(null);
+	const fetchedSimilarRef = useRef<Set<string>>(new Set());
+
+	const codeLang = (res: { language?: string }) => {
+		const l = (res.language || '').toLowerCase();
+		return (l === 'objectivec' || l === 'objc' || l === 'objective-c' || l === 'obj-c' ? 'objectivec' : (res.language || 'swift'));
+	};
+
+	const fetchSimilarity = useCallback(async (key: string, opts: { targetName?: string; candidateId?: string; candidate?: { title?: string; summary?: string; code?: string; usageGuide?: string } }) => {
+		if (fetchedSimilarRef.current.has(key)) return;
+		fetchedSimilarRef.current.add(key);
+		setSimilarityLoading(key);
+		try {
+			const body = opts.candidateId && opts.targetName
+				? { targetName: opts.targetName, candidateId: opts.candidateId }
+				: { candidate: opts.candidate || {} };
+			const resp = await axios.post<{ similar: SimilarRecipe[] }>('/api/candidates/similarity', body);
+			setSimilarityMap(prev => ({ ...prev, [key]: resp.data.similar || [] }));
+		} catch (_) {
+			setSimilarityMap(prev => ({ ...prev, [key]: [] }));
+		} finally {
+			setSimilarityLoading(null);
+		}
+	}, []);
+
+	const openCompare = useCallback(async (res: ScanResultItem, recipeName: string, similarList: SimilarRecipe[] = []) => {
+		const targetName = res.candidateTargetName || '';
+		let recipeContent = '';
+		const existing = recipes?.find(r => r.name === recipeName || r.name.endsWith('/' + recipeName));
+		if (existing?.content) {
+			recipeContent = existing.content;
+		} else {
+			try {
+				const resp = await axios.get<{ content: string }>(`/api/recipes/get?name=${encodeURIComponent(recipeName)}`);
+				recipeContent = resp.data.content;
+			} catch (_) {
+				return;
+			}
+		}
+		const initialCache: Record<string, string> = { [recipeName]: recipeContent };
+		setCompareModal({ candidate: res, targetName, recipeName, recipeContent, similarList: similarList.slice(0, 3), recipeContents: initialCache });
+	}, [recipes]);
+
+	useEffect(() => {
+		fetchedSimilarRef.current.clear();
+		scanResults.forEach((res, i) => {
+			const key = res.candidateId ? res.candidateId : `scan-${i}`;
+			if (res.candidateId && res.candidateTargetName) {
+				fetchSimilarity(key, { targetName: res.candidateTargetName, candidateId: res.candidateId });
+			} else {
+				fetchSimilarity(key, { candidate: { title: res.title, summary: res.summary, code: res.code, usageGuide: res.usageGuide } });
+			}
+		});
+	}, [scanResults, fetchSimilarity]);
 
 	return (
 		<div className="flex gap-8 h-full">
@@ -208,6 +281,32 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 										<p className="text-[10px] text-slate-400">未解析到头文件（剪贴板需含 #import，且路径在 target 下）</p>
 									)}
 								</div>
+								{(() => {
+									const simKey = res.candidateId ?? `scan-${i}`;
+									const similar = similarityMap[simKey];
+									const loading = similarityLoading === simKey;
+									const hasSimilar = (similar?.length ?? 0) > 0;
+									return (hasSimilar || loading) ? (
+										<div className="flex flex-wrap gap-1.5 items-center">
+											<span className="text-[10px] text-slate-400 font-bold">相似 Recipe：</span>
+											{loading ? (
+												<span className="text-[10px] text-slate-400">加载中...</span>
+											) : (
+												(similar || []).slice(0, 3).map(s => (
+													<button
+														key={s.recipeName}
+														onClick={() => openCompare(res, s.recipeName, similar || [])}
+														className="text-[10px] font-bold px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors flex items-center gap-1"
+														title={`与 ${s.recipeName} 相似 ${(s.similarity * 100).toFixed(0)}%，点击对比`}
+													>
+														<GitCompare size={10} />
+														{s.recipeName.replace(/\.md$/i, '')} {(s.similarity * 100).toFixed(0)}%
+													</button>
+												))
+											)}
+										</div>
+									) : null;
+								})()}
 								<div>
 									<div className="flex items-center justify-between mb-1">
 										<label className="text-[10px] font-bold text-slate-400 uppercase">Standardized Usage Example (标准使用示例)</label>
@@ -243,6 +342,122 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 					))}
 				</div>
 			</div>
+
+			{/* 双栏对比弹窗：候选 vs Recipe */}
+			{compareModal && (() => {
+				const cand = compareModal.candidate;
+				const candLang = codeLang(cand);
+				const copyCandidate = () => {
+					const parts = [];
+					if (cand.code) parts.push('## Snippet / Code Reference\n\n```' + candLang + '\n' + cand.code + '\n```');
+					if (cand.usageGuide) parts.push('\n## AI Context / Usage Guide\n\n' + cand.usageGuide);
+					navigator.clipboard.writeText(parts.join('\n') || '').then(() => notify('已复制候选内容'));
+				};
+				const copyRecipe = () => {
+					const text = stripFrontmatter(compareModal.recipeContent);
+					navigator.clipboard.writeText(text).then(() => notify('已复制 Recipe 内容'));
+				};
+				const switchToRecipe = async (newName: string) => {
+					if (newName === compareModal.recipeName) return;
+					const cached = compareModal.recipeContents[newName];
+					if (cached) {
+						setCompareModal(prev => prev ? { ...prev, recipeName: newName, recipeContent: cached } : null);
+					} else {
+						let content = '';
+						const existing = recipes?.find(r => r.name === newName || r.name.endsWith('/' + newName));
+						if (existing?.content) content = existing.content;
+						else {
+							try {
+								const resp = await axios.get<{ content: string }>(`/api/recipes/get?name=${encodeURIComponent(newName)}`);
+								content = resp.data.content;
+							} catch (_) { return; }
+						}
+						setCompareModal(prev => prev ? { ...prev, recipeName: newName, recipeContent: content, recipeContents: { ...prev.recipeContents, [newName]: content } } : null);
+					}
+				};
+				const handleDelete = async () => {
+					if (!cand.candidateId || !compareModal.targetName || !handleDeleteCandidate) return;
+					if (!window.confirm('确定删除该候选？')) return;
+					try {
+						await handleDeleteCandidate(compareModal.targetName, cand.candidateId);
+						setCompareModal(null);
+					} catch (_) {}
+				};
+				const handleAuditCandidate = () => {
+					handleSaveExtracted(cand);
+					setCompareModal(null);
+				};
+				const handleEditRecipe = () => {
+					const recipe = recipes?.find(r => r.name === compareModal.recipeName || r.name.endsWith('/' + compareModal.recipeName))
+						|| { name: compareModal.recipeName, content: compareModal.recipeContent };
+					onEditRecipe?.(recipe);
+					setCompareModal(null);
+				};
+				return (
+					<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2" onClick={() => setCompareModal(null)}>
+						<div className="bg-white rounded-2xl shadow-2xl w-[min(95vw,1600px)] max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
+							<div className="flex justify-between items-center px-4 py-3 border-b border-slate-200 shrink-0">
+								<div className="flex items-center gap-3">
+									<h3 className="font-bold text-slate-800">候选 vs Recipe 对比</h3>
+									{cand.candidateId && compareModal.targetName && (
+										<button onClick={handleDelete} className="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded">删除候选</button>
+									)}
+									<button onClick={handleAuditCandidate} className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded">审核候选</button>
+									<button onClick={handleEditRecipe} className="text-xs text-emerald-600 hover:bg-emerald-50 px-2 py-1 rounded">审核 Recipe</button>
+								</div>
+								<button onClick={() => setCompareModal(null)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors"><X size={18} /></button>
+							</div>
+							<div className="flex-1 grid grid-cols-2 overflow-hidden min-h-0" style={{ gridTemplateRows: 'auto 1fr' }}>
+								<div className="px-4 py-3 bg-blue-50 border-b border-r border-slate-100 flex flex-col justify-center min-h-0">
+									<div className="flex items-center justify-between gap-2">
+										<span className="text-sm font-bold text-blue-700 truncate flex-1 min-w-0" title={cand.title}>候选：{cand.title}</span>
+										<button onClick={copyCandidate} className="p-1.5 hover:bg-blue-100 rounded-lg text-blue-600 shrink-0" title="复制"> <Copy size={14} /> </button>
+									</div>
+									<div className="min-h-[28px] mt-2 shrink-0" />
+								</div>
+								<div className="px-4 py-3 bg-emerald-50 border-b border-slate-100 flex flex-col justify-center min-h-0">
+									<div className="flex items-center justify-between gap-2">
+										<span className="text-sm font-bold text-emerald-700 truncate flex-1 min-w-0" title={compareModal.recipeName}>Recipe：{compareModal.recipeName.replace(/\.md$/i, '')}</span>
+										<button onClick={copyRecipe} className="p-1.5 hover:bg-emerald-100 rounded-lg text-emerald-600 shrink-0" title="复制"> <Copy size={14} /> </button>
+									</div>
+									{compareModal.similarList.length > 1 ? (
+										<div className="flex flex-wrap gap-1 mt-2 shrink-0">
+											{compareModal.similarList.map(s => (
+												<button
+													key={s.recipeName}
+													onClick={() => switchToRecipe(s.recipeName)}
+													className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${compareModal.recipeName === s.recipeName ? 'bg-emerald-200 text-emerald-800' : 'bg-white/80 text-emerald-600 hover:bg-emerald-100'}`}
+												>
+													{s.recipeName.replace(/\.md$/i, '')} {(s.similarity * 100).toFixed(0)}%
+												</button>
+											))}
+										</div>
+									) : (
+										<div className="min-h-[28px] mt-2 shrink-0" />
+									)}
+								</div>
+								<div className="flex-1 overflow-auto p-4 min-h-0 border-r border-slate-200 markdown-body text-slate-700">
+									<h2 className="text-lg font-bold mb-2 mt-4">Snippet / Code Reference</h2>
+									{cand.code ? (
+										<CodeBlock code={cand.code} language={candLang} className="!overflow-visible" />
+									) : (
+										<p className="text-slate-400 italic mb-3">（无代码）</p>
+									)}
+									<h2 className="text-lg font-bold mb-2 mt-4">AI Context / Usage Guide</h2>
+									{cand.usageGuide ? (
+										<MarkdownWithHighlight content={cand.usageGuide} />
+									) : (
+										<p className="text-slate-400 italic">（无使用指南）</p>
+									)}
+								</div>
+								<div className="flex-1 overflow-auto p-4 min-h-0">
+									<MarkdownWithHighlight content={compareModal.recipeContent} stripFrontmatter />
+								</div>
+							</div>
+						</div>
+					</div>
+				);
+			})()}
 		</div>
 	);
 };

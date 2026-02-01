@@ -8,6 +8,8 @@ export type CodeLanguage = 'objectivec' | 'objc' | 'swift' | 'markdown';
 const LANGUAGE_MAP: Record<string, string> = {
 	objectivec: 'objectivec',
 	objc: 'objectivec',
+	'objective-c': 'objectivec',
+	'obj-c': 'objectivec',
 	swift: 'swift',
 	markdown: 'markdown',
 	md: 'markdown',

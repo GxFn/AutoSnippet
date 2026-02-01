@@ -160,9 +160,6 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
 
 	return (
 		<div className="p-6">
-			<div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-				<strong>前置条件：</strong>需在项目根运行 <code className="bg-amber-100 px-1 rounded">asd ui</code>；违反记录由源码中 <code className="bg-amber-100 px-1 rounded">// as:guard</code> 保存后由 watch 触发检查并写入，若从未触发则列表为空。
-			</div>
 			<div className="flex items-center justify-between mb-6">
 				<h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
 					<Shield size={24} className="text-blue-600" />

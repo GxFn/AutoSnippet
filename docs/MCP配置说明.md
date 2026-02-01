@@ -19,12 +19,13 @@ Cursor 通过 MCP（Model Context Protocol）调用 AutoSnippet 知识库与 Das
 - 项目内：`.cursor/mcp.json`
 - 用户级：`~/.cursor/mcp.json`
 
-示例（stdio 模式，由 Cursor 启动 MCP 进程）：
+示例（stdio 模式，由 Cursor 启动 MCP 进程）。可写 `"type": "stdio"` 明确传输方式（部分 Cursor 版本或 UI 会用到；无此字段时通常也能根据 command/args 推断为 stdio）：
 
 ```json
 {
   "mcpServers": {
     "autosnippet": {
+      "type": "stdio",
       "command": "node",
       "args": ["/path/to/AutoSnippet/scripts/mcp-server.js"],
       "cwd": "/path/to/your/project/root"
@@ -39,6 +40,7 @@ Cursor 通过 MCP（Model Context Protocol）调用 AutoSnippet 知识库与 Das
 {
   "mcpServers": {
     "autosnippet": {
+      "type": "stdio",
       "command": "node",
       "args": ["<AutoSnippet 安装路径>/scripts/mcp-server.js"],
       "cwd": "<项目根路径>"

@@ -2,18 +2,28 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import CodeBlock from './CodeBlock';
 
+/** 移除 YAML frontmatter（--- 包裹的元数据块），供复制等场景使用 */
+export function stripFrontmatter(text: string): string {
+	if (!text || typeof text !== 'string') return text;
+	return text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').trim() || text;
+}
+
 interface MarkdownWithHighlightProps {
 	content: string;
 	className?: string;
 	/** 代码块是否显示行号 */
 	showLineNumbers?: boolean;
+	/** 是否移除 YAML frontmatter 后渲染（用于 Recipe 对比时只显示正文） */
+	stripFrontmatter?: boolean;
 }
 
 const MarkdownWithHighlight: React.FC<MarkdownWithHighlightProps> = ({
 	content,
 	className = '',
 	showLineNumbers = false,
+	stripFrontmatter: doStrip = false,
 }) => {
+	const renderedContent = doStrip ? stripFrontmatter(content) : content;
 	return (
 		<div className={`markdown-body text-slate-700 ${className}`}>
 			<ReactMarkdown
@@ -54,7 +64,7 @@ const MarkdownWithHighlight: React.FC<MarkdownWithHighlightProps> = ({
 					),
 				}}
 			>
-				{content}
+				{renderedContent}
 			</ReactMarkdown>
 		</div>
 	);
