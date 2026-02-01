@@ -4,6 +4,20 @@
 
 ---
 
+## [1.5.5] - 2025-02-02
+
+### 修复
+
+- **asd status AI 配置**：getConfigSync 正确解析并返回 hasKey，修复「未配置 API Key」误报。
+- **asd status 语义索引**：检测路径改为 `context/index/vector_index.json`、`context/index/lancedb/`、`manifest.json`，修复 embed 后仍提示「未构建」。
+- **asd status Dashboard**：未运行时使用 ℹ️ 而非 ❌，文案为「需时请执行 asd ui」，属于正常情况。
+
+### 变更
+
+- **移除 bin/native-ui**：仅保留 `resources/native-ui/native-ui`（由 build 生成），bin/native-ui 为冗余且未被引用。
+
+---
+
 ## [1.5.4] - 2025-02-02
 
 ### 新增
