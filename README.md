@@ -57,7 +57,7 @@ asd ui         # 启动 Dashboard（建议常驻）
 | 指令 | 作用 |
 |------|------|
 | `// as:create` / `// as:c` | 无选项时只打开 Dashboard（路径已填），由用户点 Scan File 或 Use Copied Code。`-c` 强制用剪切板（静默创建或打开）；`-f` 强制用路径（打开 Dashboard 并自动执行 Scan File） |
-| `// as:guard` / `// as:g` [关键词] | 按知识库 AI 审查当前文件，输出到终端 |
+| `// as:guard` / `// as:g` [关键词或规模] | 按知识库 AI 审查；无后缀时仅检查当前文件；后缀 **file** / **target** / **project** 可扩大范围（target=当前 target 内所有源文件，project=项目内所有源文件）；其他为检索关键词 |
 | `// as:search` / `// as:s` [关键词] | 从知识库检索并插入 Recipe/Snippet |
 | `// as:include` / `// as:import` | Snippet 内头文件/模块标记，保存时自动注入 |
 

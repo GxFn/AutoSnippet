@@ -1,0 +1,20 @@
+# AutoSnippet 文档
+
+本目录为项目核心文档与使用说明，可随仓库提交到 GitHub。
+
+## 文档索引
+
+| 文档 | 说明 |
+|------|------|
+| [使用文档](./使用文档.md) | 安装、常用命令、编辑器内指令、配置、Recipe 格式、Cursor 集成 |
+| [术语与 Skills](./术语与Skills.md) | Recipe（配方）与网络标准 Agent Skills 的关系与定义 |
+| [权威评分系统与数据格式](./权威评分系统与数据格式.md) | 使用热度、权威分、综合权威分及 recipe-stats 数据格式 |
+| [context 配置说明](./context配置说明.md) | 语义索引的 storage、sources、chunking 配置 |
+| [MCP 配置说明](./MCP配置说明.md) | Cursor MCP 配置与可用工具 |
+| [guard-checks-catalog.json](./guard-checks-catalog.json) | iOS 版本规则全量检测示例：OC/Swift 静态规则与内置审计（可作 guard-rules 参考） |
+
+## 快速开始
+
+1. 安装：`npm install -g autosnippet`
+2. 在项目根执行：`asd setup` → `asd ui`
+3. 详见 [使用文档](./使用文档.md)。

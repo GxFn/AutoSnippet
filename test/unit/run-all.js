@@ -11,7 +11,8 @@ const { execSync } = require('child_process');
 const tests = [
 	'test/unit/defaults.test.js',
 	'test/unit/chunker.test.js',
-	'test/unit/context.test.js'
+	'test/unit/context.test.js',
+	'test/unit/recipeStats.test.js'
 ];
 
 const projectRoot = path.resolve(__dirname, '../../');

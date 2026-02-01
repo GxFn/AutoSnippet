@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Save, Eye, Edit3 } from 'lucide-react';
+import axios from 'axios';
+import { X, Save, Eye, Edit3, Star } from 'lucide-react';
 import { Recipe } from '../../types';
 import MarkdownWithHighlight from '../Shared/MarkdownWithHighlight';
 
@@ -10,8 +11,25 @@ interface RecipeEditorProps {
 	closeRecipeEdit: () => void;
 }
 
+const defaultStats = {
+	authority: 0,
+	guardUsageCount: 0,
+	humanUsageCount: 0,
+	aiUsageCount: 0,
+	lastUsedAt: null as string | null,
+	authorityScore: 0
+};
+
 const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRecipe, handleSaveRecipe, closeRecipeEdit }) => {
 	const [viewMode, setViewMode] = useState<'edit' | 'preview'>('preview');
+
+	const handleSetAuthority = async (authority: number) => {
+		try {
+			await axios.post('/api/recipes/set-authority', { name: editingRecipe.name, authority });
+			const stats = editingRecipe.stats ? { ...editingRecipe.stats, authority } : { ...defaultStats, authority };
+			setEditingRecipe({ ...editingRecipe, stats });
+		} catch (_) {}
+	};
 
 	// 解析元数据和正文
 	const parseContent = (content: string) => {
@@ -56,9 +74,29 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
 	return (
 		<div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
 			<div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl flex flex-col h-[85vh]">
-				<div className="p-6 border-b border-slate-100 flex justify-between items-center">
+				<div className="p-6 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
 					<h2 className="text-xl font-bold">Edit Recipe</h2>
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-4">
+						<div className="flex items-center gap-2">
+							<span className="text-xs font-medium text-slate-500">权威分</span>
+							{viewMode === 'preview' ? (
+								<span className="text-sm text-slate-700">{(editingRecipe.stats?.authority ?? 0)}</span>
+							) : (
+								<div className="flex gap-0.5">
+									{[1, 2, 3, 4, 5].map((n) => (
+										<button
+											key={n}
+											type="button"
+											onClick={() => handleSetAuthority(n)}
+											className={`p-1 rounded ${(editingRecipe.stats?.authority ?? 0) >= n ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}
+											title={`设为 ${n} 星`}
+										>
+											<Star size={18} fill={(editingRecipe.stats?.authority ?? 0) >= n ? 'currentColor' : 'none'} />
+										</button>
+									))}
+								</div>
+							)}
+						</div>
 						<div className="flex bg-slate-100 p-1 rounded-lg mr-4">
 							<button 
 								onClick={() => setViewMode('preview')} 

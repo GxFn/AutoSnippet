@@ -99,7 +99,7 @@ server.registerTool(
 server.registerTool(
 	'autosnippet_context_search',
 	{
-		description: '按需检索项目知识库：根据自然语言查询返回相关 Recipe、文档。需先运行 asd ui。',
+		description: '按需检索项目知识库：根据自然语言查询返回相关 Recipe、文档。需先运行 asd ui。仅做静默检索与返回，不触发任何采纳表单。',
 		inputSchema: {
 			query: z.string().describe('自然语言查询，如：网络请求、WebView 加载、URLRequest'),
 			limit: z.number().optional().default(5).describe('返回条数，默认 5')
@@ -115,7 +115,11 @@ server.registerTool(
 			const lines = items.map((it, i) => {
 				const meta = it.metadata || {};
 				const src = meta.sourcePath || meta.source || it.id || '';
-				return `[${i + 1}] ${src}\n${(it.content || '').slice(0, 2000)}${(it.content || '').length > 2000 ? '\n...(截断)' : ''}`;
+				const statsLine = it.stats
+					? `[Authority: ${it.stats.authority}/5 | Usage: guard=${it.stats.guardUsageCount}, human=${it.stats.humanUsageCount}, ai=${it.stats.aiUsageCount} | Score: ${(it.stats.authorityScore ?? 0).toFixed(2)}]\n`
+					: '';
+				const body = (it.content || '').slice(0, 2000) + ((it.content || '').length > 2000 ? '\n...(截断)' : '');
+				return `[${i + 1}] ${src}\n${statsLine}${body}`;
 			});
 			return { content: [{ type: 'text', text: lines.join('\n\n---\n\n') }] };
 		} catch (e) {
@@ -202,6 +206,142 @@ server.registerTool(
 			};
 		} catch (e) {
 			return { content: [{ type: 'text', text: `提交失败: ${e.message}。请确认 asd ui 已启动且 items 格式符合 ExtractedRecipe（含 title, summary, trigger, language, code, usageGuide）。` }] };
+		}
+	}
+);
+
+server.registerTool(
+	'autosnippet_confirm_recipe_usage',
+	{
+		description: '采纳表单：向用户弹出「是否采纳/使用」确认，用户点击确认后记为人工使用一次（humanUsageCount +1），影响 Recipe 使用统计与综合权威分排序。可由 Cursor 自行判断何时给出（例如用户明确表示采纳时，或你认为用户已采纳该 Recipe 时）；也可仅在用户明确表达采纳（如「可以采纳」「我采纳」「确认使用」）时调用。传入 Recipe 文件名（如 WebView-Load-URL.md）。需 Cursor 支持 MCP Elicitation 且 asd ui 已运行。',
+		inputSchema: {
+			recipeNames: z.union([
+				z.string().describe('单个 Recipe 文件名，如 BDRequestDefine.md'),
+				z.array(z.string()).describe('Recipe 文件名列表，如 [\"BDRequestDefine.md\", \"Another.md\"]')
+			]).describe('本次采纳的 Recipe 文件名或列表')
+		}
+	},
+	async ({ recipeNames }) => {
+		try {
+			const list = Array.isArray(recipeNames) ? recipeNames : (recipeNames != null && typeof recipeNames === 'string' ? [recipeNames] : []);
+			const names = list.map(n => (typeof n === 'string' && n.trim() ? n.trim() : null)).filter(Boolean);
+			if (names.length === 0) {
+				return { content: [{ type: 'text', text: '请传入 recipeNames（单个文件名或文件名数组）。' }] };
+			}
+			let result;
+			try {
+				result = await server.server.elicitInput({
+					mode: 'form',
+					message: `以下 Recipe 你是否已采纳/使用？\n${names.map(n => `• ${n}`).join('\n')}`,
+					requestedSchema: {
+						type: 'object',
+						properties: {
+							confirmed: {
+								type: 'boolean',
+								title: '确认使用',
+								description: '确认则记为人工使用一次（humanUsageCount +1）',
+								default: true
+							}
+						},
+						required: ['confirmed']
+					}
+				});
+			} catch (e) {
+				return {
+					content: [{
+						type: 'text',
+						text: `无法弹出确认表单：${e.message}。请确认 Cursor 支持 MCP Elicitation，或通过 Dashboard / as:search 记录使用。`
+					}]
+				};
+			}
+			if (result.action === 'accept' && result.content && result.content.confirmed === true) {
+				try {
+					const res = await request('POST', '/api/recipes/record-usage', { recipeFilePaths: names, source: 'human' });
+					return {
+						content: [{
+							type: 'text',
+							text: `已记录 ${res?.count ?? names.length} 条 Recipe 的人工使用。可在 Dashboard Recipes 页查看使用统计。`
+						}]
+					};
+				} catch (e) {
+					return { content: [{ type: 'text', text: `记录使用失败: ${e.message}。请确认 asd ui 已启动。` }] };
+				}
+			}
+			if (result.action === 'decline') {
+				return { content: [{ type: 'text', text: '用户选择不确认使用。' }] };
+			}
+			return { content: [{ type: 'text', text: '已取消。' }] };
+		} catch (e) {
+			return { content: [{ type: 'text', text: `确认使用失败: ${e.message}` }] };
+		}
+	}
+);
+
+server.registerTool(
+	'autosnippet_request_recipe_rating',
+	{
+		description: '向用户请求对某条 Recipe 的权威分（0～5 星）。当 AI 采纳或推荐了某条 Recipe 后，可在适当时机调用本工具，由 Cursor 弹出表单让用户打分，结果会写入 recipe-stats 并影响综合权威分。需 Cursor 支持 MCP Elicitation（表单模式）且 asd ui 已运行。',
+		inputSchema: {
+			recipeName: z.string().describe('Recipe 文件名或相对路径，如 BDRequestDefine.md 或 network/BDRequestDefine.md'),
+			trigger: z.string().optional().describe('Recipe 的 trigger，如 @BDRequest，可选')
+		}
+	},
+	async ({ recipeName, trigger }) => {
+		try {
+			if (!recipeName || typeof recipeName !== 'string') {
+				return { content: [{ type: 'text', text: '请传入 recipeName（Recipe 文件名或路径）。' }] };
+			}
+			const displayName = trigger ? `${trigger} (${recipeName})` : recipeName;
+			let result;
+			try {
+				result = await server.server.elicitInput({
+					mode: 'form',
+					message: `请为 Recipe「${displayName}」打分（0～5 星，表示官方推荐度）。可在 Dashboard Recipes 页查看或修改。`,
+					requestedSchema: {
+						type: 'object',
+						properties: {
+							authority: {
+								type: 'number',
+								title: '权威分',
+								description: '0～5 星，表示对该 Recipe 的推荐度',
+								minimum: 0,
+								maximum: 5,
+								default: 3
+							}
+						},
+						required: ['authority']
+					}
+				});
+			} catch (e) {
+				return {
+					content: [{
+						type: 'text',
+						text: `无法弹出评分表单：${e.message}。请确认 Cursor 支持 MCP Elicitation，或在 Dashboard Recipes 页手动设置权威分。`
+					}]
+				};
+			}
+			if (result.action === 'accept' && result.content && typeof result.content.authority === 'number') {
+				const authority = Math.max(0, Math.min(5, Math.round(result.content.authority)));
+				try {
+					await request('POST', '/api/recipes/set-authority', { name: recipeName.trim(), authority });
+					return {
+						content: [{
+							type: 'text',
+							text: `已将该 Recipe 的权威分设为 ${authority}/5。可在 Dashboard Recipes 页查看。`
+						}]
+					};
+				} catch (e) {
+					return {
+						content: [{ type: 'text', text: `写入权威分失败: ${e.message}。请确认 asd ui 已启动。` }]
+					};
+				}
+			}
+			if (result.action === 'decline') {
+				return { content: [{ type: 'text', text: '用户选择不评分。' }] };
+			}
+			return { content: [{ type: 'text', text: '已取消评分。' }] };
+		} catch (e) {
+			return { content: [{ type: 'text', text: `请求评分失败: ${e.message}` }] };
 		}
 	}
 );

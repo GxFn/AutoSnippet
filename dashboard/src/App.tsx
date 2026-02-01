@@ -16,6 +16,7 @@ import HelpView from './components/Views/HelpView';
 import CandidatesView from './components/Views/CandidatesView';
 import SPMExplorerView from './components/Views/SPMExplorerView';
 import DepGraphView from './components/Views/DepGraphView';
+import GuardView from './components/Views/GuardView';
 import AiChatView from './components/Views/AiChatView';
 import SnippetEditor from './components/Modals/SnippetEditor';
 import RecipeEditor from './components/Modals/RecipeEditor';
@@ -42,6 +43,8 @@ const App: React.FC = () => {
 	const [scanFileList, setScanFileList] = useState<{ name: string; path: string }[]>([]);
 	const [scanResults, setScanResults] = useState<ScanResultItem[]>([]);
 	const [selectedCategory, setSelectedCategory] = useState<string>('All');
+	const [recipePage, setRecipePage] = useState(1);
+	const [recipePageSize, setRecipePageSize] = useState(12);
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [createPath, setCreatePath] = useState('');
 	const [isExtracting, setIsExtracting] = useState(false);
@@ -53,6 +56,11 @@ const App: React.FC = () => {
 
 	const abortControllerRef = useRef<AbortController | null>(null);
 	const chatAbortControllerRef = useRef<AbortController | null>(null);
+
+	// 搜索/分类变化时 Recipes 列表重置到第一页；刷新数据（fetchData）不重置页码
+	useEffect(() => {
+		setRecipePage(1);
+	}, [searchQuery, selectedCategory]);
 
 	/** 切换 AI 前停止当前 AI 任务（扫描、聊天等）；不置空 ref，由各任务 finally 清理并更新 UI */
 	const stopCurrentAiTasks = () => {
@@ -590,7 +598,10 @@ ${extracted.usageGuide}
 			const scoreB = semanticResults.find(r => r.metadata.name === b.name)?.similarity || 0;
 			return scoreB - scoreA;
 		}
-		return 0;
+		// 默认按综合分（authorityScore）降序
+		const sa = a.stats?.authorityScore ?? 0;
+		const sb = b.stats?.authorityScore ?? 0;
+		return sb - sa;
 	});
 
 	const filteredTargets = targets
@@ -654,8 +665,15 @@ ${extracted.usageGuide}
 						<RecipesView 
 							recipes={filteredRecipes} 
 							openRecipeEdit={openRecipeEdit} 
-							handleDeleteRecipe={handleDeleteRecipe} 
+							handleDeleteRecipe={handleDeleteRecipe}
+							onRefresh={fetchData}
+							currentPage={recipePage}
+							onPageChange={setRecipePage}
+							pageSize={recipePageSize}
+							onPageSizeChange={(size) => { setRecipePageSize(size); setRecipePage(1); }}
 						/>
+					) : activeTab === 'guard' ? (
+						<GuardView onRefresh={fetchData} />
 					) : activeTab === 'help' ? (
 						<HelpView />
 					) : activeTab === 'candidates' ? (

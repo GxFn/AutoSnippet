@@ -2,7 +2,7 @@ node_modules/
 AutoSnippet.boxspec.json
 AutoSnippetRoot.boxspec.json
 SPMTest/
-docs/
+# docs/ 可提交到 GitHub，不忽略
 *.boxspec
 *.h
 *.m

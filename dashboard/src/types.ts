@@ -16,10 +16,21 @@ export interface Snippet {
 	link?: string;
 }
 
+export interface RecipeStats {
+	authority: number;
+	guardUsageCount: number;
+	humanUsageCount: number;
+	aiUsageCount: number;
+	lastUsedAt: string | null;
+	authorityScore: number;
+}
+
 export interface Recipe {
 	name: string;
 	content: string;
 	metadata?: any;
+	/** 使用统计与权威分（来自 recipe-stats.json） */
+	stats?: RecipeStats | null;
 }
 
 export interface ProjectData {

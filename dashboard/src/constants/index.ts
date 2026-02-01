@@ -14,5 +14,5 @@ export const categoryConfigs: Record<string, { icon: any, color: string, bg: str
 
 export const categories = ['All', 'View', 'Service', 'Tool', 'Model', 'Network', 'Storage', 'UI', 'Utility'];
 
-export const validTabs = ['snippets', 'recipes', 'ai', 'spm', 'candidates', 'depgraph', 'help'] as const;
+export const validTabs = ['snippets', 'recipes', 'ai', 'spm', 'candidates', 'depgraph', 'guard', 'help'] as const;
 export type TabType = typeof validTabs[number];

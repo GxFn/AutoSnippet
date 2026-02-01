@@ -8,16 +8,36 @@ interface RecipesViewProps {
 	recipes: Recipe[];
 	openRecipeEdit: (recipe: Recipe) => void;
 	handleDeleteRecipe: (name: string) => void;
+	onRefresh?: () => void;
+	/** 分页由父组件控制，刷新数据后保持当前页 */
+	currentPage?: number;
+	onPageChange?: (page: number) => void;
+	pageSize?: number;
+	onPageSizeChange?: (size: number) => void;
 }
 
-const RecipesView: React.FC<RecipesViewProps> = ({ recipes, openRecipeEdit, handleDeleteRecipe }) => {
-	const [currentPage, setCurrentPage] = useState(1);
-	const [pageSize, setPageSize] = useState(12);
+const RecipesView: React.FC<RecipesViewProps> = ({
+	recipes,
+	openRecipeEdit,
+	handleDeleteRecipe,
+	currentPage: controlledPage,
+	onPageChange: controlledOnPageChange,
+	pageSize: controlledPageSize,
+	onPageSizeChange: controlledOnPageSizeChange
+}) => {
+	const [internalPage, setInternalPage] = useState(1);
+	const [internalPageSize, setInternalPageSize] = useState(12);
+	const currentPage = controlledPage ?? internalPage;
+	const pageSize = controlledPageSize ?? internalPageSize;
+	const setCurrentPage = controlledOnPageChange ?? setInternalPage;
+	const handlePageSizeChange = controlledOnPageSizeChange
+		? (size: number) => controlledOnPageSizeChange(size)
+		: (size: number) => { setInternalPageSize(size); setInternalPage(1); };
 
-	// 当 recipes 数据变化时（如搜索/过滤），重置到第一页
+	// 仅在使用内部状态时：列表长度变化（如搜索/过滤）重置到第一页
 	useEffect(() => {
-		setCurrentPage(1);
-	}, [recipes.length]);
+		if (controlledPage == null) setInternalPage(1);
+	}, [recipes.length, controlledPage]);
 
 	const totalPages = Math.ceil(recipes.length / pageSize);
 	const startIndex = (currentPage - 1) * pageSize;
@@ -25,13 +45,7 @@ const RecipesView: React.FC<RecipesViewProps> = ({ recipes, openRecipeEdit, hand
 
 	const handlePageChange = (page: number) => {
 		setCurrentPage(page);
-		// 滚动到顶部
 		window.scrollTo({ top: 0, behavior: 'smooth' });
-	};
-
-	const handlePageSizeChange = (size: number) => {
-		setPageSize(size);
-		setCurrentPage(1);
 	};
 
 	return (
@@ -62,6 +76,24 @@ const RecipesView: React.FC<RecipesViewProps> = ({ recipes, openRecipeEdit, hand
 									<span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-bold uppercase">Preview Only</span>
 								)}
 							</div>
+						</div>
+						<div className="flex flex-wrap items-center gap-2 mb-2 text-[10px] text-slate-500">
+							<span>权威 {recipe.stats != null ? recipe.stats.authority : '—'}</span>
+							<span>·</span>
+							<span>
+								{recipe.stats != null
+									? `g:${recipe.stats.guardUsageCount} h:${recipe.stats.humanUsageCount} a:${recipe.stats.aiUsageCount}`
+									: 'g:0 h:0 a:0'}
+							</span>
+							<span>·</span>
+							<span>综合分 {recipe.stats?.authorityScore != null ? recipe.stats.authorityScore.toFixed(2) : '—'}</span>
+							{recipe.stats?.lastUsedAt && (
+								<>
+									<span>·</span>
+									<span>最近 {new Date(recipe.stats.lastUsedAt).toLocaleDateString()}</span>
+								</>
+							)}
+							<span className="text-slate-400">（编辑时可设置权威分）</span>
 						</div>
 						<div className="text-xs text-slate-500 bg-slate-50 p-4 rounded-lg overflow-hidden line-clamp-6 font-mono whitespace-pre-wrap">{recipe.content}</div>
 					</div>

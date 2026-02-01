@@ -1,23 +1,24 @@
 ---
-description: AutoSnippet 项目约定 — Skills 做语义、MCP 提供能力；不直接改 Knowledge
+description: AutoSnippet conventions — Skills for semantics, MCP for capabilities; do not edit Knowledge directly
 alwaysApply: true
 ---
 
-# AutoSnippet 约定
+# AutoSnippet Conventions
 
-本规则在安装 AutoSnippet Skills（`asd install:cursor-skill`）时写入，用于 Cursor 会话中持久遵循以下约定。
+These rules are written when installing AutoSnippet Skills (`asd install:cursor-skill`) and should be followed in Cursor sessions.
 
-## 语义与能力分离
+## Semantics vs capabilities
 
-- **Skills 做语义**：何时用、流程、与 asd ais 对比等由 Skills 描述（如 autosnippet-when、autosnippet-batch-scan、autosnippet-recipes）。
-- **MCP 提供能力**：连接与工具由 MCP 提供（`autosnippet_context_search`、`autosnippet_open_create`、`autosnippet_get_targets`、`autosnippet_get_target_files`、`autosnippet_submit_candidates`）。不在 Skills 里写死 URL/HTTP。
+- **Skills provide semantics**: When to use, workflows, and comparison with `asd ais` are described in Skills (e.g. autosnippet-when, autosnippet-batch-scan, autosnippet-recipes).
+- **MCP provides capabilities**: Connection and tools are provided by MCP (`autosnippet_context_search`, `autosnippet_confirm_recipe_usage`, `autosnippet_open_create`, `autosnippet_get_targets`, `autosnippet_get_target_files`, `autosnippet_submit_candidates`). Do not hardcode URLs/HTTP in Skills.
 
-## 知识库与提交
+## Knowledge base and submission
 
-- **不要直接修改** `Knowledge/recipes/` 或 `Knowledge/snippets/`；所有 Recipe/Snippet 变更通过 Dashboard 提交并人工审核后保存。
-- **检索**：需要按需查 Recipe/文档时，使用 MCP 工具 `autosnippet_context_search`（传 `query`、`limit?`）；或读 `.cursor/skills/autosnippet-recipes/references/project-recipes-context.md`。
-- **批量扫描**：流程见 Skill autosnippet-batch-scan；依次调用 `autosnippet_get_targets` → `autosnippet_get_target_files` → 按文件提取 → `autosnippet_submit_candidates`。
+- **Do not edit** `Knowledge/recipes/` or `Knowledge/snippets/` directly; all Recipe/Snippet changes go through Dashboard and are saved after human review.
+- **Search**: When you need Recipe/docs on demand, use MCP tool `autosnippet_context_search` (pass `query`, `limit?`) or read `.cursor/skills/autosnippet-recipes/references/project-recipes-context.md`. Search returns content only; it does not trigger any adoption form.
+- **Adoption form**: Tool `autosnippet_confirm_recipe_usage` shows a “confirm use?” dialog. **Meaning**: On confirm, it records one human usage (humanUsageCount +1) for the recipe and affects usage stats and authority ranking. You may **decide when to show it** (e.g. when the user explicitly says they adopt, or when you infer they have adopted the recipe). Do not show it right after presenting a recipe or when the user only asks “should I adopt?”—then just answer. Pass the recipe file name(s) (e.g. from sourcePath basename).
+- **Batch scan**: See Skill autosnippet-batch-scan; call `autosnippet_get_targets` → `autosnippet_get_target_files` → extract per file → `autosnippet_submit_candidates`.
 
-## Recipe 优先
+## Recipe over code
 
-当 Recipe 与代码库均有相关实现时，以 Recipe 为准。Recipe 是项目约定的标准用法；源代码可能是旧实现或非标准写法。
+When both a Recipe and the codebase have relevant implementations, prefer the Recipe. Recipes are the project’s agreed standard; source code may be legacy or non-standard.

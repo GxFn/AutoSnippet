@@ -1,5 +1,5 @@
 import React from 'react';
-import { Terminal, Cpu, MessageSquare, Box, Zap, BookOpen, RefreshCw, Code, GitBranch } from 'lucide-react';
+import { Terminal, Cpu, MessageSquare, Box, Zap, BookOpen, RefreshCw, Code, GitBranch, Shield } from 'lucide-react';
 import { TabType } from '../../constants';
 import { ProjectData } from '../../types';
 
@@ -23,6 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, navigateToTab, handleRefre
 				<button type="button" onClick={() => navigateToTab('spm')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'spm' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><Box size={20} /><span>SPM Explorer</span></button>
 				<button type="button" onClick={() => navigateToTab('candidates')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'candidates' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><Zap size={20} /><span>Candidates ({candidateCount})</span></button>
 				<button type="button" onClick={() => navigateToTab('depgraph')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'depgraph' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><GitBranch size={20} /><span>依赖关系图</span></button>
+				<button type="button" onClick={() => navigateToTab('guard')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'guard' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><Shield size={20} /><span>Guard</span></button>
 				<button type="button" onClick={() => navigateToTab('ai')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'ai' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><MessageSquare size={20} /><span>AI Assistant</span></button>
 				<button type="button" onClick={() => navigateToTab('help')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'help' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={20} /><span>使用说明</span></button>
 			</nav>

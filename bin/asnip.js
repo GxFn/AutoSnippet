@@ -868,13 +868,24 @@ commander
 
 		// --copy: 复制第一条到剪贴板
 		if (options.copy) {
-			const code = results[0].code || results[0].content || '';
+			const selected = results[0];
+			const code = selected.code || selected.content || '';
 			if (nativeUi.writeClipboard(code)) {
-				console.log(`✅ 已复制到剪贴板 (${results[0].title})，Cmd+V 粘贴`);
+				console.log(`✅ 已复制到剪贴板 (${selected.title})，Cmd+V 粘贴`);
 			} else {
 				console.log('--- 第一条结果 ---\n');
 				console.log(code);
 			}
+			try {
+				const recipeStats = require('../lib/recipe/recipeStats');
+				if (selected.type === 'recipe') {
+					recipeStats.recordRecipeUsage(projectRoot, {
+						trigger: selected.trigger,
+						recipeFilePath: selected.name,
+						source: 'human'
+					});
+				}
+			} catch (_) {}
 			return;
 		}
 
@@ -894,6 +905,16 @@ commander
 				console.log('已取消');
 				return;
 			}
+			try {
+				const recipeStats = require('../lib/recipe/recipeStats');
+				if (selected.type === 'recipe') {
+					recipeStats.recordRecipeUsage(projectRoot, {
+						trigger: selected.trigger,
+						recipeFilePath: selected.name,
+						source: 'human'
+					});
+				}
+			} catch (_) {}
 			if (options.insert) {
 				const insertPath = path.isAbsolute(options.insert) ? options.insert : path.join(projectRoot, options.insert);
 				try {

@@ -50,10 +50,10 @@ If `references/project-recipes-context.md` is missing (e.g. skill was not instal
 
 ## Finding relevant code on demand
 
-When the user asks for **code** or **how to do X** (e.g. "网络请求怎么写", "WebView 加载 URL", "怎么用 Alamofire"), **look up the matching Recipe** in `references/project-recipes-context.md`:
+When the user asks for **code** or **how to do X** (e.g. "how to do network request", "WebView load URL", "how to use Alamofire"), **look up the matching Recipe** in `references/project-recipes-context.md`:
 
 1. **Read** `references/project-recipes-context.md` (or the relevant part of it). Each Recipe is under a heading like `## Recipe: <filename>.md`.
-2. **Match** the user's intent to a Recipe by **title**, **summary**, or **AI Context / Usage Guide** (e.g. "网络" → network request recipe; "WebView" → WebView load URL recipe).
+2. **Match** the user's intent to a Recipe by **title**, **summary**, or **AI Context / Usage Guide** (e.g. "network" → network request recipe; "WebView" → WebView load URL recipe).
 3. **Use** that Recipe's **Snippet / Code Reference** (the fenced code block) as the standard code to suggest or paste. Cite the Recipe title so the user knows which standard you followed.
 4. If no Recipe matches, say so and suggest adding one or writing code that follows existing Recipe style.
 
@@ -73,7 +73,7 @@ You can **search** recipes in three ways:
    Use the command output to find the right recipe/code.
 
 3. **On-demand semantic search (MCP tool)**  
-   When you need to fetch Recipe/docs relevant to the task on demand, use **`autosnippet_context_search`**. Pass `query` (natural language, e.g. "网络请求", "WebView 加载") and optional `limit`. Tool provided by AutoSnippet MCP; requires `asd ui` running and MCP configured.
+   When you need to fetch Recipe/docs relevant to the task on demand, use **`autosnippet_context_search`**. Pass `query` (natural language, e.g. "network request", "WebView load URL") and optional `limit`. Tool provided by AutoSnippet MCP; requires `asd ui` running and MCP configured.
 
 ## How Recipes are used in the project
 
@@ -90,11 +90,14 @@ Skills provide Cursor with **semantic interface** only, like CRUD; expose only n
 
 | Capability | Usage | Description |
 |------------|-------|-------------|
-| **On-demand semantic search** | Use MCP tool `autosnippet_context_search`, pass `query`, `limit?` | Returns relevant Recipe/docs by natural language query. Requires AutoSnippet MCP configured and `asd ui` running. |
+| **On-demand semantic search** | Use MCP tool `autosnippet_context_search`, pass `query`, `limit?` | Returns relevant Recipe/docs by natural language query. Silent retrieval only; does not trigger any adoption form. Requires AutoSnippet MCP configured and `asd ui` running. |
+| **Confirm adoption** | Call `autosnippet_confirm_recipe_usage` with the recipe file name(s) when you decide to offer the adoption form | **Meaning**: Pops a "confirm use?" dialog; on confirm, records one human usage (humanUsageCount +1) for that recipe and affects usage stats and authority ranking. **When to show**: You may decide when to show it (e.g. when the user explicitly says they adopt, or when you infer they have adopted the recipe). Do not show it right after presenting recipe or when the user only asks "should I adopt?"—then just answer. Requires Cursor to support MCP Elicitation. |
 | **Static context** | Read `references/project-recipes-context.md`, `by-category/*.md` | No extra connection needed. |
 | **Terminal search** | `asd search <keyword>`, `asd search --semantic <keyword>` | Keyword or semantic search. |
 
-**When to use `autosnippet_context_search`**: When you need to find project standards, Recipes, or docs relevant to the current task, and `references` is long or needs semantic filtering. Connection (URL, HTTP) is encapsulated by MCP; Skills do not expose hard links.
+**When to use `autosnippet_context_search`**: When you need to find project standards, Recipes, or docs relevant to the current task, and `references` is long or needs semantic filtering. Connection (URL, HTTP) is encapsulated by MCP; Skills do not expose hard links. Search is silent—return only the Recipe content, no adoption form.
+
+**Adoption form (`autosnippet_confirm_recipe_usage`)**: **Meaning**—Shows a "confirm use?" dialog; on confirm, records one human usage (humanUsageCount +1) for the recipe and affects usage stats and authority ranking. **When to show**—You may decide when to offer it (e.g. when the user explicitly says they adopt, or when you infer they have adopted). Do not show it right after presenting recipe or when the user only asks "should I adopt?"; then just answer.
 
 ## Updating project context
 
