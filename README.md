@@ -93,6 +93,17 @@ asd install:full --lancedb # 仅安装 LanceDB（向量检索更快）
 
 **Swift 解析器**：默认回退 `dump-package`；`--parser` 构建 ParsePackage 后 SPM 解析更准确，需本机已装 Swift。
 
+### Postinstall 脚本说明（npm install 时）
+
+`npm install` 会执行以下**可选**脚本，均为本包内本地构建，**不访问网络、不执行动态代码**：
+
+| 脚本 | 作用 |
+|------|------|
+| `scripts/ensure-parse-package.js` | 仅当 `ASD_BUILD_SWIFT_PARSER=1` 时构建 Swift 解析器并打印「正在安装…」；否则打印跳过说明并退出。 |
+| `scripts/build-native-ui.js` | 仅在 macOS 上用本机 Swift 编译 `tools/native-ui/main.swift` → `bin/native-ui`；失败则静默跳过。 |
+
+未安装或跳过不影响核心功能。详见 [npm lifecycle scripts](https://docs.npmjs.com/cli/v10/using-npm/scripts#life-cycle-scripts)。
+
 ## 配置
 
 - **AI**：项目根 `.env`，设置 `ASD_GOOGLE_API_KEY` 等（见 `.env.example`）。可选 `ASD_AI_PROVIDER`、代理等。
