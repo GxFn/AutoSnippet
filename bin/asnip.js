@@ -671,7 +671,9 @@ commander
 	.option('-p, --port <number>', 'port to run the dashboard on', '3000')
 	.option('-b, --build', 'force rebuild dashboard frontend before launch')
 	.action(async (cmd) => {
-		const projectRoot = await findPath.findProjectRoot(CMD_PATH);
+		// 优先用 shell 传入的 ASD_CWD（调用 asd 时的 pwd），否则 process.cwd()；避免 dev:link 等场景下 cwd 不一致
+		const startDir = process.env.ASD_CWD || process.cwd();
+		const projectRoot = await findPath.findProjectRoot(startDir);
 		if (!projectRoot) {
 			console.error('未找到项目根目录（AutoSnippetRoot.boxspec.json）。');
 			return;

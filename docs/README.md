@@ -12,6 +12,7 @@
 | [context 配置说明](./context配置说明.md) | 语义索引的 storage、sources、chunking 配置；存储适配器切换（json/lance）；测试覆盖说明 |
 | [MCP 配置说明](./MCP配置说明.md) | Cursor MCP 配置与可用工具 |
 | [Guard-误报与排除策略](./Guard-误报与排除策略.md) | Guard 规则误报场景、排除策略与 Knowledge 目录说明 |
+| [权限设置说明](./权限设置说明.md) | 写权限探针与完整性校验的配置、行为与常见问题 |
 | [按场景-语言-模块的个性化推荐-实现计划](./按场景-语言-模块的个性化推荐-实现计划.md) | 按场景/语言/模块的个性化推荐实现计划 |
 
 **规则示例**：iOS 版本规则与违反记录见 Dashboard **Guard** 页，或项目内 `Knowledge/.autosnippet/guard-rules.json`、`guard-violations.json`。

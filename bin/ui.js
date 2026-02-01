@@ -17,6 +17,8 @@ const triggerSymbol = require('../lib/infra/triggerSymbol');
 
 const openBrowser = require('../lib/infra/openBrowser');
 const openBrowserReuseTab = openBrowser.openBrowserReuseTab;
+const writeGuard = require('../lib/writeGuard');
+const rateLimit = require('../lib/rateLimit');
 
 /** 将 spec 中存储的 XML 转义还原为原始代码，供前端编辑显示，避免保存时重复转义 */
 function unescapeSnippetLine(str) {
@@ -668,14 +670,32 @@ function launch(projectRoot, port = 3000, options = {}) {
 	// API: 保存 Recipe（保存后异步更新语义索引，无需单独 asd embed）
 	app.post('/api/recipes/save', (req, res) => {
 		try {
+			const probe = writeGuard.checkWritePermission(projectRoot);
+			if (!probe.ok) {
+				return res.status(403).json({ error: probe.error || '没权限', code: 'RECIPE_WRITE_FORBIDDEN' });
+			}
+			const clientId = req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress || 'unknown';
+			const rate = rateLimit.checkRecipeSave(projectRoot, clientId);
+			if (!rate.allowed) {
+				if (rate.retryAfter) res.setHeader('Retry-After', String(rate.retryAfter));
+				return res.status(429).json({
+					error: '保存过于频繁，请稍后再试',
+					code: 'RECIPE_SAVE_RATE_LIMIT',
+					retryAfter: rate.retryAfter
+				});
+			}
 			const { name, content } = req.body;
 			const rootSpecPath = path.join(projectRoot, 'AutoSnippetRoot.boxspec.json');
 			const recipesDir = fs.existsSync(rootSpecPath)
 				? (() => { try { const s = JSON.parse(fs.readFileSync(rootSpecPath, 'utf8')); return path.join(projectRoot, s.recipes?.dir || 'Knowledge/recipes'); } catch (_) { return path.join(projectRoot, 'Knowledge/recipes'); } })()
 				: path.join(projectRoot, 'Knowledge/recipes');
 			if (!fs.existsSync(recipesDir)) fs.mkdirSync(recipesDir, { recursive: true });
-			
-			const fileName = name.endsWith('.md') ? name : `${name}.md`;
+			// 清理文件名：将 / 和 \ 替换为 -，避免 ENOENT；不用 path.basename 以免截断成最后一段（如 -unique.md）
+			const rawFileName = name.endsWith('.md') ? name : `${name}.md`;
+			const fileName = rawFileName.replace(/[/\\]/g, '-').replace(/\.\./g, '-');
+			if (!fileName || fileName === '.md') {
+				return res.status(400).json({ error: 'Invalid recipe name' });
+			}
 			const filePath = path.join(recipesDir, fileName);
 			fs.writeFileSync(filePath, content, 'utf8');
 			res.json({ success: true });
@@ -710,6 +730,10 @@ function launch(projectRoot, port = 3000, options = {}) {
 	// API: 保存 Snippet (更新 boxspec.json)
 	app.post('/api/snippets/save', (req, res) => {
 		try {
+			const probe = writeGuard.checkWritePermission(projectRoot);
+			if (!probe.ok) {
+				return res.status(403).json({ error: probe.error || '没权限', code: 'RECIPE_WRITE_FORBIDDEN' });
+			}
 			const { snippet } = req.body;
 			const rootSpecPath = path.join(projectRoot, 'AutoSnippetRoot.boxspec.json');
 
@@ -780,6 +804,10 @@ function launch(projectRoot, port = 3000, options = {}) {
 	// API: 删除 Snippet
 	app.post('/api/snippets/delete', async (req, res) => {
 		try {
+			const probe = writeGuard.checkWritePermission(projectRoot);
+			if (!probe.ok) {
+				return res.status(403).json({ error: probe.error || '没权限', code: 'RECIPE_WRITE_FORBIDDEN' });
+			}
 			const { identifier } = req.body;
 			const rootSpecPath = path.join(projectRoot, 'AutoSnippetRoot.boxspec.json');
 			await specRepository.deleteSnippet(rootSpecPath, identifier, { syncRoot: true });
@@ -793,12 +821,20 @@ function launch(projectRoot, port = 3000, options = {}) {
 	// API: 删除 Recipe（同时从语义索引中移除）
 	app.post('/api/recipes/delete', async (req, res) => {
 		try {
+			const probe = writeGuard.checkWritePermission(projectRoot);
+			if (!probe.ok) {
+				return res.status(403).json({ error: probe.error || '没权限', code: 'RECIPE_WRITE_FORBIDDEN' });
+			}
 			const { name } = req.body;
 			const rootSpecPath = path.join(projectRoot, 'AutoSnippetRoot.boxspec.json');
 			const recipesDir = fs.existsSync(rootSpecPath)
 				? (() => { try { const s = JSON.parse(fs.readFileSync(rootSpecPath, 'utf8')); return path.join(projectRoot, s.recipes?.dir || 'Knowledge/recipes'); } catch (_) { return path.join(projectRoot, 'Knowledge/recipes'); } })()
 				: path.join(projectRoot, 'Knowledge/recipes');
-			const fileName = name.endsWith('.md') ? name : `${name}.md`;
+			const rawFileName = name.endsWith('.md') ? name : `${name}.md`;
+			const fileName = rawFileName.replace(/[/\\]/g, '-').replace(/\.\./g, '-');
+			if (!fileName || fileName === '.md') {
+				return res.status(400).json({ error: 'Invalid recipe name' });
+			}
 			const filePath = path.join(recipesDir, fileName);
 			if (fs.existsSync(filePath)) {
 				fs.unlinkSync(filePath);

@@ -4,6 +4,34 @@
 
 ---
 
+## [1.5.7] - 2025-02-02
+
+### 新增
+
+- **Recipe 保存频率限制**：按「项目根 + 客户端 IP」固定窗口限流，防止短时间内多次保存；超限返回 429，前端提示「保存过于频繁，请稍后再试」。配置：`ASD_RECIPE_SAVE_RATE_LIMIT`（默认 20）、`ASD_RECIPE_SAVE_RATE_WINDOW_SECONDS`（默认 60），设为 0 表示不限制。
+- **Recipe 保存防重复点击**：编辑 Recipe 弹窗「Save Changes」、SPM 审核页「保存为 Recipe」、对比弹窗「审核候选」在请求进行中禁用按钮并显示「保存中...」，避免重复提交。
+
+### 文档
+
+- **提交前检查清单**：`docs/提交前检查清单.md`，用于发布前自检。
+
+---
+
+## [1.5.6] - 2025-02-02
+
+### 新增
+
+- **写权限探针（阶段一）**：保存/删除 Recipe、保存/删除 Snippet 前在配置的探针目录（如子仓库 `auth-data`）执行 `git push --dry-run`，非零退出则返回 403（`RECIPE_WRITE_FORBIDDEN`）；探针通过后仍写主项目原路径。配置：`ASD_RECIPES_WRITE_DIR` 或 rootSpec `recipes.writeDir`，未设则不启用；`ASD_PROBE_TTL_SECONDS` 默认 24h，进程内缓存。
+- **完整性校验（阶段二）**：`bin/asd` 优先执行原生入口 `bin/asd-verify`（Swift），存在 `checksums.json` 时对关键文件做 SHA-256 校验，不通过则 exit(1)，通过则 spawn `node bin/asnip.js`；无 checksums 或未构建 asd-verify 时回退到 `node bin/asnip.js`。发布前 `prepublishOnly` 自动生成 `checksums.json`。
+- **Node 校验脚本**：`npm run verify-checksums` 复现 Swift 校验逻辑（无 Swift 环境/CI 可用）；拒绝 `..`、绝对路径与路径逃逸。
+- **单元测试**：`test/unit/checksums-verify.test.js` 覆盖合法清单通过、错误哈希/无效 JSON/路径逃逸/缺失文件失败；已加入 `test/unit/run-all.js`。
+
+### 文档
+
+- **安全等级说明**：BiliDemo/docs 下新增 `AutoSnippet-安全等级说明.md`（防护范围、不防护、适用场景）；实现清单小结增加安全等级与文档引用。
+
+---
+
 ## [1.5.5] - 2025-02-02
 
 ### 修复

@@ -4,7 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { notify } from './utils/notification';
 import { Snippet, Recipe, ProjectData, SPMTarget, ExtractedRecipe, ScanResultItem } from './types';
 import { TabType, validTabs } from './constants';
-import { isShellTarget, isSilentTarget, isPendingTarget } from './utils';
+import { isShellTarget, isSilentTarget, isPendingTarget, getWritePermissionErrorMsg, getSaveErrorMsg } from './utils';
 
 // Components
 import Sidebar from './components/Layout/Sidebar';
@@ -53,6 +53,7 @@ const App: React.FC = () => {
 	const [isAiThinking, setIsAiThinking] = useState(false);
 	const [semanticResults, setSemanticResults] = useState<any[] | null>(null);
 	const [searchAction, setSearchAction] = useState<{ q: string; path: string } | null>(null);
+	const [isSavingRecipe, setIsSavingRecipe] = useState(false);
 
 	const abortControllerRef = useRef<AbortController | null>(null);
 	const chatAbortControllerRef = useRef<AbortController | null>(null);
@@ -415,6 +416,8 @@ const App: React.FC = () => {
 	};
 
 	const handleSaveExtracted = async (extracted: ScanResultItem) => {
+		if (isSavingRecipe) return;
+		setIsSavingRecipe(true);
 		try {
 			const triggers = extracted.trigger.split(/[,，\s]+/).map(t => t.trim()).filter(Boolean);
 			const primarySnippetId = crypto.randomUUID().toUpperCase();
@@ -476,18 +479,25 @@ ${extracted.usageGuide}
 			}
 			fetchData();
 		} catch (err) {
-			notify('保存失败', { type: 'error' });
+			const msg = getSaveErrorMsg(err) ?? getWritePermissionErrorMsg(err);
+			notify(msg ?? '保存失败', { type: 'error' });
+		} finally {
+			setIsSavingRecipe(false);
 		}
 	};
 
 	const handleSaveRecipe = async () => {
-		if (!editingRecipe) return;
+		if (!editingRecipe || isSavingRecipe) return;
+		setIsSavingRecipe(true);
 		try {
 			await axios.post('/api/recipes/save', { name: editingRecipe.name, content: editingRecipe.content });
 			closeRecipeEdit();
 			fetchData();
 		} catch (err) {
-			notify('保存 Recipe 失败', { type: 'error' });
+			const msg = getSaveErrorMsg(err) ?? getWritePermissionErrorMsg(err);
+			notify(msg ?? '保存 Recipe 失败', { type: 'error' });
+		} finally {
+			setIsSavingRecipe(false);
 		}
 	};
 
@@ -497,7 +507,8 @@ ${extracted.usageGuide}
 			await axios.post('/api/recipes/delete', { name });
 			fetchData();
 		} catch (err) {
-			notify('删除失败', { type: 'error' });
+			const msg = getWritePermissionErrorMsg(err);
+			notify(msg ?? '删除失败', { type: 'error' });
 		}
 	};
 
@@ -530,7 +541,8 @@ ${extracted.usageGuide}
 			closeSnippetEdit();
 			fetchData();
 		} catch (err) {
-			notify('保存 Snippet 失败', { type: 'error' });
+			const msg = getWritePermissionErrorMsg(err);
+			notify(msg ?? '保存 Snippet 失败', { type: 'error' });
 		}
 	};
 
@@ -540,7 +552,8 @@ ${extracted.usageGuide}
 			await axios.post('/api/snippets/delete', { identifier });
 			fetchData();
 		} catch (err) {
-			notify('删除失败', { type: 'error' });
+			const msg = getWritePermissionErrorMsg(err);
+			notify(msg ?? '删除失败', { type: 'error' });
 		}
 	};
 
@@ -732,6 +745,7 @@ ${extracted.usageGuide}
 							onEditRecipe={openRecipeEdit}
 							isShellTarget={isShellTarget}
 							recipes={data?.recipes ?? []}
+							isSavingRecipe={isSavingRecipe}
 						/>
 					) : (
 						<AiChatView 
@@ -758,7 +772,8 @@ ${extracted.usageGuide}
 						editingRecipe={editingRecipe} 
 						setEditingRecipe={setEditingRecipe} 
 						handleSaveRecipe={handleSaveRecipe} 
-						closeRecipeEdit={closeRecipeEdit} 
+						closeRecipeEdit={closeRecipeEdit}
+						isSavingRecipe={isSavingRecipe}
 					/>
 				)}
 

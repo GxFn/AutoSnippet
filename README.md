@@ -105,6 +105,7 @@ asd install:full --lancedb # 仅安装 LanceDB（向量检索更快）
 - **AI**：项目根 `.env`，参考 `.env.example` 配置 `ASD_GOOGLE_API_KEY` 等。可选 `ASD_AI_PROVIDER`、代理等。
 - **LanceDB**：`asd install:full --lancedb`，在 boxspec 的 `context.storage.adapter` 中配置 `"lance"`。
 - **Native UI**（可选）：macOS 上 `npm install` 会尝试构建 `resources/native-ui/native-ui`（需本机 Swift）；未构建时回退到 AppleScript/inquirer，功能正常。
+- **权限设置**（可选）：写权限探针（在子仓库执行 `git push --dry-run`，通过才允许保存 Recipe/Snippet，否则 403）+ 完整性校验（`asd` 启动前关键文件 SHA-256）。详见 [权限设置说明](docs/权限设置说明.md)。
 
 ## 术语
 

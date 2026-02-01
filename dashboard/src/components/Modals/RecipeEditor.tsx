@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { X, Save, Eye, Edit3, Star } from 'lucide-react';
+import { X, Save, Eye, Edit3, Star, Loader2 } from 'lucide-react';
 import { Recipe } from '../../types';
 import MarkdownWithHighlight from '../Shared/MarkdownWithHighlight';
 
@@ -9,6 +9,7 @@ interface RecipeEditorProps {
 	setEditingRecipe: (recipe: Recipe | null) => void;
 	handleSaveRecipe: () => void;
 	closeRecipeEdit: () => void;
+	isSavingRecipe?: boolean;
 }
 
 const defaultStats = {
@@ -20,7 +21,7 @@ const defaultStats = {
 	authorityScore: 0
 };
 
-const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRecipe, handleSaveRecipe, closeRecipeEdit }) => {
+const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRecipe, handleSaveRecipe, closeRecipeEdit, isSavingRecipe = false }) => {
 	const [viewMode, setViewMode] = useState<'edit' | 'preview'>('preview');
 
 	const handleSetAuthority = async (authority: number) => {
@@ -172,8 +173,11 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
 					</div>
 				</div>
 				<div className="p-6 border-t border-slate-100 flex justify-end gap-3">
-					<button onClick={closeRecipeEdit} className="px-4 py-2 text-slate-600 font-medium">Cancel</button>
-					<button onClick={handleSaveRecipe} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 hover:bg-blue-700"><Save size={18} />Save Changes</button>
+					<button onClick={closeRecipeEdit} disabled={isSavingRecipe} className="px-4 py-2 text-slate-600 font-medium disabled:opacity-50">Cancel</button>
+					<button onClick={handleSaveRecipe} disabled={isSavingRecipe} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed">
+						{isSavingRecipe ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+						{isSavingRecipe ? '保存中...' : 'Save Changes'}
+					</button>
 				</div>
 			</div>
 		</div>

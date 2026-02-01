@@ -24,6 +24,7 @@ interface SPMExplorerViewProps {
 	onEditRecipe?: (recipe: Recipe) => void;
 	isShellTarget: (name: string) => boolean;
 	recipes?: Recipe[];
+	isSavingRecipe?: boolean;
 }
 
 const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
@@ -40,7 +41,8 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 	handleDeleteCandidate,
 	onEditRecipe,
 	isShellTarget,
-	recipes = []
+	recipes = [],
+	isSavingRecipe = false
 }) => {
 	const [editingCodeIndex, setEditingCodeIndex] = useState<number | null>(null);
 	const [translatingIndex, setTranslatingIndex] = useState<number | null>(null);
@@ -310,7 +312,10 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 									 </div>
 								</div>
 								<div className="ml-4">
-									 <button onClick={() => handleSaveExtracted(res)} className={`text-xs px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 active:scale-95 ${res.mode === 'full' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-amber-600 text-white hover:bg-amber-700'}`}><CheckCircle size={18} />保存为 Recipe</button>
+									 <button onClick={() => handleSaveExtracted(res)} disabled={isSavingRecipe} className={`text-xs px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${res.mode === 'full' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-amber-600 text-white hover:bg-amber-700'}`}>
+										{isSavingRecipe ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+										{isSavingRecipe ? '保存中...' : '保存为 Recipe'}
+									 </button>
 								</div>
 							</div>
 							<div className="p-6 space-y-4">
@@ -453,7 +458,10 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 									{cand.candidateId && compareModal.targetName && (
 										<button onClick={handleDelete} className="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded">删除候选</button>
 									)}
-									<button onClick={handleAuditCandidate} className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded">审核候选</button>
+									<button onClick={handleAuditCandidate} disabled={isSavingRecipe} className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+										{isSavingRecipe ? <Loader2 size={12} className="animate-spin" /> : null}
+										审核候选
+									</button>
 									<button onClick={handleEditRecipe} className="text-xs text-emerald-600 hover:bg-emerald-50 px-2 py-1 rounded">审核 Recipe</button>
 								</div>
 								<button onClick={() => setCompareModal(null)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors"><X size={18} /></button>

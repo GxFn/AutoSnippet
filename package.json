@@ -1,10 +1,13 @@
 {
 	"name": "autosnippet",
-	"version": "1.5.5",
+	"version": "1.5.7",
 	"description": "A iOS module management tool.",
 	"main": "index.js",
 	"scripts": {
-		"postinstall": "node scripts/ensure-parse-package.js && node scripts/build-native-ui.js",
+		"postinstall": "node scripts/ensure-parse-package.js && node scripts/build-native-ui.js && node scripts/build-asd-entry.js",
+		"generate-checksums": "node scripts/generate-checksums.js",
+		"verify-checksums": "node scripts/verify-checksums.js",
+		"prepublishOnly": "npm run generate-checksums",
 		"build:parser": "cd tools/parse-package && swift build -c release",
 		"build:native-ui": "swiftc resources/native-ui/main.swift -o resources/native-ui/native-ui -framework AppKit",
 		"install:cursor-skill": "node scripts/install-cursor-skill.js",
@@ -33,7 +36,7 @@
 	"author": "gaoxuefeng",
 	"license": "MIT",
 	"bin": {
-		"asd": "bin/asnip.js"
+		"asd": "bin/asd"
 	},
 	"keywords": [
 		"Xcode",
@@ -79,6 +82,8 @@
 		"tools/parse-package/Sources",
 		"resources/native-ui/main.swift",
 		"resources/native-ui/README.md",
+		"resources/asd-entry/main.swift",
+		"checksums.json",
 		"resources/openChrome.applescript"
 	],
 	"directories": {

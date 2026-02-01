@@ -13,9 +13,14 @@ SPMTest/
 !tools/parse-package/Package.swift
 # native-ui 源码不忽略（resources 下）
 !resources/native-ui/main.swift
+# asd 原生入口源码不忽略
+!resources/asd-entry/main.swift
 # Swift 构建产物
 tools/parse-package/.build/
 resources/native-ui/native-ui
+bin/asd-verify
+# 发布时生成，不提交（prepublishOnly 会生成到 tarball）
+checksums.json
 
 # 本地测试 / 密钥（勿提交）
 test/temp/

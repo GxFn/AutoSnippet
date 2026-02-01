@@ -455,7 +455,6 @@ async function findSubASSpecPath(filePath) {
 
 async function findProjectRoot(filePath) {
 	let startPath = path.resolve(filePath);
-	
 	try {
 		const stats = await fs.promises.stat(startPath);
 		if (stats.isFile()) {
@@ -468,7 +467,12 @@ async function findProjectRoot(filePath) {
 			}
 		}
 	}
-	
+	// 先检查起始目录本身是否含根标记（避免 cwd 与异步查找的边界情况）
+	const markerInStart = path.join(startPath, ROOT_MARKER_NAME);
+	try {
+		await fs.promises.access(markerInStart);
+		return startPath;
+	} catch (_) {}
 	const rootMarkerPath = await searchUpwardForFile(startPath, ROOT_MARKER_NAME);
 	return rootMarkerPath ? path.dirname(rootMarkerPath) : null;
 }
