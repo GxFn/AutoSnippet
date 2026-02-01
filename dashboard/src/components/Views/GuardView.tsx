@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Shield, AlertTriangle, AlertCircle, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Shield, AlertTriangle, AlertCircle, Trash2, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { GITHUB_ISSUES_NEW_GUARD_URL } from '../../constants';
 
 interface GuardRule {
 	message: string;
@@ -159,12 +160,23 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
 
 	return (
 		<div className="p-6">
+			<div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+				<strong>前置条件：</strong>需在项目根运行 <code className="bg-amber-100 px-1 rounded">asd ui</code>；违反记录由源码中 <code className="bg-amber-100 px-1 rounded">// as:guard</code> 保存后由 watch 触发检查并写入，若从未触发则列表为空。
+			</div>
 			<div className="flex items-center justify-between mb-6">
 				<h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
 					<Shield size={24} className="text-blue-600" />
 					Guard 规则与违反记录
 				</h2>
 				<div className="flex items-center gap-3">
+					<a
+						href={GITHUB_ISSUES_NEW_GUARD_URL}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+					>
+						<ExternalLink size={16} /> 提交误报/建议
+					</a>
 					<button
 						type="button"
 						onClick={() => setShowAiWriteRule(!showAiWriteRule)}

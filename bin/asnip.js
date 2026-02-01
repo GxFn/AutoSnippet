@@ -1059,7 +1059,7 @@ commander
 			console.error(`❌ setup 失败：创建根目录标记文件失败: ${res.error || '未知错误'}`);
 			return;
 		}
-		console.log(`✅ setup 完成：AutoSnippet.boxspec.json 已初始化；root 标记文件: ${res.path}`);
+		console.log(`✅ setup 完成：AutoSnippetRoot.boxspec.json 已初始化；root 标记文件: ${res.path}`);
 		if (res.map && res.map.ok && res.map.created) {
 			console.log(`✅ 已创建 SPM 映射文件: ${res.map.path}`);
 		}

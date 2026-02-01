@@ -16,3 +16,7 @@ export const categories = ['All', 'View', 'Service', 'Tool', 'Model', 'Network',
 
 export const validTabs = ['snippets', 'recipes', 'ai', 'spm', 'candidates', 'depgraph', 'guard', 'help'] as const;
 export type TabType = typeof validTabs[number];
+
+/** GitHub 提交问题入口（Guard 误报、规则建议等） */
+export const GITHUB_ISSUES_URL = 'https://github.com/GxFn/AutoSnippet/issues';
+export const GITHUB_ISSUES_NEW_GUARD_URL = 'https://github.com/GxFn/AutoSnippet/issues/new?title=Guard%20误报%2F建议%3A%20&body=请描述误报的规则ID、代码片段或改进建议。';

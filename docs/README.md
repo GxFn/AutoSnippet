@@ -11,7 +11,9 @@
 | [权威评分系统与数据格式](./权威评分系统与数据格式.md) | 使用热度、权威分、综合权威分及 recipe-stats 数据格式 |
 | [context 配置说明](./context配置说明.md) | 语义索引的 storage、sources、chunking 配置 |
 | [MCP 配置说明](./MCP配置说明.md) | Cursor MCP 配置与可用工具 |
-| [guard-checks-catalog.json](./guard-checks-catalog.json) | iOS 版本规则全量检测示例：OC/Swift 静态规则与内置审计（可作 guard-rules 参考） |
+| [Guard-误报与排除策略](./Guard-误报与排除策略.md) | Guard 规则误报场景、排除策略与 Knowledge 目录说明 |
+
+**规则示例**：iOS 版本规则与违反记录见 Dashboard **Guard** 页，或项目内 `Knowledge/.autosnippet/guard-rules.json`、`guard-violations.json`。
 
 ## 快速开始
 
