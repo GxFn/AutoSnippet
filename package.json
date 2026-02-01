@@ -1,6 +1,6 @@
 {
 	"name": "autosnippet",
-	"version": "1.4.6",
+	"version": "1.4.7",
 	"description": "A iOS module management tool.",
 	"main": "index.js",
 	"scripts": {
