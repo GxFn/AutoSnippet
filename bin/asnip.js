@@ -1012,7 +1012,7 @@ commander
 			try {
 				const AiFactory = require('../lib/ai/AiFactory');
 				const config = AiFactory.getConfigSync(projectRoot);
-				const hasKey = !!(config.apiKey || config.googleApiKey);
+				const hasKey = config.hasKey;
 				console.log(`   ${hasKey ? ok : fail} AI 配置: ${hasKey ? `provider=${config.provider}` : '未配置 API Key'}`);
 			} catch (_) {
 				console.log(`   ${fail} AI 配置: 无法读取`);
@@ -1021,10 +1021,13 @@ commander
 			console.log(`${fail} .env: 不存在，请从 .env.example 复制并填写 API Key`);
 		}
 
-		// 3. 语义索引
-		const contextDir = path.join(projectRoot, 'Knowledge', '.autosnippet');
-		const hasContext = fs.existsSync(path.join(contextDir, 'context.json')) ||
-			fs.existsSync(path.join(contextDir, 'embeddings'));
+		// 3. 语义索引（JsonAdapter: context/index/vector_index.json，LanceDB: context/index/lancedb/，manifest 由 embed 写入）
+		const paths = require('../lib/infra/paths');
+		const indexPath = paths.getContextIndexPath(projectRoot);
+		const manifestPath = path.join(paths.getContextStoragePath(projectRoot), 'manifest.json');
+		const hasContext = fs.existsSync(path.join(indexPath, 'vector_index.json')) ||
+			fs.existsSync(path.join(indexPath, 'lancedb')) ||
+			fs.existsSync(manifestPath);
 		console.log(`${hasContext ? ok : fail} 语义索引: ${hasContext ? '已构建' : '未构建，运行 asd embed'}`);
 
 		// 4. watch / ui
@@ -1037,9 +1040,10 @@ commander
 				s.on('error', () => res(false));
 			});
 			uiRunning = await Promise.race([check(), new Promise(r => setTimeout(() => r(false), 500))]);
-			console.log(`${uiRunning ? ok : fail} Dashboard/Watch: ${uiRunning ? 'http://localhost:3000 已运行' : '未运行'}`);
+			const uiIcon = uiRunning ? ok : 'ℹ️';
+			console.log(`${uiIcon} Dashboard/Watch: ${uiRunning ? 'http://localhost:3000 已运行' : '未运行，需时请执行 asd ui'}`);
 			if (!uiRunning) {
-				console.log(`   ⚠️  as:create、as:guard、as:search 依赖 watch，保存后不会触发。请执行: asd ui`);
+				console.log(`   as:create、as:guard、as:search 依赖 watch，需时请执行: asd ui`);
 			}
 		} catch (_) {
 			console.log(`${fail} Dashboard: 无法检测`);
