@@ -125,7 +125,6 @@ asd install:full --lancedb # 仅安装 LanceDB（向量检索更快）
 - **项目根**：含 `AutoSnippetRoot.boxspec.json` 的目录
 
 **详细介绍**：启动 `asd ui` 后访问 Dashboard → **使用说明** 页；或参阅 [使用文档](docs/使用文档.md)（含 Skills 一览、AI 配置、闭环详解等）。  
-**发布流程**：CI 与 npm 发布见 [发布流程](docs/发布流程.md)（打 tag `v*` 触发自动发布）。
 
 ---
 
