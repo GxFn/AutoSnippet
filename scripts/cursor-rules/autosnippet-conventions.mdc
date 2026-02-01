@@ -1,0 +1,23 @@
+---
+description: AutoSnippet 项目约定 — Skills 做语义、MCP 提供能力；不直接改 Knowledge
+alwaysApply: true
+---
+
+# AutoSnippet 约定
+
+本规则在安装 AutoSnippet Skills（`asd install:cursor-skill`）时写入，用于 Cursor 会话中持久遵循以下约定。
+
+## 语义与能力分离
+
+- **Skills 做语义**：何时用、流程、与 asd ais 对比等由 Skills 描述（如 autosnippet-when、autosnippet-batch-scan、autosnippet-recipes）。
+- **MCP 提供能力**：连接与工具由 MCP 提供（`autosnippet_context_search`、`autosnippet_open_create`、`autosnippet_get_targets`、`autosnippet_get_target_files`、`autosnippet_submit_candidates`）。不在 Skills 里写死 URL/HTTP。
+
+## 知识库与提交
+
+- **不要直接修改** `Knowledge/recipes/` 或 `Knowledge/snippets/`；所有 Recipe/Snippet 变更通过 Dashboard 提交并人工审核后保存。
+- **检索**：需要按需查 Recipe/文档时，使用 MCP 工具 `autosnippet_context_search`（传 `query`、`limit?`）；或读 `.cursor/skills/autosnippet-recipes/references/project-recipes-context.md`。
+- **批量扫描**：流程见 Skill autosnippet-batch-scan；依次调用 `autosnippet_get_targets` → `autosnippet_get_target_files` → 按文件提取 → `autosnippet_submit_candidates`。
+
+## Recipe 优先
+
+当 Recipe 与代码库均有相关实现时，以 Recipe 为准。Recipe 是项目约定的标准用法；源代码可能是旧实现或非标准写法。

@@ -11,8 +11,11 @@ docs/
 # Swift 解析器源码不忽略
 !tools/parse-package/Sources/**/*.swift
 !tools/parse-package/Package.swift
+# native-ui 源码不忽略（resources 下）
+!resources/native-ui/main.swift
 # Swift 构建产物
 tools/parse-package/.build/
+resources/native-ui/native-ui
 
 # 本地测试 / 密钥（勿提交）
 test/temp/

@@ -7,7 +7,7 @@
 ```bash
 npm run build:native-ui
 # 或
-swiftc tools/native-ui/main.swift -o bin/native-ui -framework AppKit
+swiftc resources/native-ui/main.swift -o resources/native-ui/native-ui -framework AppKit
 ```
 
 `asd install:full` 在 macOS 上会自动构建。
@@ -16,10 +16,10 @@ swiftc tools/native-ui/main.swift -o bin/native-ui -framework AppKit
 
 ```bash
 # 列表选择（返回选中的索引，stdout 输出 0-based 数字）
-./bin/native-ui list "选项1" "选项2" "选项3"
+./resources/native-ui/native-ui list "选项1" "选项2" "选项3"
 
 # 预览确认（展示代码块，用户确认后 exit 0）
-./bin/native-ui preview "标题" "代码内容"
+./resources/native-ui/native-ui preview "标题" "代码内容"
 ```
 
 ## 集成

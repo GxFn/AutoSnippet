@@ -32,24 +32,27 @@ function openCreatePage(path) {
 	openBrowser.openBrowserReuseTab(url.toString(), BASE_URL);
 }
 
-async function postContextSearch(query, limit = 5, filter) {
-	const url = new URL('/api/context/search', BASE_URL);
-	const body = JSON.stringify({ query: String(query), limit: Number(limit), filter: filter || undefined });
+function request(method, pathname, body) {
+	const url = new URL(pathname, BASE_URL);
 	const client = url.protocol === 'https:' ? https : http;
+	const opts = {
+		hostname: url.hostname,
+		port: url.port || (url.protocol === 'https:' ? 443 : 80),
+		path: url.pathname,
+		method
+	};
+	let postBody = null;
+	if (body !== undefined && method === 'POST') {
+		postBody = JSON.stringify(body);
+		opts.headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postBody) };
+	}
 	return new Promise((resolve, reject) => {
-		const opts = {
-			hostname: url.hostname,
-			port: url.port || (url.protocol === 'https:' ? 443 : 80),
-			path: url.pathname,
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
-		};
 		const req = client.request(opts, (res) => {
 			let data = '';
 			res.on('data', (ch) => { data += ch; });
 			res.on('end', () => {
 				try {
-					const json = JSON.parse(data);
+					const json = data ? JSON.parse(data) : {};
 					resolve(json);
 				} catch (e) {
 					reject(new Error('Invalid JSON: ' + data.slice(0, 200)));
@@ -57,9 +60,13 @@ async function postContextSearch(query, limit = 5, filter) {
 			});
 		});
 		req.on('error', reject);
-		req.write(body);
+		if (postBody) req.write(postBody);
 		req.end();
 	});
+}
+
+async function postContextSearch(query, limit = 5, filter) {
+	return request('POST', '/api/context/search', { query: String(query), limit: Number(limit), filter: filter || undefined });
 }
 
 const server = new McpServer({ name: 'autosnippet', version: '1.0.0' });
@@ -118,6 +125,83 @@ server.registerTool(
 					text: `检索失败: ${e.message}。请确认 asd ui 已启动并已执行 asd embed。`
 				}]
 			};
+		}
+	}
+);
+
+server.registerTool(
+	'autosnippet_get_targets',
+	{
+		description: '获取项目所有 SPM Target 列表，供 Cursor 批量扫描时选择要扫描的 target。需先运行 asd ui。',
+		inputSchema: {}
+	},
+	async () => {
+		try {
+			const list = await request('GET', '/api/spm/targets');
+			if (!Array.isArray(list)) {
+				return { content: [{ type: 'text', text: '未获取到 Target 列表。请确认 asd ui 已启动且项目根含 Package.swift。' }] };
+			}
+			const lines = list.map((t, i) => `${i + 1}. ${t.name} (package: ${t.packageName}, path: ${t.targetDir})`);
+			return { content: [{ type: 'text', text: lines.length ? lines.join('\n') : '当前项目无 SPM Target。' }] };
+		} catch (e) {
+			return { content: [{ type: 'text', text: `请求失败: ${e.message}。请确认 asd ui 已启动。` }] };
+		}
+	}
+);
+
+server.registerTool(
+	'autosnippet_get_target_files',
+	{
+		description: '获取指定 SPM Target 的源码文件列表（name + path），供 Cursor 批量扫描时按文件读取内容并提取候选。传入 targetName（如 MyModule）即可。需先运行 asd ui。',
+		inputSchema: {
+			targetName: z.string().describe('Target 名称，与 autosnippet_get_targets 列表中的 name 一致')
+		}
+	},
+	async ({ targetName }) => {
+		try {
+			if (!targetName || typeof targetName !== 'string') {
+				return { content: [{ type: 'text', text: '请传入 targetName（Target 名称）。' }] };
+			}
+			const res = await request('POST', '/api/spm/target-files', { targetName: targetName.trim() });
+			const files = res?.files || [];
+			const lines = files.map((f, i) => `${i + 1}. ${f.path} (${f.name})`);
+			return { content: [{ type: 'text', text: lines.length ? lines.join('\n') : '该 Target 无源码文件。' }] };
+		} catch (e) {
+			return { content: [{ type: 'text', text: `请求失败: ${e.message}。请确认 asd ui 已启动且 targetName 正确。` }] };
+		}
+	}
+);
+
+server.registerTool(
+	'autosnippet_submit_candidates',
+	{
+		description: '将 Cursor 提取的候选批量提交到 Dashboard Candidates，供人工审核。用于「用 Cursor 做批量扫描」：先 get_targets → get_target_files → 对每个文件用 Cursor AI 提取 Recipe 结构 → 调用本工具提交。每条 item 需含 title、summary、trigger、language、code、usageGuide；可选 summary_cn、usageGuide_cn、category、headers 等。需先运行 asd ui。',
+		inputSchema: {
+			targetName: z.string().describe('候选归属的 target 名，如 MyModule 或 _cursor'),
+			items: z.array(z.record(z.string(), z.unknown())).describe('候选数组，每条至少含 title, summary, trigger, language, code, usageGuide'),
+			source: z.string().optional().describe('来源标记，默认 cursor-scan'),
+			expiresInHours: z.number().optional().describe('保留小时数，默认 24')
+		}
+	},
+	async ({ targetName, items, source, expiresInHours }) => {
+		try {
+			if (!targetName || !Array.isArray(items) || items.length === 0) {
+				return { content: [{ type: 'text', text: '需要 targetName 与 items（数组，至少一条）。' }] };
+			}
+			const res = await request('POST', '/api/candidates/append', {
+				targetName: String(targetName),
+				items,
+				source: source || 'cursor-scan',
+				expiresInHours: typeof expiresInHours === 'number' ? expiresInHours : 24
+			});
+			return {
+				content: [{
+					type: 'text',
+					text: `已提交 ${res?.count ?? items.length} 条候选到 ${res?.targetName ?? targetName}。请在 Dashboard Candidates 页审核。`
+				}]
+			};
+		} catch (e) {
+			return { content: [{ type: 'text', text: `提交失败: ${e.message}。请确认 asd ui 已启动且 items 格式符合 ExtractedRecipe（含 title, summary, trigger, language, code, usageGuide）。` }] };
 		}
 	}
 );

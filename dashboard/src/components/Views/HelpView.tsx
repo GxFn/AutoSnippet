@@ -27,7 +27,7 @@ const HelpView: React.FC = () => {
 						<li><strong>Snippets</strong>：查看、编辑、删除代码片段；点击「Sync to Xcode」同步到 Xcode CodeSnippets。</li>
 						<li><strong>Recipes</strong>：管理配方（Recipes）文档，与 Snippet 关联。</li>
 						<li><strong>SPM Explorer</strong>：按 Target 扫描源码，AI 提取候选；或从路径/剪贴板创建 Recipe。</li>
-						<li><strong>Candidates</strong>：审核由 CLI <code className="bg-slate-100 px-1 rounded">asd ais</code> 批量扫描产生的候选，通过入库或忽略。</li>
+						<li><strong>Candidates</strong>：审核由 CLI <code className="bg-slate-100 px-1 rounded">asd ais</code> 或 Cursor MCP 批量扫描（<code className="bg-slate-100 px-1 rounded">autosnippet_submit_candidates</code>）产生的候选，通过入库或忽略。</li>
 						<li><strong>依赖关系图</strong>：展示 SPM 包依赖；<code className="bg-slate-100 px-1 rounded">asd spm-map</code> 更新。</li>
 						<li><strong>AI Assistant</strong>：基于本地 Snippets/Recipes 的 RAG 问答；支持语义搜索。</li>
 					</ul>
@@ -57,7 +57,7 @@ const HelpView: React.FC = () => {
 					<ul className="list-disc pl-6 space-y-2 text-slate-600">
 						<li><code className="bg-slate-100 px-1 rounded">asd embed</code>：构建语义向量索引。本 Dashboard 启动时自动检测并执行，亦可手动运行。可设 <code className="bg-slate-100 px-1 rounded">ASD_AUTO_EMBED=0</code> 关闭自动 embed。</li>
 						<li><code className="bg-slate-100 px-1 rounded">asd search -m [query]</code>：语义搜索知识库（自然语言）。</li>
-						<li><code className="bg-slate-100 px-1 rounded">asd install:cursor-skill --mcp</code>：安装 Skills 并配置 MCP；Cursor Agent 可调用 <code className="bg-slate-100 px-1 rounded">autosnippet_context_search</code> 按需检索、<code className="bg-slate-100 px-1 rounded">autosnippet_open_create</code> 打开新建 Recipe 页。需本 Dashboard 运行。</li>
+						<li><code className="bg-slate-100 px-1 rounded">asd install:cursor-skill --mcp</code>：安装 Skills、<strong>Cursor 规则</strong>（<code className="bg-slate-100 px-1 rounded">.cursor/rules/*.mdc</code>）并配置 MCP；Cursor Agent 可调用 <code className="bg-slate-100 px-1 rounded">autosnippet_context_search</code> 按需检索、<code className="bg-slate-100 px-1 rounded">autosnippet_open_create</code> 打开新建 Recipe 页；批量扫描可用 <code className="bg-slate-100 px-1 rounded">autosnippet_get_targets</code>、<code className="bg-slate-100 px-1 rounded">autosnippet_get_target_files</code>、<code className="bg-slate-100 px-1 rounded">autosnippet_submit_candidates</code>。需本 Dashboard 运行。</li>
 					</ul>
 				</section>
 				<section>
@@ -91,8 +91,9 @@ const HelpView: React.FC = () => {
 						<li><strong>autosnippet-search</strong>：查找/插入推荐</li>
 						<li><strong>autosnippet-guard</strong>：审查推荐</li>
 						<li><strong>autosnippet-dep-graph</strong>：SPM 依赖结构</li>
+						<li><strong>autosnippet-batch-scan</strong>：用 Cursor 做批量扫描（何时用、流程语义）；MCP 提供 get_targets / get_target_files / submit_candidates</li>
 					</ul>
-					<p className="text-slate-600 mt-2">MCP 工具：<code className="bg-slate-100 px-1 rounded">autosnippet_context_search</code> 按需检索；<code className="bg-slate-100 px-1 rounded">autosnippet_open_create</code> 打开新建 Recipe 页。</p>
+					<p className="text-slate-600 mt-2">设计：<strong>Skills 做语义</strong>（何时用、怎么用）、<strong>MCP 提供能力</strong>（连接与工具）。安装时会写入 <strong>Cursor 规则</strong>（<code className="bg-slate-100 px-1 rounded">.cursor/rules/autosnippet-conventions.mdc</code>），使会话中持久遵循上述约定。MCP 工具：<code className="bg-slate-100 px-1 rounded">autosnippet_context_search</code> 按需检索；<code className="bg-slate-100 px-1 rounded">autosnippet_open_create</code> 打开新建 Recipe 页；批量扫描：<code className="bg-slate-100 px-1 rounded">autosnippet_get_targets</code>、<code className="bg-slate-100 px-1 rounded">autosnippet_get_target_files</code>、<code className="bg-slate-100 px-1 rounded">autosnippet_submit_candidates</code>（语义见 autosnippet-batch-scan Skill）。</p>
 				</section>
 				<section>
 					<h2 className="text-lg font-bold text-slate-800 mb-3">命令行速查</h2>

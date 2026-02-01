@@ -196,7 +196,25 @@ for (const name of skillDirs) {
 	}
 }
 
-// 可选：写入 MCP 配置，使 autosnippet_context_search 工具可用（连接层封装在此）
+// 可选：写入 Cursor 规则（.cursor/rules/*.mdc），使会话中持久遵循 AutoSnippet 约定
+const cursorRulesSource = path.join(autoSnippetRoot, 'scripts', 'cursor-rules');
+const cursorRulesTarget = path.join(projectRoot, '.cursor', 'rules');
+if (fs.existsSync(cursorRulesSource)) {
+	const ruleFiles = fs.readdirSync(cursorRulesSource, { withFileTypes: true })
+		.filter(d => d.isFile() && d.name.toLowerCase().endsWith('.mdc'))
+		.map(d => d.name);
+	if (ruleFiles.length > 0) {
+		if (!fs.existsSync(cursorRulesTarget)) fs.mkdirSync(cursorRulesTarget, { recursive: true });
+		for (const name of ruleFiles) {
+			const src = path.join(cursorRulesSource, name);
+			const dest = path.join(cursorRulesTarget, name);
+			fs.copyFileSync(src, dest);
+			console.log('✅ 已安装 Cursor 规则:', name, '->', dest);
+		}
+	}
+}
+
+// 可选：写入 MCP 配置，使 autosnippet_context_search 等工具可用（连接层封装在此）
 const mcpPath = path.join(projectRoot, '.cursor', 'mcp.json');
 const mcpServerScript = path.join(autoSnippetRoot, 'scripts', 'mcp-server.js');
 const addMcp = process.argv.includes('--mcp');
@@ -216,7 +234,8 @@ if (addMcp && fs.existsSync(mcpServerScript)) {
 	fs.mkdirSync(path.dirname(mcpPath), { recursive: true });
 	fs.writeFileSync(mcpPath, JSON.stringify(mcp, null, 2), 'utf8');
 	console.log('✅ 已写入 MCP 配置:', mcpPath);
-	console.log('   使用 autosnippet_context_search 需先运行 asd ui');
+	console.log('   在 Cursor 中显示为 autosnippet。请用 Cursor 打开本目录:', projectRoot);
+	console.log('   使用 MCP 工具前需先运行 asd ui');
 } else if (addMcp) {
 	console.log('ℹ️  --mcp 已指定但 mcp-server.js 不存在，跳过 MCP 配置');
 }

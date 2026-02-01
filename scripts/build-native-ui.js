@@ -10,8 +10,8 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
-const src = path.join(root, 'tools', 'native-ui', 'main.swift');
-const out = path.join(root, 'bin', 'native-ui');
+const src = path.join(root, 'resources', 'native-ui', 'main.swift');
+const out = path.join(root, 'resources', 'native-ui', 'native-ui');
 
 try {
 	execSync(`swiftc "${src}" -o "${out}" -framework AppKit`, { cwd: root, stdio: 'pipe' });

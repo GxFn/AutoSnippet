@@ -39,7 +39,7 @@ asd ui         # 启动 Dashboard（建议常驻）
 
 1. **组建知识库**：`asd ais <Target>` 或 `asd ais --all` → Dashboard Candidates 审核 → Recipe 入库
 2. **依赖关系**：`asd spm-map` 或 Dashboard 刷新
-3. **Cursor 集成**：`asd install:cursor-skill --mcp`（安装 Skills + MCP，需 `asd ui` 运行）
+3. **Cursor 集成**：`asd install:cursor-skill --mcp`（安装 Skills + Cursor 规则 `.cursor/rules/` + MCP，需 `asd ui` 运行）
 4. **语义索引**：`asd ui` 启动时自动 embed；也可手动 `asd embed`
 
 ### 闭环
@@ -76,10 +76,16 @@ asd ui         # 启动 Dashboard（建议常驻）
 | `asd ais [Target]` | AI 扫描 Target → Candidates |
 | `asd search [keyword] --copy` | 搜索并复制第一条到剪贴板 |
 | `asd search [keyword] --pick` | 交互选择后复制/插入 |
-| `asd install:cursor-skill --mcp` | 安装 Skills 并配置 MCP（需 `asd ui` 运行） |
+| `asd install:cursor-skill --mcp` | 安装 Skills、Cursor 规则（`.cursor/rules/*.mdc`）并配置 MCP（需 `asd ui` 运行） |
 | `asd install:full` | 全量安装；`--parser` 含 Swift 解析器；`--lancedb` 仅 LanceDB |
 | `asd embed` | 手动构建语义向量索引（`asd ui` 启动时也会自动执行） |
 | `asd spm-map` | 刷新 SPM 依赖映射（依赖关系图数据来源） |
+
+### 用 Cursor 做批量扫描
+
+除 `asd ais [Target]`（项目内 AI）外，可用 **Cursor 作为批量扫描工具**：在 Cursor 里让 Agent 通过 **MCP 工具**（`autosnippet_get_targets` → `autosnippet_get_target_files` → 按文件提取 → `autosnippet_submit_candidates`）扫描指定 Target，用 Cursor 模型提取候选并提交到 Dashboard，再到 **Candidates** 页审核入库。
+
+简单一句：「扫描 BDNetwork ，生产 Recipes 到候选」。AutoSnippet 将所有能力都通过语义交给 Cursor 了。
 
 ## 全量安装与可选依赖
 
@@ -100,7 +106,7 @@ asd install:full --lancedb # 仅安装 LanceDB（向量检索更快）
 | 脚本 | 作用 |
 |------|------|
 | `scripts/ensure-parse-package.js` | 仅当 `ASD_BUILD_SWIFT_PARSER=1` 时构建 Swift 解析器并打印「正在安装…」；否则打印跳过说明并退出。 |
-| `scripts/build-native-ui.js` | 仅在 macOS 上用本机 Swift 编译 `tools/native-ui/main.swift` → `bin/native-ui`；失败则静默跳过。 |
+| `scripts/build-native-ui.js` | 仅在 macOS 上用本机 Swift 编译 `resources/native-ui/main.swift` → `resources/native-ui/native-ui`；失败则静默跳过。 |
 
 未安装或跳过不影响核心功能。详见 [npm lifecycle scripts](https://docs.npmjs.com/cli/v10/using-npm/scripts#life-cycle-scripts)。
 
@@ -108,15 +114,15 @@ asd install:full --lancedb # 仅安装 LanceDB（向量检索更快）
 
 - **AI**：项目根 `.env`，设置 `ASD_GOOGLE_API_KEY` 等（见 `.env.example`）。可选 `ASD_AI_PROVIDER`、代理等。
 - **LanceDB**：`asd install:full --lancedb`，在 boxspec 的 `context.storage.adapter` 中配置 `"lance"`。
-- **Native UI**（可选）：macOS 上 `npm install` 会尝试构建 `bin/native-ui`（需本机 Swift）；未构建时回退到 AppleScript/inquirer，功能正常。
+- **Native UI**（可选）：macOS 上 `npm install` 会尝试构建 `resources/native-ui/native-ui`（需本机 Swift）；未构建时回退到 AppleScript/inquirer，功能正常。
 
 ## Recipe 格式
 
 完整 Recipe 为 Markdown 文件，需包含：
 
 - **Frontmatter**（`---` 包裹的 YAML）：`title`、`trigger` 必填；可选 `category`、`language`、`headers` 等
-- **## Snippet / Code Reference**：下接代码块，供 Snippet 与检索使用
-- **## AI Context / Usage Guide**：使用说明，供 AI 与 Guard 检索
+- **Snippet / Code Reference**：下接代码块，供 Snippet 与检索使用
+- **AI Context / Usage Guide**：使用说明，供 AI 与 Guard 检索
 
 ## 术语
 

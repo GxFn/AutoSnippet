@@ -17,13 +17,14 @@ This skill helps you **decide when to recommend** which AutoSnippet capability. 
 | "想用补全/触发词" / "这段做成 Snippet" / "Xcode 里怎么联想" | **Snippet / trigger**: edit in Dashboard, `asd install` then Xcode trigger completion | **autosnippet-concepts** + tell user Dashboard + asd install |
 | "头文件/import 不想手写" / "插入这段时自动带 #import" | **as:include / as:import**: add `// as:include <Module/Header.h>` in Snippet body; watch injects on save | **autosnippet-concepts** or brief note |
 | "依赖关系 / 谁依赖谁 / 模块结构" | **Dep graph**: read AutoSnippet.spmmap.json or suggest `asd spm-map` | **autosnippet-dep-graph** |
+| "用 Cursor 扫一下这个 Target" / "批量提取候选" / 像 asd ais 但用 Cursor 模型 | **Batch scan**: get_targets → get_target_files → 按文件提取 → submit_candidates；到 Candidates 审核 | **autosnippet-batch-scan** |
 | 用户问 "知识库是什么 / Recipe 是什么" | **Concepts**: explain knowledge base, Recipe, Snippet, Candidates | **autosnippet-concepts** |
 
 ## Instructions for the agent
 
 1. **You decide** whether to recommend an AutoSnippet capability. If the user did not ask for it, you may still **suggest** it once when it clearly helps (e.g. "这段可以提交到知识库，需要的话我可以教你用 Dashboard 提交").
 2. **Do not force** a fixed flow. Prefer natural language ("你可以…" / "如果希望…可以…") over mandatory steps.
-3. **Point to the right skill**: once you decide "this is a create/search/guard/snippet/dep question", use the corresponding skill (autosnippet-create, autosnippet-recipes, autosnippet-concepts, autosnippet-dep-graph) for the detailed steps.
+3. **Point to the right skill**: once you decide "this is a create/search/guard/snippet/dep/batch-scan question", use the corresponding skill (autosnippet-create, autosnippet-recipes, autosnippet-concepts, autosnippet-dep-graph, autosnippet-batch-scan) for the detailed steps.
 4. **One capability at a time**: if the user only asked to search, don't also push create or guard unless they ask.
 
 ## On-Demand Context (when asd ui is running)
@@ -38,5 +39,6 @@ Use MCP tool `autosnippet_context_search` for on-demand semantic search; pass `q
 - **autosnippet-create**: How to submit code to web and add to knowledge base (steps).
 - **autosnippet-recipes**: Project context, how to search, Guard, and suggest code from Recipes.
 - **autosnippet-dep-graph**: SPM dependency structure and when to use it.
+- **autosnippet-batch-scan**: When and how to use Cursor as batch scanner (get_targets → get_target_files → extract → submit_candidates); MCP provides the tools.
 
 Use **autosnippet-when** to choose; use the others for the "how".

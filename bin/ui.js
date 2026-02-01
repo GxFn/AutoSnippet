@@ -787,10 +787,20 @@ function launch(projectRoot, port = 3000, options = {}) {
 		}
 	});
 
-	// API: 获取 Target 将要扫描的文件列表（不调用 AI）
+	// API: 获取 Target 将要扫描的文件列表（不调用 AI）。支持 body.target 或 body.targetName（按名称查 target）
 	app.post('/api/spm/target-files', async (req, res) => {
 		try {
-			const { target } = req.body;
+			let target = req.body?.target;
+			if (!target && req.body?.targetName) {
+				const targets = await targetScanner.listAllTargets(projectRoot);
+				target = targets.find(t => t.name === req.body.targetName);
+				if (!target) {
+					return res.status(404).json({ error: `未找到 Target: ${req.body.targetName}` });
+				}
+			}
+			if (!target) {
+				return res.status(400).json({ error: '需要 body.target 或 body.targetName' });
+			}
 			const files = await targetScanner.getTargetFilesContent(target);
 			const scannedFiles = files.map(f => ({
 				name: f.name,
@@ -839,6 +849,23 @@ function launch(projectRoot, port = 3000, options = {}) {
 				message = `网络请求失败: ${message}。请检查：1) 是否在项目根（含 .env）运行 asd ui；2) 国内访问 Google 需在 .env 中设置 https_proxy/http_proxy；3) 或改用国内可用 provider，如在 .env 中设置 ASD_AI_PROVIDER=deepseek 并配置 ASD_DEEPSEEK_API_KEY。`;
 			}
 			res.status(500).json({ error: message });
+		}
+	});
+
+	// API: 追加候选（供 Cursor/MCP 批量扫描：Cursor AI 提取后提交，无需项目内 AI）
+	app.post('/api/candidates/append', async (req, res) => {
+		try {
+			const { targetName, items, source, expiresInHours } = req.body;
+			if (!targetName || !Array.isArray(items) || items.length === 0) {
+				return res.status(400).json({ error: '需要 targetName 与 items（数组，至少一条）' });
+			}
+			const safeSource = (source && typeof source === 'string') ? source : 'cursor-scan';
+			const hours = typeof expiresInHours === 'number' ? expiresInHours : 24;
+			await candidateService.appendCandidates(projectRoot, String(targetName), items, safeSource, hours);
+			res.json({ ok: true, count: items.length, targetName: String(targetName) });
+		} catch (err) {
+			console.error(`[API Error]`, err);
+			res.status(500).json({ error: err.message });
 		}
 	});
 
