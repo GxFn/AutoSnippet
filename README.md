@@ -44,7 +44,7 @@ asd ui         # 启动 Dashboard（建议常驻）
 
 ### 闭环
 
-**扫描 → 审核 → 沉淀 → Cursor/AI 使用 → 再沉淀**：项目 AI 通过扫描 target 批量提交候选，Cursor 完成的代码通过 Skill 提交候选，开发者完成的代码通过剪切板提交候选，Dashboard 中的候选经过人工审核进入知识库；知识库内 Recipe 为第一公民，拥有最高优先级。
+**扫描 → 审核 → 沉淀 → Cursor/AI 使用 → 再沉淀**：项目 AI 通过扫描 Target 批量提交候选，Cursor 完成的代码通过 Skill 提交候选，开发者完成的代码通过剪切板提交候选，Dashboard 中的候选经过人工审核进入知识库；知识库内 Recipe 为第一公民，拥有最高优先级。
 
 开发者通过 Snippet 获取 Recipe 内容插入编辑器， Cursor 通过 Skills 把 Recipe 产生的 context 当做上下文使用，对向量库进行查询；AI 用知识库产生的代码，过审后添加到知识库，成为了 AI 新的上下文，使得 AI 的开发趋于标准化。
 
@@ -57,7 +57,7 @@ asd ui         # 启动 Dashboard（建议常驻）
 | 指令 | 作用 |
 |------|------|
 | `// as:create` / `// as:c` | 无选项时只打开 Dashboard（路径已填），由用户点 Scan File 或 Use Copied Code。`-c` 强制用剪切板（静默创建或打开）；`-f` 强制用路径（打开 Dashboard 并自动执行 Scan File） |
-| `// as:guard` / `// as:g` [关键词或规模] | 按知识库 AI 审查；无后缀时仅检查当前文件；后缀 **file** / **target** / **project** 可扩大范围（target=当前 target 内所有源文件，project=项目内所有源文件）；其他为检索关键词 |
+| `// as:guard` / `// as:g` [关键词或规模] | 按知识库 AI 审查；无后缀时仅检查当前文件；后缀 **file** / **target** / **project** 可扩大范围（target=当前 Target 内所有源文件，project=项目内所有源文件）；其他为检索关键词 |
 | `// as:search` / `// as:s` [关键词] | 从知识库检索并插入 Recipe/Snippet |
 | `// as:include` / `// as:import` | Snippet 内头文件/模块标记，保存时自动注入 |
 
@@ -68,15 +68,16 @@ asd ui         # 启动 Dashboard（建议常驻）
 
 | 命令 | 说明 |
 |------|------|
+| `asd setup` | 初始化项目根（创建 AutoSnippetRoot.boxspec.json） |
 | `asd ui` | 启动 Dashboard + watch |
-| `asd status` | 环境自检（项目根、AI、索引、Native UI） |
+| `asd status` | 环境自检（含项目根、AI、索引、Dashboard/Watch、Native UI） |
 | `asd create --clipboard` | 从剪贴板创建 Recipe/Snippet |
 | `asd candidate` | 从剪贴板创建候选（Dashboard 审核） |
 | `asd install` / `asd i` | 同步 Snippets 到 Xcode |
 | `asd ais [Target]` | AI 扫描 Target → Candidates |
 | `asd search [keyword] --copy` | 搜索并复制第一条到剪贴板 |
 | `asd search [keyword] --pick` | 交互选择后复制/插入 |
-| `asd install:cursor-skill --mcp` | 安装 Skills、Cursor 规则（`.cursor/rules/*.mdc`）并配置 MCP（需 `asd ui` 运行） |
+| `asd install:cursor-skill --mcp` | 安装 Skills、Cursor 规则（`.cursor/rules/*.mdc`）并配置 MCP。配置时可运行；MCP 工具使用时需 `asd ui` 已启动 |
 | `asd install:full` | 全量安装；`--parser` 含 Swift 解析器；`--lancedb` 仅 LanceDB |
 | `asd embed` | 手动构建语义向量索引（`asd ui` 启动时也会自动执行） |
 | `asd spm-map` | 刷新 SPM 依赖映射（依赖关系图数据来源） |
@@ -85,7 +86,7 @@ asd ui         # 启动 Dashboard（建议常驻）
 
 除 `asd ais [Target]`（项目内 AI）外，可用 **Cursor 作为批量扫描工具**：在 Cursor 里让 Agent 通过 **MCP 工具**（`autosnippet_get_targets` → `autosnippet_get_target_files` → 按文件提取 → `autosnippet_submit_candidates`）扫描指定 Target，用 Cursor 模型提取候选并提交到 Dashboard，再到 **Candidates** 页审核入库。
 
-简单一句：「扫描 BDNetwork ，生产 Recipes 到候选」。AutoSnippet 将所有能力都通过语义交给 Cursor 了。
+简单一句：「扫描 BDNetwork ，生成 Recipes 到候选」。AutoSnippet 将所有能力都通过语义交给 Cursor 了。
 
 ## 全量安装与可选依赖
 
@@ -101,23 +102,27 @@ asd install:full --lancedb # 仅安装 LanceDB（向量检索更快）
 
 ## 配置
 
-- **AI**：项目根 `.env`，设置 `ASD_GOOGLE_API_KEY` 等（见 `.env.example`）。可选 `ASD_AI_PROVIDER`、代理等。
+- **AI**：项目根 `.env`，参考 `.env.example` 配置 `ASD_GOOGLE_API_KEY` 等。可选 `ASD_AI_PROVIDER`、代理等。
 - **LanceDB**：`asd install:full --lancedb`，在 boxspec 的 `context.storage.adapter` 中配置 `"lance"`。
 - **Native UI**（可选）：macOS 上 `npm install` 会尝试构建 `resources/native-ui/native-ui`（需本机 Swift）；未构建时回退到 AppleScript/inquirer，功能正常。
 
-## Recipe 格式
-
-完整 Recipe 为 Markdown 文件，需包含：
-
-- **Frontmatter**（`---` 包裹的 YAML）：`title`、`trigger` 必填；可选 `category`、`language`、`headers` 等
-- **Snippet / Code Reference**：下接代码块，供 Snippet 与检索使用
-- **AI Context / Usage Guide**：使用说明，供 AI 与 Guard 检索
-
 ## 术语
 
-- **Recipe**：`Knowledge/recipes/` 下的 Markdown 知识，供 AI 检索、Guard、搜索
-- **Snippet**：Xcode 代码片段，通过 trigger（默认 `@`）补全
-- **项目根**：含 `AutoSnippetRoot.boxspec.json` 的目录
+| 术语 | 说明 |
+|------|------|
+| **Recipe** | `Knowledge/recipes/` 下的 Markdown 知识（配方）：含代码块 + 使用说明，供 AI 检索、Guard、搜索 |
+| **Snippet** | Xcode 代码片段，通过 trigger（默认 `@`）补全，可与 Recipe 关联 |
+| **Candidate（候选）** | 待审核入库的项；来自 `as:create`、MCP 提交、`asd ais` 扫描等，经 Dashboard 审核后保存为 Recipe/Snippet |
+| **Knowledge** | 项目知识库目录，包含 `recipes/`、`.autosnippet/`（索引、candidates、guard 配置等）；Snippet 配置在 root spec 的 list 中 |
+| **Dashboard** | Web 管理后台（`asd ui` 启动），含 Recipes、Candidates、Guard、Snippets 等页面 |
+| **watch** | 文件监听进程（`asd ui` 或 `asd watch` 启动），保存时触发 `as:create`、`as:guard`、`as:search` |
+| **Guard** | 按 Recipe 知识库对代码做 AI 审查；`// as:guard` 触发 |
+| **embed** | 语义向量索引构建；`asd embed` 或 `asd ui` 启动时自动执行，供语义检索与 MCP 使用 |
+| **MCP** | Model Context Protocol；Cursor 通过 MCP 调用 `autosnippet_context_search` 等工具 |
+| **Skills** | Cursor Agent Skills（`.cursor/skills/`），描述何时用、如何用 AutoSnippet 能力 |
+| **trigger** | Snippet 触发前缀，默认 `@`，输入后 Xcode 联想补全 |
+| **项目根** | 含 `AutoSnippetRoot.boxspec.json` 的目录 |
+| **Target** | SPM 模块/编译单元；`asd ais <Target>` 扫描该 Target 下的源码提取候选 |
 
 **详细介绍**：启动 `asd ui` 后访问 Dashboard → **使用说明** 页；或参阅 [使用文档](docs/使用文档.md)（含 Skills 一览、AI 配置、闭环详解等）。  
 

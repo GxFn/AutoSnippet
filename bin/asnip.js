@@ -1028,6 +1028,7 @@ commander
 		console.log(`${hasContext ? ok : fail} 语义索引: ${hasContext ? '已构建' : '未构建，运行 asd embed'}`);
 
 		// 4. watch / ui
+		let uiRunning = false;
 		try {
 			const net = require('net');
 			const port = 3000;
@@ -1035,8 +1036,11 @@ commander
 				const s = net.connect(port, '127.0.0.1', () => { s.destroy(); res(true); });
 				s.on('error', () => res(false));
 			});
-			const uiRunning = await Promise.race([check(), new Promise(r => setTimeout(() => r(false), 500))]);
-			console.log(`${uiRunning ? ok : fail} Dashboard: ${uiRunning ? 'http://localhost:3000 已运行' : '未运行，执行 asd ui'}`);
+			uiRunning = await Promise.race([check(), new Promise(r => setTimeout(() => r(false), 500))]);
+			console.log(`${uiRunning ? ok : fail} Dashboard/Watch: ${uiRunning ? 'http://localhost:3000 已运行' : '未运行'}`);
+			if (!uiRunning) {
+				console.log(`   ⚠️  as:create、as:guard、as:search 依赖 watch，保存后不会触发。请执行: asd ui`);
+			}
 		} catch (_) {
 			console.log(`${fail} Dashboard: 无法检测`);
 		}
@@ -1046,6 +1050,23 @@ commander
 		const hasNative = !!nativeUi.getNativeUiPath();
 		console.log(`${hasNative ? ok : fail} Native UI: ${hasNative ? '已就绪 (Swift Helper)' : '未构建，执行 npm run build:native-ui (macOS)'}`);
 
+		// 6. 下一步建议
+		console.log('\n--- 下一步建议 ---');
+		const suggestions = [];
+		if (!projectRoot) {
+			suggestions.push('asd root 或 asd setup — 初始化项目根');
+		} else {
+			if (!uiRunning) suggestions.push('asd ui — 启动 Dashboard 与 watch（编辑器内指令才能生效）');
+			if (!hasContext) suggestions.push('asd embed — 构建语义索引（as:search 语义检索、MCP 需要）');
+			if (!fs.existsSync(envPath)) suggestions.push('复制 .env.example 为 .env 并填写 API Key（AI 功能需要）');
+			const cursorSkillDir = path.join(projectRoot, '.cursor', 'skills', 'autosnippet-recipes');
+			if (!fs.existsSync(cursorSkillDir)) suggestions.push('asd install:cursor-skill --mcp — 安装 Cursor Skills 与 MCP');
+		}
+		if (suggestions.length > 0) {
+			suggestions.forEach((s, i) => console.log(`   ${i + 1}. ${s}`));
+		} else {
+			console.log('   环境就绪，可以正常使用。');
+		}
 		console.log('');
 	});
 
@@ -1063,6 +1084,12 @@ commander
 		if (res.map && res.map.ok && res.map.created) {
 			console.log(`✅ 已创建 SPM 映射文件: ${res.map.path}`);
 		}
+		console.log('\n下一步建议:');
+		console.log('  1. asd ui — 启动 Dashboard 与 watch（编辑器内 as:create、as:search、as:guard 需要）');
+		console.log('  2. 复制 .env.example 为 .env 并填写 API Key（AI 功能需要）');
+		console.log('  3. asd embed — 构建语义索引');
+		console.log('  4. asd install:cursor-skill --mcp — 安装 Cursor Skills 与 MCP');
+		console.log('');
 	});
 
 commander
