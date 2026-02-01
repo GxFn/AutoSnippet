@@ -11,10 +11,10 @@
 
 | 角色 | 职责 | 能力 |
 |------|------|------|
-| **开发者** | 审核与决策；维护项目标准 | 在 Dashboard 审核 Candidate、保存 Recipe；使用 Snippet 补全、`// as:search` 插入；运行 `asd embed`、`asd ui` |
-| **Cursor Agent** | 按规范生成代码；检索知识库 | 通过 Skills 理解规范；MCP 按需检索、打开新建 Recipe 页；起草内容供人工审核，不直接改 Knowledge |
-| **项目内 AI** | 提取、摘要、扫描、审查 | `asd ais` 扫描；Use Copied Code 分析填充；Guard 审查；Dashboard RAG。由 `.env` 配置 |
-| **知识库** | 存储与提供项目标准 | Recipes、Snippets、语义向量索引；Guard、搜索、两种 AI 的上下文均依赖此 |
+| **开发者** | 审核与决策；维护项目标准 | Dashboard 审核 Candidate，保存 Recipe；使用 Snippet 补全、`// as:search` 插入；运行 `asd embed`、`asd ui` |
+| **Cursor Agent** | 按规范生成代码；检索与提交 | Skills 理解规范；MCP 按需检索、打开新建 Recipe 页；`autosnippet_submit_candidates` 批量提交候选供人工审核；不直接改 Knowledge |
+| **项目内 AI** | 提取、摘要、扫描、审查 | `asd ais` 扫描；Use Copied Code 分析填充；Guard 审查；Dashboard RAG；深度扫描结果可算相似度。由 `.env` 配置 |
+| **知识库** | 存储与提供项目标准 | Recipes、Snippets、语义向量索引；Guard、搜索、质量评估、相似度分析；两种 AI 的上下文均依赖此 |
 
 ---
 
@@ -98,17 +98,6 @@ asd install:full --lancedb # 仅安装 LanceDB（向量检索更快）
 ```
 
 **Swift 解析器**：默认回退 `dump-package`；`--parser` 构建 ParsePackage 后 SPM 解析更准确，需本机已装 Swift。
-
-### Postinstall 脚本说明（npm install 时）
-
-`npm install` 会执行以下**可选**脚本，均为本包内本地构建，**不访问网络、不执行动态代码**：
-
-| 脚本 | 作用 |
-|------|------|
-| `scripts/ensure-parse-package.js` | 仅当 `ASD_BUILD_SWIFT_PARSER=1` 时构建 Swift 解析器并打印「正在安装…」；否则打印跳过说明并退出。 |
-| `scripts/build-native-ui.js` | 仅在 macOS 上用本机 Swift 编译 `resources/native-ui/main.swift` → `resources/native-ui/native-ui`；失败则静默跳过。 |
-
-未安装或跳过不影响核心功能。详见 [npm lifecycle scripts](https://docs.npmjs.com/cli/v10/using-npm/scripts#life-cycle-scripts)。
 
 ## 配置
 
