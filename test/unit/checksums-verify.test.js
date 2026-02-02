@@ -116,6 +116,44 @@ function testGenerateThenVerify() {
 	assert(runVerify(checksumsPath), '与 generate-checksums 同逻辑生成的清单应通过 verify');
 }
 
+/** 运行 node bin/asnip.js -v，返回 { stdout, stderr, exitCode } */
+function runAsnipV(env = {}) {
+	const fullEnv = { ...process.env, ...env };
+	const sp = require('child_process').spawnSync('node', ['bin/asnip.js', '-v'], {
+		cwd: projectRoot,
+		encoding: 'utf8',
+		env: fullEnv
+	});
+	return { stdout: sp.stdout || '', stderr: sp.stderr || '', exitCode: sp.status };
+}
+
+/** 入口校验：存在 checksums.json 时，未经过 asd-verify 应警告但可继续；ASD_STRICT_ENTRY=1 应拒跑；ASD_VERIFIED/ASD_SKIP 应无警告 */
+function testEntryCheck() {
+	const checksumsPath = path.join(projectRoot, 'checksums.json');
+	if (!fs.existsSync(checksumsPath)) {
+		console.log('跳过入口校验测试：checksums.json 不存在，请先 npm run generate-checksums');
+		return;
+	}
+	// 无 ASD_VERIFIED：应有警告、exit 0
+	const r0 = runAsnipV({});
+	assert(r0.exitCode === 0, '无 ASD_VERIFIED 时应 exit 0');
+	assert((r0.stderr || '').includes('未经过完整性校验') || (r0.stdout || '').includes('未经过完整性校验'), '无 ASD_VERIFIED 时应输出校验警告');
+
+	// ASD_STRICT_ENTRY=1：应 exit 1
+	const r1 = runAsnipV({ ASD_STRICT_ENTRY: '1' });
+	assert(r1.exitCode === 1, 'ASD_STRICT_ENTRY=1 时应 exit 1');
+
+	// ASD_VERIFIED=1：无警告、exit 0
+	const r2 = runAsnipV({ ASD_VERIFIED: '1' });
+	assert(r2.exitCode === 0, 'ASD_VERIFIED=1 时应 exit 0');
+	assert(!(r2.stderr || r2.stdout || '').includes('未经过完整性校验'), 'ASD_VERIFIED=1 时不应输出校验警告');
+
+	// ASD_SKIP_ENTRY_CHECK=1：无警告、exit 0
+	const r3 = runAsnipV({ ASD_SKIP_ENTRY_CHECK: '1' });
+	assert(r3.exitCode === 0, 'ASD_SKIP_ENTRY_CHECK=1 时应 exit 0');
+	assert(!(r3.stderr || r3.stdout || '').includes('未经过完整性校验'), 'ASD_SKIP_ENTRY_CHECK=1 时不应输出校验警告');
+}
+
 testValidChecksumsPass();
 testWrongHashFails();
 testPathTraversalRejected();
@@ -123,5 +161,6 @@ testAbsolutePathRejected();
 testInvalidJsonFails();
 testMissingFileFails();
 testGenerateThenVerify();
+testEntryCheck();
 
 console.log('checksums-verify.test.js 通过');

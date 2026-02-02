@@ -10,10 +10,18 @@
 
 - **Recipe 保存频率限制**：按「项目根 + 客户端 IP」固定窗口限流，防止短时间内多次保存；超限返回 429，前端提示「保存过于频繁，请稍后再试」。配置：`ASD_RECIPE_SAVE_RATE_LIMIT`（默认 20）、`ASD_RECIPE_SAVE_RATE_WINDOW_SECONDS`（默认 60），设为 0 表示不限制。
 - **Recipe 保存防重复点击**：编辑 Recipe 弹窗「Save Changes」、SPM 审核页「保存为 Recipe」、对比弹窗「审核候选」在请求进行中禁用按钮并显示「保存中...」，避免重复提交。
+- **完整性校验入口（Swift）**：原生入口为 Swift 实现（`resources/asd-entry/main.swift`），仅 macOS 构建为 `bin/asd-verify`；使用 CryptoKit 做 SHA-256 校验。`bin/asd` 优先执行 `asd-verify`，不存在则回退 `node bin/asnip.js`。项目仅在 macOS 运行，故保留 Swift 入口。
 
 ### 文档
 
 - **提交前检查清单**：`docs/提交前检查清单.md`，用于发布前自检。
+- **权限设置说明重写**：精简为「写权限探针、频率控制、完整性校验」配置与行为；明确探针目的为「保证管理员能够正确提交 Recipe」；适用场景改为「Recipe 上传由 Git 服务端权限拦截」。
+- **README / 权限表述**：Knowledge 与 Git 小节强调上传由 Git 拦截；`ASD_RECIPES_WRITE_DIR` 表述为「保证管理员能够正确提交 Recipe」。
+- **context 配置说明**：新增「为什么 .autosnippet 里有两个 vector_index.json」「manifest.json 有什么用处」两节。
+
+### 测试
+
+- **完整性入口校验**：`test/unit/checksums-verify.test.js` 新增 `testEntryCheck()`，覆盖存在 checksums 时「无 ASD_VERIFIED 警告且 exit 0」「ASD_STRICT_ENTRY=1 拒跑」「ASD_VERIFIED/ASD_SKIP 无警告」四种场景。
 
 ---
 

@@ -114,7 +114,7 @@ asd install:full --lancedb # 仅安装 LanceDB（向量检索更快）
 | **Recipe** | `Knowledge/recipes/` 下的 Markdown 知识（配方）：含代码块 + 使用说明，供 AI 检索、Guard、搜索 |
 | **Snippet** | Xcode 代码片段，通过 trigger（默认 `@`）补全，可与 Recipe 关联 |
 | **Candidate（候选）** | 待审核入库的项；来自 `as:create`、MCP 提交、`asd ais` 扫描等，经 Dashboard 审核后保存为 Recipe/Snippet |
-| **Knowledge** | 项目知识库目录，包含 `recipes/`、`.autosnippet/`（索引、candidates、guard 配置等）；Snippet 配置在 root spec 的 list 中 |
+| **Knowledge** | 项目知识库目录，包含 `recipes/`、`.autosnippet/`（索引、candidates、guard 配置等）；Snippet 配置在 root spec 的 list 中。其下各路径与 Git 的关系见 [Knowledge 目录与 Git](#knowledge-目录与-git)。 |
 | **Dashboard** | Web 管理后台（`asd ui` 启动），含 Recipes、Candidates、Guard、Snippets 等页面 |
 | **watch** | 文件监听进程（`asd ui` 或 `asd watch` 启动），保存时触发 `as:create`、`as:guard`、`as:search` |
 | **Guard** | 按 Recipe 知识库对代码做 AI 审查；`// as:guard` 触发 |
@@ -125,7 +125,23 @@ asd install:full --lancedb # 仅安装 LanceDB（向量检索更快）
 | **项目根** | 含 `AutoSnippetRoot.boxspec.json` 的目录 |
 | **Target** | SPM 模块/编译单元；`asd ais <Target>` 扫描该 Target 下的源码提取候选 |
 
-**详细介绍**：启动 `asd ui` 后访问 Dashboard → **使用说明** 页；或参阅 [使用文档](docs/使用文档.md)（含 Skills 一览、AI 配置、闭环详解等）。  
+**详细介绍**：启动 `asd ui` 后访问 Dashboard → **使用说明** 页；或参阅 [使用文档](docs/使用文档.md)（含 Skills 一览、AI 配置、闭环详解等）。
+
+## Knowledge 目录与 Git
+
+Knowledge 下各路径与版本控制的关系建议如下（可按项目需要调整）：
+
+| 路径 | 说明 | 建议 |
+|------|------|------|
+| **Knowledge/recipes/** | Recipe 的 Markdown 文件 | **Git 子仓库**：单独建远程仓库并 `git submodule add <url> Knowledge/recipes`，用于权限拦截（仅能 push 子仓库的人可保存/上传 Recipe）。详见 [权限设置说明](docs/权限设置说明.md) 中「只把 Knowledge/recipes 作为子仓库」。 |
+| **Knowledge/.autosnippet/** | Guard 规则、违反记录、candidates、recipe-stats、context 配置等 | **跟随主仓库 Git**：规则与配置建议提交到主仓库，便于团队共享。 |
+| **Knowledge/.autosnippet/context/index/** | 语义向量索引（embed 生成） | **不跟随 Git**：体积大、机器相关，建议加入 `.gitignore`（如 `Knowledge/.autosnippet/context/index/` 或其下 `lancedb/`、`vector_index.json`）。 |
+| **Knowledge/.autosnippet/candidates/**（若存在） | 候选数据等 | 视需要：若仅本地缓存可不提交；若团队共享可跟随主仓库或单独子仓库。 |
+| **Knowledge/AutoSnippet.spmmap.json**（若存在） | SPM 依赖映射 | **跟随主仓库 Git**：便于依赖关系图一致。 |
+
+- **跟随主仓库 Git**：由主项目 `git add/commit/push` 管理，所有人按主仓库权限读写。
+- **Git 子仓库**：`Knowledge/recipes` 为单独仓库（submodule），Recipe 上传（git push）由 Git 服务端权限拦截。配合 `.env` 中 `ASD_RECIPES_WRITE_DIR=Knowledge/recipes` 是为了保证管理员（有 push 权限者）能够正确提交 Recipe：探针目录与 Recipe 写入目录一致，保存后可正常推送。
+- **不跟随 Git**：在 `.gitignore` 中忽略，不提交、不推送。
 
 ---
 

@@ -1,6 +1,8 @@
-/**
- * AutoSnippet 原生入口：完整性校验 + spawn Node 执行 bin/asnip.js
- * 若 checksums.json 不存在则跳过校验（开发模式）；存在则校验关键文件 SHA-256，不通过则 exit(1)。
+#!/usr/bin/env swift
+/*
+ * AutoSnippet 完整性校验入口（Swift，仅 macOS）
+ * 读 checksums.json，校验关键文件 SHA-256，通过则设置 ASD_VERIFIED=1 并 spawn node bin/asnip.js。
+ * 构建：node scripts/build-asd-entry.js，产物 bin/asd-verify。
  */
 
 import Foundation
@@ -8,66 +10,58 @@ import CryptoKit
 
 func fail(_ msg: String) -> Never {
 	fputs(msg + "\n", stderr)
-	fflush(stderr)
 	exit(1)
 }
 
-/// 从 argv[0] 解析包根目录（bin 的父目录）。要求 root 下存在 bin/asnip.js，否则返回 nil。
+/// 从可执行路径解析包根目录（bin/asd-verify 的上级的上级）
 func getPackageRoot() -> String? {
-	let arg0 = CommandLine.arguments[0]
-	let cwd = FileManager.default.currentDirectoryPath
-	var pathStr = arg0
-	if !arg0.hasPrefix("/") {
-		pathStr = (cwd as NSString).appendingPathComponent(arg0)
+	let argv0 = CommandLine.arguments[0]
+	let path = (argv0 as NSString).standardizingPath
+	var url = URL(fileURLWithPath: path)
+	if path != (path as NSString).resolvingSymlinksInPath {
+		url = URL(fileURLWithPath: (path as NSString).resolvingSymlinksInPath)
 	}
-	let url = URL(fileURLWithPath: pathStr).resolvingSymlinksInPath()
-	let binDir = url.deletingLastPathComponent()
-	let root = binDir.deletingLastPathComponent()
-	let rootPath = root.path
-	let asnipPath = (rootPath as NSString).appendingPathComponent("bin/asnip.js")
-	guard FileManager.default.fileExists(atPath: asnipPath) else {
-		return nil
-	}
-	return rootPath
+	var dir = url.deletingLastPathComponent().path  // bin
+	dir = (dir as NSString).deletingLastPathComponent  // package root
+	return dir
 }
 
-/// 计算文件 SHA-256 十六进制字符串
-func sha256Hex(fileURL: URL) -> String? {
-	guard let data = try? Data(contentsOf: fileURL) else { return nil }
-	let digest = SHA256.hash(data: data)
-	return digest.map { String(format: "%02x", $0) }.joined()
+/// 文件内容 SHA-256 小写 hex
+func sha256Hex(filePath: String) -> String? {
+	guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else { return nil }
+	let hash = SHA256.hash(data: data)
+	return hash.map { String(format: "%02x", $0) }.joined()
 }
 
-/// 校验 checksums.json 中列出的文件。禁止 relPath 含 ".." 或为绝对路径，防止路径逃逸。
+/// 校验 checksums.json 中列出的文件。拒绝 relPath 含 ".." 或为绝对路径。
 func verifyIntegrity(root: String, checksumsPath: String) -> Bool {
 	guard let data = try? Data(contentsOf: URL(fileURLWithPath: checksumsPath)) else {
 		fputs("asd: 无法读取 checksums.json\n", stderr)
 		return false
 	}
-	guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: String] else {
+	guard let json = try? JSONSerialization.jsonObject(with: data),
+	      let entries = json as? [String: String] else {
 		fputs("asd: checksums.json 格式无效\n", stderr)
 		return false
 	}
-	let rootURL = URL(fileURLWithPath: root)
-	var rootNorm = rootURL.resolvingSymlinksInPath().path
-	if rootNorm.hasSuffix("/") { rootNorm = String(rootNorm.dropLast()) }
-	for (relPath, expectedHex) in json {
+	let rootNorm = (root as NSString).standardizingPath
+	for (relPath, expectedHex) in entries {
 		if relPath.hasPrefix("/") || relPath.contains("..") {
 			fputs("asd: 校验拒绝非法路径: \(relPath)\n", stderr)
 			return false
 		}
-		let fileURL = rootURL.appendingPathComponent(relPath)
-		let resolvedPath = fileURL.resolvingSymlinksInPath().path
-		guard resolvedPath == rootNorm || resolvedPath.hasPrefix(rootNorm + "/") else {
+		let fullPath = (root as NSString).appendingPathComponent(relPath)
+		let fullNorm = (fullPath as NSString).standardizingPath
+		let rootSlash = rootNorm.hasSuffix("/") ? rootNorm : rootNorm + "/"
+		guard fullNorm == rootNorm || fullNorm.hasPrefix(rootSlash) else {
 			fputs("asd: 校验拒绝路径逃逸: \(relPath)\n", stderr)
 			return false
 		}
-		guard FileManager.default.fileExists(atPath: fileURL.path),
-		      let actualHex = sha256Hex(fileURL: fileURL) else {
-			fputs("asd: 校验失败（无法读取）: \(relPath)\n", stderr)
+		guard let actualHex = sha256Hex(filePath: fullPath) else {
+			fputs("asd: 完整性校验失败: \(relPath)\n", stderr)
 			return false
 		}
-		if actualHex != expectedHex {
+		if actualHex.lowercased() != expectedHex.lowercased() {
 			fputs("asd: 完整性校验失败: \(relPath)\n", stderr)
 			return false
 		}
@@ -75,19 +69,22 @@ func verifyIntegrity(root: String, checksumsPath: String) -> Bool {
 	return true
 }
 
-/// 执行 node bin/asnip.js [args...]，返回子进程退出码。将调用时的 cwd 传入 ASD_CWD，供 asnip 查找项目根。
-func spawnNode(root: String) -> Int32 {
+/// 执行 node bin/asnip.js [args...]，将调用时的 cwd 传入 ASD_CWD，校验通过则设 ASD_VERIFIED=1。
+func spawnNode(root: String, integrityVerified: Bool) -> Int32 {
 	let asnipPath = (root as NSString).appendingPathComponent("bin/asnip.js")
 	guard FileManager.default.fileExists(atPath: asnipPath) else {
 		fail("asd: 未找到 bin/asnip.js")
 	}
-	let nodeArgs = ["node", asnipPath] + CommandLine.arguments.dropFirst()
+	let nodeArgs = ["node", asnipPath] + Array(CommandLine.arguments.dropFirst())
 	let process = Process()
 	process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-	process.arguments = Array(nodeArgs)
+	process.arguments = nodeArgs
 	process.currentDirectoryURL = URL(fileURLWithPath: root)
 	var env = ProcessInfo.processInfo.environment
 	env["ASD_CWD"] = FileManager.default.currentDirectoryPath
+	if integrityVerified {
+		env["ASD_VERIFIED"] = "1"
+	}
 	process.environment = env
 	process.standardInput = FileHandle.standardInput
 	process.standardOutput = FileHandle.standardOutput
@@ -108,11 +105,12 @@ guard let root = getPackageRoot() else {
 }
 
 let checksumsPath = (root as NSString).appendingPathComponent("checksums.json")
-
+var integrityVerified = false
 if FileManager.default.fileExists(atPath: checksumsPath) {
 	if !verifyIntegrity(root: root, checksumsPath: checksumsPath) {
 		exit(1)
 	}
+	integrityVerified = true
 }
 
-exit(spawnNode(root: root))
+exit(spawnNode(root: root, integrityVerified: integrityVerified))

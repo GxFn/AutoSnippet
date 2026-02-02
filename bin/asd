@@ -13,6 +13,7 @@ DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
 # 将调用时的当前目录传给 Node，供查找项目根（dev:link 等场景下 process.cwd() 可能不是用户所在目录）
 ASD_CWD="$(pwd)"
 export ASD_CWD
+# 优先 Swift 入口（完整性校验，仅 macOS），否则回退 node
 if [ -x "$DIR/asd-verify" ]; then
 	exec "$DIR/asd-verify" "$@"
 else

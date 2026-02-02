@@ -22,6 +22,21 @@
 
 const fs = require('fs');
 const path = require('path');
+
+// 入口校验：包内存在 checksums.json 且未经过 asd-verify（无 ASD_VERIFIED）时，可拒跑或警告，避免绕过完整性校验直接运行 node bin/asnip.js
+const pkgRoot = path.join(__dirname, '..');
+const checksumsPath = path.join(pkgRoot, 'checksums.json');
+if (fs.existsSync(checksumsPath) && process.env.ASD_VERIFIED !== '1') {
+	const msg = 'asd: 未经过完整性校验入口（请使用 asd 命令，勿直接运行 node bin/asnip.js）。开发/调试可设 ASD_SKIP_ENTRY_CHECK=1 跳过。';
+	if (process.env.ASD_STRICT_ENTRY === '1') {
+		console.error(msg);
+		process.exit(1);
+	}
+	if (process.env.ASD_SKIP_ENTRY_CHECK !== '1') {
+		console.warn('⚠️  ' + msg);
+	}
+}
+
 // 读取输入命令
 const inquirer = require('inquirer');
 // 命令行工具
@@ -1022,6 +1037,17 @@ commander
 		} else {
 			console.log(`${fail} .env: 不存在，请从 .env.example 复制并填写 API Key`);
 		}
+
+		// 2.5 写权限探针（可选）
+		try {
+			const writeGuard = require('../lib/writeGuard');
+			const probeDir = writeGuard.getProbeDir(projectRoot);
+			if (probeDir) {
+				const probePath = path.join(projectRoot, probeDir);
+				const exists = fs.existsSync(probePath) && fs.statSync(probePath).isDirectory();
+				console.log(`${exists ? ok : fail} 写权限探针: 已配置 (${probeDir})${exists ? '' : '，目录不存在'}`);
+			}
+		} catch (_) {}
 
 		// 3. 语义索引（JsonAdapter: context/index/vector_index.json，LanceDB: context/index/lancedb/，manifest 由 embed 写入）
 		const paths = require('../lib/infra/paths');

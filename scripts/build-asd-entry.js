@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * 构建 asd 原生入口（完整性校验 + spawn Node）。仅 macOS 且 Swift 可用时构建，失败则静默跳过。
- * 产物：bin/asd-verify。若不存在，bin/asd 脚本会回退到 node bin/asnip.js。
+ * 构建 asd 完整性校验入口（Swift，仅 macOS）。产物：bin/asd-verify。
+ * 若不存在或构建失败，bin/asd 将回退到 node bin/asnip.js。
  */
 
 if (process.platform !== 'darwin') process.exit(0);
