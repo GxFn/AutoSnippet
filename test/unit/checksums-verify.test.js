@@ -154,6 +154,49 @@ function testEntryCheck() {
 	assert(!(r3.stderr || r3.stdout || '').includes('未经过完整性校验'), 'ASD_SKIP_ENTRY_CHECK=1 时不应输出校验警告');
 }
 
+/** Swift 版 asd-verify 二进制：若存在则运行 -v，校验通过应 spawn node 并输出版本（仅 macOS 构建后有二进制） */
+function testSwiftVerifyBinary() {
+	const asdVerifyPath = path.join(projectRoot, 'bin', 'asd-verify');
+	try {
+		fs.accessSync(asdVerifyPath, fs.constants.X_OK);
+	} catch (_) {
+		console.log('跳过 Swift asd-verify 测试：bin/asd-verify 不存在或不可执行（需 macOS 下 npm install 构建）');
+		return;
+	}
+	const checksumsPath = path.join(projectRoot, 'checksums.json');
+	if (!fs.existsSync(checksumsPath)) {
+		console.log('跳过 Swift asd-verify 测试：checksums.json 不存在');
+		return;
+	}
+	const sp = require('child_process').spawnSync(asdVerifyPath, ['-v'], {
+		cwd: projectRoot,
+		encoding: 'utf8',
+		env: { ...process.env, ASD_CWD: projectRoot }
+	});
+	assert(sp.status === 0, 'asd-verify -v 应 exit 0（校验通过后 spawn node 打印版本）');
+	const out = (sp.stdout || '') + (sp.stderr || '');
+	const pjson = require(path.join(projectRoot, 'package.json'));
+	assert(out.includes(pjson.version), '输出应包含 package 版本号');
+}
+
+/** 回退 Node 路径（无 asd-verify）：bin/asd 仍设置 ASD_CWD，asnip 用 ASD_CWD 查找项目根，status 应正常 */
+function testNodeFallbackStatus() {
+	const tempDir = path.join(projectRoot, 'test', 'temp');
+	fs.mkdirSync(tempDir, { recursive: true });
+	const rootMarker = 'AutoSnippetRoot.boxspec.json';
+	const boxspecPath = path.join(tempDir, rootMarker);
+	fs.writeFileSync(boxspecPath, JSON.stringify({ schemaVersion: 2, kind: 'root', root: true, recipes: { dir: 'Knowledge/recipes' }, list: [] }, null, 2), 'utf8');
+	const sp = require('child_process').spawnSync('node', ['bin/asnip.js', 'status'], {
+		cwd: projectRoot,
+		encoding: 'utf8',
+		env: { ...process.env, ASD_CWD: tempDir }
+	});
+	assert(sp.status === 0, '回退 Node 路径下 asd status 应 exit 0');
+	const out = (sp.stdout || '') + (sp.stderr || '');
+	assert(out.includes('项目根'), '回退路径应能识别项目根');
+	assert(out.includes(tempDir) || out.includes('✅'), '应显示项目根路径或通过标记');
+}
+
 testValidChecksumsPass();
 testWrongHashFails();
 testPathTraversalRejected();
@@ -162,5 +205,7 @@ testInvalidJsonFails();
 testMissingFileFails();
 testGenerateThenVerify();
 testEntryCheck();
+testSwiftVerifyBinary();
+testNodeFallbackStatus();
 
 console.log('checksums-verify.test.js 通过');

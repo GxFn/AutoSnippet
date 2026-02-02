@@ -41,8 +41,8 @@ if (fs.existsSync(checksumsPath) && process.env.ASD_VERIFIED !== '1') {
 const inquirer = require('inquirer');
 // 命令行工具
 const commander = require('commander');
-// 全局路径
-const CMD_PATH = process.cwd();
+// 全局路径：优先用 shell 传入的 ASD_CWD（asd 脚本里 $(pwd)），避免 dev:link / 符号链接等场景下 process.cwd() 与用户所在目录不一致
+const CMD_PATH = process.env.ASD_CWD || process.cwd();
 const pjson = require('../package.json');
 const findPath = require('./findPath.js');
 const install = require('../lib/snippet/snippetInstaller.js');

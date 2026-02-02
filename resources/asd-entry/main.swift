@@ -2,11 +2,13 @@
 /*
  * AutoSnippet 完整性校验入口（Swift，仅 macOS）
  * 读 checksums.json，校验关键文件 SHA-256，通过则设置 ASD_VERIFIED=1 并 spawn node bin/asnip.js。
+ * 收到 SIGINT/SIGTERM 时转发给子进程，避免 asd ui 按 Ctrl+C 后 Node 成为孤儿进程占用 3000 端口。
  * 构建：node scripts/build-asd-entry.js，产物 bin/asd-verify。
  */
 
 import Foundation
 import CryptoKit
+import Dispatch
 
 func fail(_ msg: String) -> Never {
 	fputs(msg + "\n", stderr)
@@ -70,6 +72,7 @@ func verifyIntegrity(root: String, checksumsPath: String) -> Bool {
 }
 
 /// 执行 node bin/asnip.js [args...]，将调用时的 cwd 传入 ASD_CWD，校验通过则设 ASD_VERIFIED=1。
+/// 收到 SIGINT/SIGTERM 时转发给子进程，避免 asd ui 按 Ctrl+C 后 Node 未退出导致 3000 端口被占用。
 func spawnNode(root: String, integrityVerified: Bool) -> Int32 {
 	let asnipPath = (root as NSString).appendingPathComponent("bin/asnip.js")
 	guard FileManager.default.fileExists(atPath: asnipPath) else {
@@ -91,6 +94,16 @@ func spawnNode(root: String, integrityVerified: Bool) -> Int32 {
 	process.standardError = FileHandle.standardError
 	do {
 		try process.run()
+		// 转发 SIGINT/SIGTERM 给子进程，避免 Ctrl+C 后仅 asd-verify 退出、Node 成为孤儿占用端口
+		signal(SIGINT, SIG_IGN)
+		signal(SIGTERM, SIG_IGN)
+		let queue = DispatchQueue.main
+		let sigintSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: queue)
+		let sigtermSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: queue)
+		sigintSource.setEventHandler { process.terminate() }
+		sigtermSource.setEventHandler { process.terminate() }
+		sigintSource.resume()
+		sigtermSource.resume()
 		process.waitUntilExit()
 		return process.terminationStatus
 	} catch {

@@ -4,6 +4,20 @@
 
 ---
 
+## [1.5.9] - 2025-02-02
+
+### 修复
+
+- **asd status 项目根未找到**：CMD_PATH 改为优先使用 `process.env.ASD_CWD`（asd 脚本传入的调用目录），避免 dev:link 等场景下 process.cwd() 与用户所在目录不一致导致找不到 AutoSnippetRoot.boxspec.json。
+- **asd ui 端口占用**：asd-verify 收到 SIGINT/SIGTERM 时转发给 Node 子进程，避免 Ctrl+C 后仅 Swift 退出、Node 成为孤儿进程占用 3000 端口。
+
+### 测试
+
+- **Swift 二进制**：`test/unit/checksums-verify.test.js` 新增 `testSwiftVerifyBinary()`，在存在 bin/asd-verify 时运行 `asd-verify -v` 并断言通过。
+- **Node 回退路径**：新增 `testNodeFallbackStatus()`，验证无 asd-verify 时 ASD_CWD 仍生效、status 能正确找到项目根。
+
+---
+
 ## [1.5.8] - 2025-02-02
 
 ### 变更
