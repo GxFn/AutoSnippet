@@ -237,7 +237,11 @@ runner.test('应该支持通过环境变量切换项目 (ASD_CWD)', async (ctx) 
   const projectRoot = response.body.projectRoot;
   
   TestAssert.assertTrue(projectRoot.length > 0);
-  TestAssert.assertTrue(projectRoot.includes('Documents') || projectRoot.includes('github'));
+  // 在本地是 Documents/github/AutoSnippet，在 CI 是 /home/runner/work/AutoSnippet/AutoSnippet
+  TestAssert.assertTrue(
+    projectRoot.includes('AutoSnippet'),
+    `projectRoot should contain 'AutoSnippet', got: ${projectRoot}`
+  );
   
   ctx.set('projectRootEnvironment', projectRoot);
 });
