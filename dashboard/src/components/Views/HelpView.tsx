@@ -1,120 +1,431 @@
-import React from 'react';
-import { BookOpen } from 'lucide-react';
+import React, { useState } from 'react';
+import { BookOpen, Rocket, Database, Zap, Search, Shield, Code, GitBranch, MessageSquare, Terminal, FileCode, List, ChevronDown, ChevronRight } from 'lucide-react';
 
 const HelpView: React.FC = () => {
-	return (
-		<div className="max-w-3xl mx-auto py-8">
-			<h1 className="text-2xl font-bold text-slate-900 mb-8 flex items-center gap-2"><BookOpen size={28} className="text-blue-600" /> 使用说明</h1>
-			<div className="prose prose-slate max-w-none space-y-8 text-sm">
-				<section>
-					<h2 className="text-lg font-bold text-slate-800 mb-3">开发者、AI 与知识库</h2>
-					<div className="overflow-x-auto mb-2">
-						<table className="min-w-full border border-slate-200 rounded-lg text-left text-sm">
-							<thead><tr className="bg-slate-50"><th className="px-3 py-2 border-b">角色</th><th className="px-3 py-2 border-b">职责</th><th className="px-3 py-2 border-b">能力</th></tr></thead>
-							<tbody>
-								<tr><td className="px-3 py-2 border-b font-medium">开发者</td><td className="px-3 py-2 border-b">审核与决策；维护项目标准</td><td className="px-3 py-2 border-b">Dashboard 审核 Candidate、保存 Recipe；Snippet 补全、<code className="bg-slate-100 px-1 rounded">// as:search</code>；<code className="bg-slate-100 px-1 rounded">asd embed</code>、<code className="bg-slate-100 px-1 rounded">asd ui</code></td></tr>
-								<tr><td className="px-3 py-2 border-b font-medium">Cursor Agent</td><td className="px-3 py-2 border-b">按规范生成代码；检索知识库</td><td className="px-3 py-2 border-b">Skills 理解规范；MCP 按需检索、打开新建 Recipe 页；起草供人工审核，不直接改 Knowledge</td></tr>
-								<tr><td className="px-3 py-2 border-b font-medium">项目内 AI</td><td className="px-3 py-2 border-b">提取、摘要、扫描、审查</td><td className="px-3 py-2 border-b"><code className="bg-slate-100 px-1 rounded">asd ais</code>；Use Copied Code 分析；Guard 审查；Dashboard RAG。由 <code className="bg-slate-100 px-1 rounded">.env</code> 配置</td></tr>
-								<tr><td className="px-3 py-2 font-medium">知识库</td><td className="px-3 py-2">存储与提供项目标准</td><td className="px-3 py-2">Recipes、Snippets、语义向量；Guard、搜索、两种 AI 均依赖</td></tr>
-							</tbody>
-						</table>
+	const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['quick-start']));
+
+	const toggleSection = (section: string) => {
+		const newExpanded = new Set(expandedSections);
+		if (newExpanded.has(section)) {
+			newExpanded.delete(section);
+		} else {
+			newExpanded.add(section);
+		}
+		setExpandedSections(newExpanded);
+	};
+
+	const Section = ({ id, title, icon, children }: { id: string; title: string; icon: React.ReactNode; children: React.ReactNode }) => {
+		const isExpanded = expandedSections.has(id);
+		return (
+			<section className="border border-slate-200 rounded-lg overflow-hidden">
+				<button
+					onClick={() => toggleSection(id)}
+					className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+				>
+					<div className="flex items-center gap-3">
+						{icon}
+						<h2 className="text-lg font-bold text-slate-800">{title}</h2>
 					</div>
-					<p className="text-slate-600"><strong>闭环</strong>：扫描 → 审核 → 沉淀 → Cursor/AI 使用 → 再沉淀。用 Cursor 基于知识库写代码；写完通过 <code className="bg-slate-100 px-1 rounded">// as:create</code>、<code className="bg-slate-100 px-1 rounded">asd create --clipboard</code> 或 Dashboard 提交入库；用 <code className="bg-slate-100 px-1 rounded">// as:guard</code> 合规审查；用 Snippet 或 <code className="bg-slate-100 px-1 rounded">// as:search</code> 插入标准代码。知识库随人工审核持续更新。</p>
-				</section>
-				<section>
-					<h2 className="text-lg font-bold text-slate-800 mb-3">页面说明</h2>
-					<ul className="list-disc pl-6 space-y-2 text-slate-600">
-						<li><strong>Snippets</strong>：查看、编辑、删除代码片段；点击「Sync to Xcode」同步到 Xcode CodeSnippets。</li>
-						<li><strong>Recipes</strong>：管理配方（Recipes）文档，与 Snippet 关联。</li>
-						<li><strong>SPM Explorer</strong>：按 Target 扫描源码，AI 提取候选；或从路径/剪贴板创建 Recipe。</li>
-						<li><strong>Candidates</strong>：审核由 CLI <code className="bg-slate-100 px-1 rounded">asd ais</code> 或 Cursor MCP 批量扫描（<code className="bg-slate-100 px-1 rounded">autosnippet_submit_candidates</code>）产生的候选，通过入库或忽略。</li>
-						<li><strong>依赖关系图</strong>：展示 SPM 包依赖；<code className="bg-slate-100 px-1 rounded">asd spm-map</code> 更新。</li>
-						<li><strong>AI Assistant</strong>：基于本地 Snippets/Recipes 的 RAG 问答；支持语义搜索。</li>
-					</ul>
-				</section>
-				<section>
-					<h2 className="text-lg font-bold text-slate-800 mb-3">新建 Recipe</h2>
-					<p className="text-slate-600 mb-2">本页即 Dashboard。若从 Cursor 等外部打开，在浏览器访问 <code className="bg-slate-100 px-1 rounded">http://localhost:3000</code> 即可（Dashboard 需已运行；未运行则终端执行 <code className="bg-slate-100 px-1 rounded">asd ui</code> 启动）。</p>
-					<p className="text-slate-600 mb-2">点击顶部「New Recipe」打开弹窗：</p>
-					<ul className="list-disc pl-6 space-y-2 text-slate-600">
-						<li><strong>按路径</strong>：输入相对路径（如 <code className="bg-slate-100 px-1 rounded">Sources/MyMod/Foo.m</code>），点击「Scan File」→ AI 提取标题/摘要/触发键/头文件，在 SPM Explorer 审核后保存。</li>
-						<li><strong>按剪贴板</strong>：复制代码后点击「Use Copied Code」。<strong>完整 Recipe MD</strong>（含 <code className="bg-slate-100 px-1 rounded">---</code> frontmatter、<code className="bg-slate-100 px-1 rounded">## Snippet / Code Reference</code>、<code className="bg-slate-100 px-1 rounded">## AI Context / Usage Guide</code>）会直接解析，不调用 AI 重写。纯代码则由 AI 分析填充。若由 <code className="bg-slate-100 px-1 rounded">// as:create</code> 打开，会带当前文件路径自动解析头文件。</li>
-					</ul>
-				</section>
-				<section>
-					<h2 className="text-lg font-bold text-slate-800 mb-3">编辑器内指令</h2>
-					<p className="text-slate-600 mb-2">需先运行 <code className="bg-slate-100 px-1 rounded">asd watch</code> 或 <code className="bg-slate-100 px-1 rounded">asd ui</code>。支持简写：<code className="bg-slate-100 px-1 rounded">as:c</code>=as:create、<code className="bg-slate-100 px-1 rounded">as:s</code>=as:search、<code className="bg-slate-100 px-1 rounded">as:g</code>=as:guard。</p>
-					<ul className="list-disc pl-6 space-y-2 text-slate-600">
-						<li><code className="bg-slate-100 px-1 rounded">// as:create</code> / <code className="bg-slate-100 px-1 rounded">// as:c</code>：无选项时只打开本页（路径已填），由您点 Scan File 或 Use Copied Code。<code className="bg-slate-100 px-1 rounded">-c</code> 强制用剪切板（静默创建或打开），<code className="bg-slate-100 px-1 rounded">-f</code> 强制用路径（打开本页并自动执行 Scan File）。</li>
-						<li><code className="bg-slate-100 px-1 rounded">// as:guard</code> / <code className="bg-slate-100 px-1 rounded">// as:g</code> [关键词或规模]：无后缀时仅检查当前文件；后缀 <code className="bg-slate-100 px-1 rounded">file</code> / <code className="bg-slate-100 px-1 rounded">target</code> / <code className="bg-slate-100 px-1 rounded">project</code> 可扩大审查范围，结果输出终端。需 <code className="bg-slate-100 px-1 rounded">asd embed</code> 后优先用语义检索。</li>
-						<li><code className="bg-slate-100 px-1 rounded">// as:search</code> / <code className="bg-slate-100 px-1 rounded">// as:s</code> [关键词]：从知识库检索 Recipe/Snippet，选一条插入替换该行。</li>
-						<li><code className="bg-slate-100 px-1 rounded">// as:include</code> / <code className="bg-slate-100 px-1 rounded">// as:import</code>：Snippet 内头文件/模块标记；watch 保存时自动在文件头部注入对应 <code className="bg-slate-100 px-1 rounded">#import</code> 或 <code className="bg-slate-100 px-1 rounded">import</code>。</li>
-					</ul>
-					<p className="text-slate-600 mt-3"><strong>静默候选</strong>：在 Cursor 内用户提出保存案例，Cursor 生成草案；后台用草案静默创建候选，无需打开浏览器，到本页 <strong>Candidates</strong> 审核即可。在 Xcode 等编辑器内也可写 <code className="bg-slate-100 px-1 rounded">// as:c -c</code>、复制代码后保存，剪贴板内容同样静默入库。<strong>搜索无跳转</strong>：<code className="bg-slate-100 px-1 rounded">// as:search</code> / <code className="bg-slate-100 px-1 rounded">// as:s</code> 在编辑器内弹窗或终端选择，即选即插，无需跳转本页，不打断当前编辑。</p>
-				</section>
-				<section>
-					<h2 className="text-lg font-bold text-slate-800 mb-3">语义能力</h2>
-					<ul className="list-disc pl-6 space-y-2 text-slate-600">
-						<li><code className="bg-slate-100 px-1 rounded">asd embed</code>：构建语义向量索引。本 Dashboard 启动时自动检测并执行，亦可手动运行。可设 <code className="bg-slate-100 px-1 rounded">ASD_AUTO_EMBED=0</code> 关闭自动 embed。</li>
-						<li><code className="bg-slate-100 px-1 rounded">asd search -m [query]</code>：语义搜索知识库（自然语言）。</li>
-						<li><code className="bg-slate-100 px-1 rounded">asd install:cursor-skill --mcp</code>：安装 Skills、<strong>Cursor 规则</strong>（<code className="bg-slate-100 px-1 rounded">.cursor/rules/*.mdc</code>）并配置 MCP；Cursor Agent 可调用 <code className="bg-slate-100 px-1 rounded">autosnippet_context_search</code> 按需检索、<code className="bg-slate-100 px-1 rounded">autosnippet_open_create</code> 打开新建 Recipe 页；批量扫描可用 <code className="bg-slate-100 px-1 rounded">autosnippet_get_targets</code>、<code className="bg-slate-100 px-1 rounded">autosnippet_get_target_files</code>、<code className="bg-slate-100 px-1 rounded">autosnippet_submit_candidates</code>。需本 Dashboard 运行。</li>
-					</ul>
-				</section>
-				<section>
-					<h2 className="text-lg font-bold text-slate-800 mb-3">Recipe 格式</h2>
-					<p className="text-slate-600 mb-2">完整 Recipe 为 Markdown：<strong>Frontmatter</strong>（<code className="bg-slate-100 px-1 rounded">---</code> 包裹，<code className="bg-slate-100 px-1 rounded">title</code>、<code className="bg-slate-100 px-1 rounded">trigger</code> 必填）+ <strong>## Snippet / Code Reference</strong>（下接代码块）+ <strong>## AI Context / Usage Guide</strong>（使用说明）。粘贴完整 Recipe MD 时直接解析入库，不调用 AI。多段 Recipe 用「空行 + <code className="bg-slate-100 px-1 rounded">---</code> + 下一段 frontmatter」分隔可批量解析。</p>
-				</section>
-				<section>
-					<h2 className="text-lg font-bold text-slate-800 mb-3">头文件与 watch</h2>
-					<p className="text-slate-600 mb-2">保存时可勾选「引入头文件」，会写入 <code className="bg-slate-100 px-1 rounded text-xs">// as:include &lt;TargetName/Header.h&gt;</code>（ObjC）或 <code className="bg-slate-100 px-1 rounded text-xs">// as:import ModuleName</code>（Swift）。在项目目录运行 <code className="bg-slate-100 px-1 rounded">asd watch</code>（或 <code className="bg-slate-100 px-1 rounded">asd ui</code>）后，在 Xcode 中选中 Snippet 的 headerVersion 并保存，会自动在文件头部注入对应 <code className="bg-slate-100 px-1 rounded">#import</code> / <code className="bg-slate-100 px-1 rounded">import</code>。</p>
-				</section>
-				<section>
-					<h2 className="text-lg font-bold text-slate-800 mb-3">全量安装与可选依赖</h2>
-					<p className="text-slate-600 mb-2">任意目录执行：</p>
-					<ul className="list-disc pl-6 space-y-2 text-slate-600">
-						<li><code className="bg-slate-100 px-1 rounded">asd install:full</code>：核心 + 可选依赖 + Dashboard（前端不存在时构建）</li>
-						<li><code className="bg-slate-100 px-1 rounded">asd install:full --parser</code>：上述 + Swift 解析器（ParsePackage，SPM 解析更准确；默认回退 dump-package，需本机已装 Swift）</li>
-						<li><code className="bg-slate-100 px-1 rounded">asd install:full --lancedb</code>：仅安装 LanceDB（向量检索更快；再在 boxspec <code className="bg-slate-100 px-1 rounded">context.storage.adapter</code> 配 <code className="bg-slate-100 px-1 rounded">{'"lance"'}</code>）</li>
-					</ul>
-				</section>
-				<section>
-					<h2 className="text-lg font-bold text-slate-800 mb-3">AI 配置</h2>
-					<p className="text-slate-600 mb-2">项目根 <code className="bg-slate-100 px-1 rounded">.env</code> 设置 API Key（如 <code className="bg-slate-100 px-1 rounded">ASD_GOOGLE_API_KEY</code>）。可选 <code className="bg-slate-100 px-1 rounded">ASD_AI_PROVIDER</code>、<code className="bg-slate-100 px-1 rounded">ASD_AI_MODEL</code>、代理（<code className="bg-slate-100 px-1 rounded">https_proxy</code>）等。支持：Gemini、OpenAI、DeepSeek、Claude、Ollama（本地）。见 <code className="bg-slate-100 px-1 rounded">.env.example</code>。</p>
-				</section>
-				<section>
-					<h2 className="text-lg font-bold text-slate-800 mb-3">Cursor Skills 一览</h2>
-					<ul className="list-disc pl-6 space-y-2 text-slate-600">
-						<li><strong>autosnippet-when</strong>：路由，根据用户意图推荐对应能力</li>
-						<li><strong>autosnippet-concepts</strong>：知识库、Recipe、Context 存储、Recipe 优先级</li>
-						<li><strong>autosnippet-recipes</strong>：项目 Recipe 上下文、检索方式</li>
-						<li><strong>autosnippet-create</strong>：提交代码到 Dashboard、禁止直接写 Knowledge</li>
-						<li><strong>autosnippet-search</strong>：查找/插入推荐</li>
-						<li><strong>autosnippet-guard</strong>：审查推荐</li>
-						<li><strong>autosnippet-dep-graph</strong>：SPM 依赖结构</li>
-						<li><strong>autosnippet-batch-scan</strong>：用 Cursor 做批量扫描（何时用、流程语义）；MCP 提供 get_targets / get_target_files / submit_candidates</li>
-					</ul>
-					<p className="text-slate-600 mt-2">设计：<strong>Skills 做语义</strong>（何时用、怎么用）、<strong>MCP 提供能力</strong>（连接与工具）。安装时会写入 <strong>Cursor 规则</strong>（<code className="bg-slate-100 px-1 rounded">.cursor/rules/autosnippet-conventions.mdc</code>），使会话中持久遵循上述约定。MCP 工具：<code className="bg-slate-100 px-1 rounded">autosnippet_context_search</code> 按需检索；<code className="bg-slate-100 px-1 rounded">autosnippet_open_create</code> 打开新建 Recipe 页；批量扫描：<code className="bg-slate-100 px-1 rounded">autosnippet_get_targets</code>、<code className="bg-slate-100 px-1 rounded">autosnippet_get_target_files</code>、<code className="bg-slate-100 px-1 rounded">autosnippet_submit_candidates</code>（语义见 autosnippet-batch-scan Skill）。</p>
-				</section>
-				<section>
-					<h2 className="text-lg font-bold text-slate-800 mb-3">命令行速查</h2>
-					<ul className="list-disc pl-6 space-y-2 text-slate-600">
-						<li><code className="bg-slate-100 px-1 rounded">asd ui</code>：启动本 Dashboard（并后台 watch）</li>
-						<li><code className="bg-slate-100 px-1 rounded">asd create --clipboard [--path 相对路径]</code>：从剪贴板用 AI 创建 Recipe/Snippet</li>
-						<li><code className="bg-slate-100 px-1 rounded">asd create</code>：从含 <code className="bg-slate-100 px-1 rounded">// as:code</code> 的文件用 AI 创建 Snippet</li>
-						<li><code className="bg-slate-100 px-1 rounded">asd install</code>：同步 Snippets 到 Xcode</li>
-						<li><code className="bg-slate-100 px-1 rounded">asd ais [Target]</code> / <code className="bg-slate-100 px-1 rounded">asd ais --all</code>：AI 扫描，结果在 Candidates 审核</li>
-						<li><code className="bg-slate-100 px-1 rounded">asd search [keyword]</code>：关键词搜索；加 <code className="bg-slate-100 px-1 rounded">-m</code> 为语义搜索</li>
-						<li><code className="bg-slate-100 px-1 rounded">asd watch</code>：仅监听，不打开浏览器</li>
-					</ul>
-				</section>
-				<section>
-					<h2 className="text-lg font-bold text-slate-800 mb-3">术语</h2>
-					<ul className="list-disc pl-6 space-y-1 text-slate-600">
-						<li><strong>Recipe</strong>：<code className="bg-slate-100 px-1 rounded">Knowledge/recipes/</code> 下的 Markdown 知识</li>
-						<li><strong>Snippet</strong>：Xcode 代码片段，trigger 补全（默认 <code className="bg-slate-100 px-1 rounded">@</code>）</li>
-						<li><strong>项目根</strong>：含 <code className="bg-slate-100 px-1 rounded">AutoSnippetRoot.boxspec.json</code> 的目录</li>
-					</ul>
-				</section>
+					{isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+				</button>
+				{isExpanded && <div className="p-4 bg-white">{children}</div>}
+			</section>
+		);
+	};
+
+	return (
+		<div className="max-w-5xl mx-auto py-8 px-4">
+			{/* 头部 */}
+			<div className="mb-8 text-center">
+				<h1 className="text-4xl font-bold text-slate-900 mb-4 flex items-center justify-center gap-3">
+					<BookOpen size={40} className="text-blue-600" />
+					AutoSnippet 使用说明
+				</h1>
+				<p className="text-slate-600 text-lg max-w-3xl mx-auto">
+					连接开发者、AI 与项目知识库：人工审核沉淀标准，知识库存储 Recipe + Snippet，AI 按规范生成代码
+				</p>
+				<div className="mt-6 flex gap-4 justify-center text-sm">
+					<a href="https://github.com/GxFn/AutoSnippet" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+						查看 GitHub
+					</a>
+					<a href="/docs/USER_MANUAL.md" target="_blank" rel="noopener noreferrer" className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+						完整文档
+					</a>
+				</div>
+			</div>
+
+			<div className="space-y-4">
+				{/* 快速开始 */}
+				<Section id="quick-start" title="快速开始" icon={<Rocket size={24} className="text-blue-600" />}>
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+						<div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+							<div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center mb-3 font-bold">1</div>
+							<h3 className="font-semibold text-slate-800 mb-2">安装与初始化</h3>
+							<pre className="bg-slate-100 px-3 py-2 rounded text-xs overflow-x-auto"><code>npm install -g autosnippet{'\n'}asd setup{'\n'}asd ui</code></pre>
+							{/* <p className="text-slate-600 text-xs mt-2">setup 已自动安装 Cursor Skills + MCP</p> */}
+						</div>
+						<div className="bg-green-50 rounded-lg p-4 border border-green-200">
+							<div className="bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center mb-3 font-bold">2</div>
+							<h3 className="font-semibold text-slate-800 mb-2">创建第一个 Recipe</h3>
+							<p className="text-slate-600 text-sm mb-2">点击顶部 <strong>New Recipe</strong></p>
+							<p className="text-slate-600 text-sm">选择 <strong>Use Copied Code</strong></p>
+							<p className="text-slate-600 text-sm">复制代码 → AI 填充 → 保存</p>
+						</div>
+						<div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+							<div className="bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center mb-3 font-bold">3</div>
+							<h3 className="font-semibold text-slate-800 mb-2">同步到 Xcode</h3>
+							<pre className="bg-slate-100 px-3 py-2 rounded text-xs mb-2"><code>asd extract</code></pre>
+							<p className="text-slate-600 text-sm">在 Xcode 输入 <code className="bg-slate-200 px-1 rounded">@trigger</code> 补全</p>
+						</div>
+					</div>
+				</Section>
+
+				{/* 核心概念 */}
+				<Section id="concepts" title="核心概念" icon={<Database size={24} className="text-blue-600" />}>
+					{/* 三大角色 */}
+					<div className="mb-6">
+						<h3 className="text-lg font-semibold text-slate-700 mb-3">三大角色</h3>
+						<div className="overflow-x-auto">
+							<table className="min-w-full border border-slate-200 rounded-lg text-sm">
+								<thead>
+									<tr className="bg-slate-50">
+										<th className="px-4 py-3 border-b text-left font-semibold">角色</th>
+										<th className="px-4 py-3 border-b text-left font-semibold">职责</th>
+										<th className="px-4 py-3 border-b text-left font-semibold">能力</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr className="hover:bg-slate-50">
+										<td className="px-4 py-3 border-b font-medium text-blue-700">开发者</td>
+										<td className="px-4 py-3 border-b">审核与决策、维护项目标准</td>
+										<td className="px-4 py-3 border-b text-xs">Dashboard 审核候选、保存 Recipe；Snippet 补全、<code className="bg-slate-100 px-1 rounded">// as:search</code>；运行 <code className="bg-slate-100 px-1 rounded">asd ui</code></td>
+									</tr>
+									<tr className="hover:bg-slate-50">
+										<td className="px-4 py-3 border-b font-medium text-green-700">Cursor Agent</td>
+										<td className="px-4 py-3 border-b">按规范生成代码、检索知识库</td>
+										<td className="px-4 py-3 border-b text-xs">Skills 理解规范；MCP 工具按需检索、提交候选；不直接修改知识库</td>
+									</tr>
+									<tr className="hover:bg-slate-50">
+										<td className="px-4 py-3 font-medium text-purple-700">项目内 AI</td>
+										<td className="px-4 py-3">提取、摘要、扫描、审查</td>
+										<td className="px-4 py-3 text-xs"><code className="bg-slate-100 px-1 rounded">asd ais</code> 批量扫描；分析剪贴板；Guard 审查；Dashboard RAG</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+
+					{/* 四大组件 */}
+					<div>
+						<h3 className="text-lg font-semibold text-slate-700 mb-3">四大组件</h3>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+								<h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+									<FileCode size={18} />
+									Recipe（配方）
+								</h4>
+								<p className="text-blue-800 text-sm mb-3">Markdown 格式的知识文档</p>
+								<ul className="text-blue-700 text-xs space-y-1 list-disc list-inside">
+									<li>位置：<code className="bg-blue-100 px-1 rounded">AutoSnippet/recipes/*.md</code></li>
+									<li>优先级：<strong>最高</strong>，项目第一标准</li>
+									<li>用途：为 Cursor、Guard、搜索提供上下文</li>
+								</ul>
+							</div>
+							<div className="bg-green-50 rounded-lg p-4 border border-green-200">
+								<h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
+									<Zap size={18} />
+									Snippet（代码片段）
+								</h4>
+								<p className="text-green-800 text-sm mb-3">Xcode 代码补全片段</p>
+								<ul className="text-green-700 text-xs space-y-1 list-disc list-inside">
+									<li>位置：<code className="bg-green-100 px-1 rounded">AutoSnippet/snippets/*.json</code></li>
+									<li>触发：在 Xcode 输入 trigger 自动补全</li>
+									<li>关联：通常与 Recipe 一一对应</li>
+								</ul>
+							</div>
+							<div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+								<h4 className="font-semibold text-purple-900 mb-2 flex items-center gap-2">
+									<Search size={18} />
+									向量索引（Context）
+								</h4>
+								<p className="text-purple-800 text-sm mb-3">语义搜索引擎</p>
+								<ul className="text-purple-700 text-xs space-y-1 list-disc list-inside">
+									<li>位置：<code className="bg-purple-100 px-1 rounded">.autosnippet/context/</code></li>
+									<li>生成：<code className="bg-purple-100 px-1 rounded">asd embed</code> 或启动时自动</li>
+									<li>用途：语义搜索、相似度匹配、个性化推荐</li>
+								</ul>
+							</div>
+							<div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+								<h4 className="font-semibold text-amber-900 mb-2 flex items-center gap-2">
+									<List size={18} />
+									Candidates（候选）
+								</h4>
+								<p className="text-amber-800 text-sm mb-3">待审核的 Recipe 草案</p>
+								<ul className="text-amber-700 text-xs space-y-1 list-disc list-inside">
+									<li>位置：<code className="bg-amber-100 px-1 rounded">candidates.json</code></li>
+									<li>来源：AI 扫描、Cursor、剪贴板、Dashboard</li>
+									<li>用途：人工审核后入库，确保质量</li>
+								</ul>
+							</div>
+						</div>
+					</div>
+
+					{/* 闭环流程 */}
+					<div className="mt-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-5 border border-slate-200">
+						<h3 className="text-lg font-semibold text-slate-700 mb-4">知识库闭环</h3>
+						<div className="flex flex-wrap items-center justify-between gap-2">
+							<div className="flex-1 min-w-[100px] text-center">
+								<div className="bg-blue-500 text-white rounded-full w-10 h-10 flex items-center justify-center mx-auto mb-2 font-bold text-lg">1</div>
+								<p className="text-slate-700 font-medium text-sm">扫描提取</p>
+								<p className="text-slate-500 text-xs">AI/Cursor</p>
+							</div>
+							<div className="text-slate-400 text-2xl">→</div>
+							<div className="flex-1 min-w-[100px] text-center">
+								<div className="bg-green-500 text-white rounded-full w-10 h-10 flex items-center justify-center mx-auto mb-2 font-bold text-lg">2</div>
+								<p className="text-slate-700 font-medium text-sm">人工审核</p>
+								<p className="text-slate-500 text-xs">Dashboard</p>
+							</div>
+							<div className="text-slate-400 text-2xl">→</div>
+							<div className="flex-1 min-w-[100px] text-center">
+								<div className="bg-purple-500 text-white rounded-full w-10 h-10 flex items-center justify-center mx-auto mb-2 font-bold text-lg">3</div>
+								<p className="text-slate-700 font-medium text-sm">知识沉淀</p>
+								<p className="text-slate-500 text-xs">入库</p>
+							</div>
+							<div className="text-slate-400 text-2xl">→</div>
+							<div className="flex-1 min-w-[100px] text-center">
+								<div className="bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center mx-auto mb-2 font-bold text-lg">4</div>
+								<p className="text-slate-700 font-medium text-sm">智能使用</p>
+								<p className="text-slate-500 text-xs">Cursor/Xcode</p>
+							</div>
+							<div className="text-slate-400 text-2xl">→</div>
+							<div className="flex-1 min-w-[100px] text-center">
+								<div className="bg-rose-500 text-white rounded-full w-10 h-10 flex items-center justify-center mx-auto mb-2 font-bold text-lg">5</div>
+								<p className="text-slate-700 font-medium text-sm">持续优化</p>
+								<p className="text-slate-500 text-xs">评分排序</p>
+							</div>
+						</div>
+					</div>
+				</Section>
+
+				{/* 核心功能 */}
+				<Section id="features" title="核心功能" icon={<Zap size={24} className="text-blue-600" />}>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+						<div className="border border-slate-200 rounded-lg p-5 hover:shadow-lg transition-shadow">
+							<div className="flex items-center gap-2 mb-3">
+								<Code size={20} className="text-blue-600" />
+								<h3 className="font-semibold text-slate-800">知识库构建</h3>
+							</div>
+							<ul className="text-slate-600 text-sm space-y-2 list-disc list-inside">
+								<li><strong>AI 扫描</strong>：<code className="bg-slate-100 px-1 rounded text-xs">asd ais [Target]</code> 批量提取</li>
+								<li><strong>Cursor 扫描</strong>：对 Copilot 说 "扫描 Module"</li>
+								<li><strong>手动创建</strong>：New Recipe → Use Copied Code</li>
+							<li><strong>编辑器内</strong>：复制代码 → <code className="bg-slate-100 px-1 rounded text-xs">// as:create -c</code></li>
+							</ul>
+						</div>
+						<div className="border border-slate-200 rounded-lg p-5 hover:shadow-lg transition-shadow">
+							<div className="flex items-center gap-2 mb-3">
+								<Search size={20} className="text-blue-600" />
+								<h3 className="font-semibold text-slate-800">语义检索</h3>
+							</div>
+							<ul className="text-slate-600 text-sm space-y-2 list-disc list-inside">
+								<li><strong>语义搜索</strong>：<code className="bg-slate-100 px-1 rounded text-xs">asd search -m "query"</code></li>
+								<li><strong>编辑器内</strong>：<code className="bg-slate-100 px-1 rounded text-xs">// as:search keyword</code></li>
+								<li><strong>Cursor MCP</strong>：自动检索知识库</li>
+								<li><strong>Dashboard</strong>：搜索框支持语义 + 关键词</li>
+							</ul>
+						</div>
+						<div className="border border-slate-200 rounded-lg p-5 hover:shadow-lg transition-shadow">
+							<div className="flex items-center gap-2 mb-3">
+								<Shield size={20} className="text-blue-600" />
+								<h3 className="font-semibold text-slate-800">代码审查（Audit）</h3>
+							</div>
+							<ul className="text-slate-600 text-sm space-y-2 list-disc list-inside">
+								<li><strong>文件审查</strong>：<code className="bg-slate-100 px-1 rounded text-xs">// as:audit</code></li>
+								<li><strong>Target 审查</strong>：<code className="bg-slate-100 px-1 rounded text-xs">// as:audit target</code></li>
+								<li><strong>项目审查</strong>：<code className="bg-slate-100 px-1 rounded text-xs">// as:audit project</code></li>
+								<li><strong>Dashboard</strong>：Guard 页面可视化审查</li>
+							</ul>
+						</div>
+						<div className="border border-slate-200 rounded-lg p-5 hover:shadow-lg transition-shadow">
+							<div className="flex items-center gap-2 mb-3">
+								<GitBranch size=
+{20} className="text-blue-600" />
+								<h3 className="font-semibold text-slate-800">依赖关系图</h3>
+							</div>
+							<ul className="text-slate-600 text-sm space-y-2 list-disc list-inside">
+								<li><strong>刷新映射</strong>：<code className="bg-slate-100 px-1 rounded text-xs">asd spm-map</code></li>
+								<li><strong>可视化</strong>：Dashboard → 依赖关系图</li>
+								<li><strong>用途</strong>：理解 SPM 包依赖结构</li>
+							</ul>
+						</div>
+					</div>
+				</Section>
+
+				{/* 编辑器指令 */}
+				<Section id="editor-directives" title="编辑器指令" icon={<Terminal size={24} className="text-blue-600" />}>
+					<p className="text-slate-600 text-sm mb-4">需先运行 <code className="bg-slate-100 px-1 rounded">asd watch</code> 或 <code className="bg-slate-100 px-1 rounded">asd ui</code></p>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+							<h4 className="font-semibold text-slate-800 mb-2"><code className="bg-slate-200 px-2 py-1 rounded">// as:create</code> / <code className="bg-slate-200 px-2 py-1 rounded">// as:c</code></h4>
+							<p className="text-slate-600 text-sm mb-2">创建 Recipe/Snippet</p>
+							<ul className="text-slate-600 text-xs space-y-1 list-disc list-inside">
+								<li>无选项：打开 Dashboard</li>
+								<li><code>-c</code>：从剪贴板静默创建</li>
+								<li><code>-f</code>：扫描当前文件</li>
+							</ul>
+						</div>
+						<div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+							<h4 className="font-semibold text-slate-800 mb-2"><code className="bg-slate-200 px-2 py-1 rounded">// as:search</code> / <code className="bg-slate-200 px-2 py-1 rounded">// as:s</code></h4>
+							<p className="text-slate-600 text-sm mb-2">搜索并插入</p>
+							<ul className="text-slate-600 text-xs space-y-1 list-disc list-inside">
+								<li>从知识库检索 Recipe/Snippet</li>
+								<li>选择后插入代码，替换该行</li>
+								<li>记录一次人工使用</li>
+							</ul>
+						</div>
+						<div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+							<h4 className="font-semibold text-slate-800 mb-2"><code className="bg-slate-200 px-2 py-1 rounded">// as:audit</code> / <code className="bg-slate-200 px-2 py-1 rounded">// as:a</code></h4>
+							<p className="text-slate-600 text-sm mb-2">代码审查</p>
+							<ul className="text-slate-600 text-xs space-y-1 list-disc list-inside">
+								<li>无后缀：审查当前文件</li>
+								<li><code>target</code>：审查当前 Target</li>
+								<li><code>project</code>：审查整个项目</li>
+							</ul>
+						</div>
+						<div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+							<h4 className="font-semibold text-slate-800 mb-2"><code className="bg-slate-200 px-2 py-1 rounded">// as:include</code> / <code className="bg-slate-200 px-2 py-1 rounded">// as:import</code></h4>
+							<p className="text-slate-600 text-sm mb-2">自动注入头文件/模块</p>
+							<ul className="text-slate-600 text-xs space-y-1 list-disc list-inside">
+								<li>Snippet 中包含此标记</li>
+								<li>补全后自动注入 import</li>
+							</ul>
+						</div>
+					</div>
+				</Section>
+
+				{/* Cursor 集成 */}
+				<Section id="cursor-integration" title="Cursor AI 集成" icon={<MessageSquare size={24} className="text-blue-600" />}>
+					<div className="mb-5">
+						<h3 className="font-semibold text-slate-800 mb-3">MCP 工具</h3>
+						<div className="overflow-x-auto">
+							<table className="min-w-full border border-slate-200 rounded-lg text-xs">
+								<thead>
+									<tr className="bg-slate-50">
+										<th className="px-3 py-2 border-b text-left">工具</th>
+										<th className="px-3 py-2 border-b text-left">用途</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr><td className="px-3 py-2 border-b"><code>context_search</code></td><td className="px-3 py-2 border-b">智能检索知识库</td></tr>
+									<tr><td className="px-3 py-2 border-b"><code>open_create</code></td><td className="px-3 py-2 border-b">打开新建 Recipe 页</td></tr>
+									<tr><td className="px-3 py-2 border-b"><code>get_targets</code></td><td className="px-3 py-2 border-b">获取所有 Target</td></tr>
+									<tr><td className="px-3 py-2 border-b"><code>get_target_files</code></td><td className="px-3 py-2 border-b">获取 Target 源文件</td></tr>
+									<tr><td className="px-3 py-2 border-b"><code>submit_candidates</code></td><td className="px-3 py-2 border-b">批量提交候选</td></tr>
+									<tr><td className="px-3 py-2"><code>confirm_recipe_usage</code></td><td className="px-3 py-2">确认 Recipe 使用</td></tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+
+					<div>
+						<h3 className="font-semibold text-slate-800 mb-3">使用示例</h3>
+						<div className="space-y-3">
+							<div className="bg-blue-50 rounded p-3 border border-blue-200">
+								<p className="font-medium text-blue-900 text-sm mb-1">检索知识库</p>
+								<p className="text-blue-800 text-xs">对 Cursor 说："查找网络请求错误处理的代码"</p>
+							</div>
+							<div className="bg-green-50 rounded p-3 border border-green-200">
+								<p className="font-medium text-green-900 text-sm mb-1">批量扫描</p>
+								<p className="text-green-800 text-xs">对 Cursor 说："扫描 NetworkModule，生成 Recipes 到候选"</p>
+							</div>
+							<div className="bg-purple-50 rounded p-3 border border-purple-200">
+								<p className="font-medium text-purple-900 text-sm mb-1">提交代码</p>
+								<p className="text-purple-800 text-xs">对 Cursor 说："把这段代码保存为 Recipe"</p>
+							</div>
+						</div>
+					</div>
+				</Section>
+
+				{/* 命令速查 */}
+				<Section id="cli-reference" title="命令行速查" icon={<Terminal size={24} className="text-blue-600" />}>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div>
+							<h3 className="font-semibold text-slate-800 mb-2">初始化与环境</h3>
+							<div className="space-y-1 text-sm">
+								<div className="flex justify-between bg-slate-50 px-3 py-2 rounded">
+									<code>asd setup</code>
+									<span className="text-slate-500 text-xs">初始化项目</span>
+								</div>
+								<div className="flex justify-between bg-slate-50 px-3 py-2 rounded">
+									<code>asd status</code>
+									<span className="text-slate-500 text-xs">环境自检</span>
+								</div>
+								<div className="flex justify-between bg-slate-50 px-3 py-2 rounded">
+									<code>asd ui</code>
+									<span className="text-slate-500 text-xs">启动 Dashboard</span>
+								</div>
+							</div>
+						</div>
+						<div>
+							<h3 className="font-semibold text-slate-800 mb-2">Recipe/Snippet 管理</h3>
+							<div className="space-y-1 text-sm">
+								<div className="flex justify-between bg-slate-50 px-3 py-2 rounded">
+									<code>// as:create -c</code>
+									<span className="text-slate-500 text-xs">编辑器内从剪贴板创建</span>
+								</div>
+								<div className="flex justify-between bg-slate-50 px-3 py-2 rounded">
+									<code>asd extract</code>
+									<span className="text-slate-500 text-xs">同步到 Xcode</span>
+								</div>
+								<div className="flex justify-between bg-slate-50 px-3 py-2 rounded">
+									<code>asd candidate</code>
+									<span className="text-slate-500 text-xs">创建候选</span>
+								</div>
+							</div>
+						</div>
+						<div>
+							<h3 className="font-semibold text-slate-800 mb-2">搜索与扫描</h3>
+							<div className="space-y-1 text-sm">
+								<div className="flex justify-between bg-slate-50 px-3 py-2 rounded">
+									<code>asd search [keyword]</code>
+									<span className="text-slate-500 text-xs">关键词搜索</span>
+								</div>
+								<div className="flex justify-between bg-slate-50 px-3 py-2 rounded">
+									<code>asd search -m [query]</code>
+									<span className="text-slate-500 text-xs">语义搜索</span>
+								</div>
+								<div className="flex justify-between bg-slate-50 px-3 py-2 rounded">
+									<code>asd ais [Target]</code>
+									<span className="text-slate-500 text-xs">AI 扫描</span>
+								</div>
+							</div>
+						</div>
+						<div>
+							<h3 className="font-semibold text-slate-800 mb-2">高级功能</h3>
+							<div className="space-y-1 text-sm">
+								<div className="flex justify-between bg-slate-50 px-3 py-2 rounded">
+									<code>asd embed</code>
+									<span className="text-slate-500 text-xs">构建向量索引</span>
+								</div>
+								<div className="flex justify-between bg-slate-50 px-3 py-2 rounded">
+									<code>asd spm-map</code>
+									<span className="text-slate-500 text-xs">刷新依赖</span>
+								</div>
+								<div className="flex justify-between bg-slate-50 px-3 py-2 rounded">
+									<code>asd install:full</code>
+									<span className="text-slate-500 text-xs">完整安装</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</Section>
+			</div>
+
+			{/* 底部提示 */}
+			<div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
+				<p className="text-slate-700 text-sm">
+					需要更详细的说明？查看 <a href="/docs/USER_MANUAL.md" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">完整使用说明书</a>
+				</p>
 			</div>
 		</div>
 	);

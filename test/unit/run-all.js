@@ -13,7 +13,11 @@ const tests = [
 	'test/unit/chunker.test.js',
 	'test/unit/context.test.js',
 	'test/unit/recipeStats.test.js',
-	'test/unit/checksums-verify.test.js'
+	'test/unit/checksums-verify.test.js',
+	'test/unit/services/ContextService.test.js',
+	'test/unit/search/rankingEngine.test.js',
+	'test/unit/quality/QualityScorer.test.js',
+	'test/unit/guard/EnhancedGuardChecker.test.js'
 ];
 
 const projectRoot = path.resolve(__dirname, '../../');

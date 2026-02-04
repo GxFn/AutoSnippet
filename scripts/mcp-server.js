@@ -12,7 +12,8 @@
 
 const http = require('http');
 const https = require('https');
-const defaults = require('../lib/infra/defaults');
+const defaults = require('../lib/infrastructure/config/Defaults');
+const Paths = require('../lib/infrastructure/config/Paths.js');
 const path = require('path');
 const sdkServer = path.join(__dirname, '../node_modules/@modelcontextprotocol/sdk/dist/cjs/server');
 const { McpServer } = require(path.join(sdkServer, 'mcp.js'));
@@ -21,6 +22,33 @@ const { z } = require('zod');
 
 const BASE_URL = process.env.ASD_UI_URL || defaults.DEFAULT_ASD_UI_URL;
 
+// 智能服务层（懒加载）
+let intelligentService = null;
+
+function getIntelligentService() {
+	if (!intelligentService) {
+		try {
+			const IntelligentServiceLayer = require('../lib/application/services/IntelligentServiceLayer');
+			const projectRoot = process.cwd();
+			intelligentService = new IntelligentServiceLayer(projectRoot, {
+				enableLearning: true,
+				fusionWeights: {
+					relevance: 0.4,
+					quality: 0.3,
+					preference: 0.2,
+					recency: 0.1
+				},
+				cacheMaxSize: 100,
+				cacheTTL: 10 * 60 * 1000 // 10分钟
+			});
+			console.error('✓ IntelligentServiceLayer 已启用');
+		} catch (error) {
+			console.error('⚠️  IntelligentServiceLayer 加载失败:', error.message);
+		}
+	}
+	return intelligentService;
+}
+
 function openCreatePage(path) {
 	const url = new URL('/', BASE_URL);
 	url.searchParams.set('action', 'create');
@@ -28,7 +56,7 @@ function openCreatePage(path) {
 	if (path && typeof path === 'string' && path.trim()) {
 		url.searchParams.set('path', path.trim());
 	}
-	const openBrowser = require('../lib/infra/openBrowser');
+	const openBrowser = require('../lib/infrastructure/external/OpenBrowser');
 	openBrowser.openBrowserReuseTab(url.toString(), BASE_URL);
 }
 
@@ -99,14 +127,71 @@ server.registerTool(
 server.registerTool(
 	'autosnippet_context_search',
 	{
-		description: '按需检索项目知识库：根据自然语言查询返回相关 Recipe、文档。需先运行 asd ui。仅做静默检索与返回，不触发任何采纳表单。',
+		description: '智能检索项目知识库：支持语义搜索、意图识别、个性化推荐。可选传入 sessionId 启用连续对话，传入 userId 启用个性化学习。需先运行 asd ui。',
 		inputSchema: {
 			query: z.string().describe('自然语言查询，如：网络请求、WebView 加载、URLRequest'),
-			limit: z.number().optional().default(5).describe('返回条数，默认 5')
+			limit: z.number().optional().default(5).describe('返回条数，默认 5'),
+			sessionId: z.string().optional().describe('会话ID（用于连续对话上下文）'),
+			userId: z.string().optional().describe('用户ID（用于个性化推荐）'),
+			useIntelligent: z.boolean().optional().default(true).describe('是否使用智能层（默认 true）')
 		}
 	},
-	async ({ query, limit }) => {
+	async ({ query, limit, sessionId, userId, useIntelligent }) => {
 		try {
+			// 尝试使用智能服务层
+			if (useIntelligent !== false) {
+				const intelligentLayer = getIntelligentService();
+				if (intelligentLayer) {
+					const result = await intelligentLayer.intelligentSearch(query, {
+						sessionId,
+						userId,
+						limit: limit ?? 5
+					});
+					
+					const items = result.results || [];
+					if (items.length === 0) {
+						return { content: [{ type: 'text', text: '未找到相关上下文。请确认 asd ui 已启动且 asd embed 已执行。' }] };
+					}
+					
+					// 构建增强的响应
+					const metadata = [
+						`意图: ${result.intent}`,
+						`响应时间: ${result.responseTime}ms`,
+						result.fromCache ? '(缓存)' : '',
+						result.enhanced ? `增强: ${Object.keys(result.enhancements || {}).join(', ')}` : ''
+					].filter(Boolean).join(' | ');
+					
+					const lines = items.map((it, i) => {
+						const meta = it.metadata || {};
+						const src = meta.sourcePath || meta.source || it.id || '';
+						const similarity = ((it.similarity || 0) * 100).toFixed(0);
+						
+						// 显示增强的评分信息
+						let scoreInfo = `相似度: ${similarity}%`;
+						if (it.qualityScore !== undefined) {
+							scoreInfo += ` | 质量: ${(it.qualityScore * 100).toFixed(0)}%`;
+						}
+						if (it._scores) {
+							scoreInfo += ` | 综合: ${(it._finalScore * 100).toFixed(0)}%`;
+						}
+						
+						const statsLine = it.stats
+							? `[Authority: ${it.stats.authority}/5 | Usage: guard=${it.stats.guardUsageCount}, human=${it.stats.humanUsageCount}, ai=${it.stats.aiUsageCount}]\n`
+							: '';
+						const body = (it.content || '').slice(0, 2000) + ((it.content || '').length > 2000 ? '\n...(截断)' : '');
+						return `[${i + 1}] ${src}\n[${scoreInfo}]\n${statsLine}${body}`;
+					});
+					
+					return { 
+						content: [{ 
+							type: 'text', 
+							text: `${metadata}\n\n` + lines.join('\n\n---\n\n') 
+						}] 
+					};
+				}
+			}
+			
+			// 降级到传统搜索
 			const res = await postContextSearch(query, limit ?? 5);
 			const items = res?.items || [];
 			if (items.length === 0) {
@@ -179,10 +264,10 @@ server.registerTool(
 server.registerTool(
 	'autosnippet_submit_candidates',
 	{
-		description: '将 Cursor 提取的候选批量提交到 Dashboard Candidates，供人工审核。用于「用 Cursor 做批量扫描」：先 get_targets → get_target_files → 对每个文件用 Cursor AI 提取 Recipe 结构 → 调用本工具提交。每条 item 需含 title、summary、trigger、language、code、usageGuide；可选 summary_cn、usageGuide_cn、category、headers 等。需先运行 asd ui。',
+		description: '将 Cursor 提取的候选批量提交到 Dashboard Candidates，供人工审核。用于「用 Cursor 做批量扫描」：先 get_targets → get_target_files → 对每个文件用 Cursor AI 提取 Recipe 结构 → 调用本工具提交。每条 item 需含 title、summary、trigger、language、code、usageGuide；**建议同时包含 summary_en、usageGuide_en（英文版本，可选），可选 category、headers 等**。需先运行 asd ui。',
 		inputSchema: {
 			targetName: z.string().describe('候选归属的 target 名，如 MyModule 或 _cursor'),
-			items: z.array(z.record(z.string(), z.unknown())).describe('候选数组，每条至少含 title, summary, trigger, language, code, usageGuide'),
+			items: z.array(z.record(z.string(), z.unknown())).describe('候选数组，每条至少含：title, summary, trigger, language, code, usageGuide；建议同时提供 summary_en、usageGuide_en（可选），可选 category、headers 等'),
 			source: z.string().optional().describe('来源标记，默认 cursor-scan'),
 			expiresInHours: z.number().optional().describe('保留小时数，默认 24')
 		}
@@ -205,7 +290,112 @@ server.registerTool(
 				}]
 			};
 		} catch (e) {
-			return { content: [{ type: 'text', text: `提交失败: ${e.message}。请确认 asd ui 已启动且 items 格式符合 ExtractedRecipe（含 title, summary, trigger, language, code, usageGuide）。` }] };
+			return { content: [{ type: 'text', text: `提交失败: ${e.message}。请确认 asd ui 已启动且 items 格式符合 ExtractedRecipe（必须含 title, summary, summary_en, trigger, language, code, usageGuide, usageGuide_en）。` }] };
+		}
+	}
+);
+
+server.registerTool(
+	'autosnippet_submit_draft_recipes',
+	{
+		description: 'Parse draft Markdown files as Recipe candidates and submit to Dashboard. Prefer a draft folder (e.g. .autosnippet-drafts), one file per Recipe—do not use one big file. **Supports full Recipe (with code block) and intro-only (no code; no Snippet after approval). Each Recipe requires Chinese version (summary/usageGuide in Chinese); English version (summary_en, AI Context / Usage Guide (EN)) is optional and recommended for better discoverability.** Paths must be outside AutoSnippet/. After submit, delete the draft folder (use deleteAfterSubmit or rm -rf draft folder). Requires asd ui.',
+		inputSchema: {
+			filePaths: z.union([
+				z.string().describe('单个草稿文件路径，如 .autosnippet-drafts/async-001.md'),
+				z.array(z.string()).describe('草稿文件路径数组，推荐来自同一草稿文件夹下的多个 .md')
+			]).describe('要提交的 Recipe 草稿文件路径（相对项目根或绝对路径）；必须包含中文版本（summary中文+AI Context中文），英文版本（summary_en+英文 AI Context）可选'),
+			targetName: z.string().optional().describe('候选归属的 target 名，默认 _draft'),
+			source: z.string().optional().describe('来源标记，默认 copilot-draft'),
+			expiresInHours: z.number().optional().describe('候选保留小时数，默认 72'),
+			deleteAfterSubmit: z.boolean().optional().describe('提交成功后是否删除已提交的源文件，默认 false')
+		}
+	},
+	async ({ filePaths, targetName, source, expiresInHours, deleteAfterSubmit }) => {
+		try {
+			const fs = require('fs');
+			const parseRecipeMd = require('../lib/recipe/parseRecipeMd');
+			const projectRoot = process.cwd();
+			const paths = Array.isArray(filePaths) ? filePaths : (filePaths != null && typeof filePaths === 'string' ? [filePaths] : []);
+			const validPaths = paths.map(p => (typeof p === 'string' && p.trim() ? p.trim() : null)).filter(Boolean);
+
+			if (validPaths.length === 0) {
+				return { content: [{ type: 'text', text: '请传入 filePaths（单个路径或路径数组）。推荐先创建草稿文件夹，每个 Recipe 一个 .md 文件。' }] };
+			}
+
+			const recipes = [];
+			const errors = [];
+			const successFiles = [];
+
+			for (const fp of validPaths) {
+				try {
+					const absPath = path.isAbsolute(fp) ? fp : path.join(projectRoot, fp);
+					const relativePath = path.relative(projectRoot, absPath);
+					const kbDirName = Paths.getKnowledgeBaseDirName(projectRoot);
+					if (relativePath.startsWith(kbDirName + '/') || relativePath.startsWith(kbDirName + path.sep)) {
+						errors.push(`🚫 ${fp} - 禁止操作知识库目录 ${kbDirName}/`);
+						continue;
+					}
+					if (!fs.existsSync(absPath)) {
+						errors.push(`❌ 文件不存在: ${fp}`);
+						continue;
+					}
+
+					const content = fs.readFileSync(absPath, 'utf8');
+					let parsed = [];
+					if (parseRecipeMd.isCompleteRecipeMd(content)) {
+						const recipe = parseRecipeMd.parseRecipeMd(content);
+						if (recipe) parsed.push(recipe);
+					} else {
+						const allRecipes = parseRecipeMd.parseRecipeMdAll(content);
+						if (allRecipes && allRecipes.length > 0) parsed = allRecipes;
+					}
+					if (parsed.length === 0 && parseRecipeMd.isIntroOnlyRecipeMd(content)) {
+						const one = parseRecipeMd.parseIntroOnlyRecipeMd(content);
+						if (one) parsed.push(one);
+					}
+
+					if (parsed.length > 0) {
+						recipes.push(...parsed);
+						successFiles.push({ path: absPath, count: parsed.length, name: path.basename(absPath) });
+					} else {
+						errors.push(`❌ 无法解析为 Recipe: ${fp}`);
+					}
+				} catch (err) {
+					errors.push(`❌ ${path.basename(fp)}: ${err.message}`);
+				}
+			}
+
+			if (recipes.length === 0) {
+				const errorMsg = errors.length > 0 ? '\n\n' + errors.join('\n') : '';
+				return { content: [{ type: 'text', text: `未能解析出有效 Recipe。${errorMsg}` }] };
+			}
+
+			const res = await request('POST', '/api/candidates/append', {
+				targetName: targetName || '_draft',
+				items: recipes,
+				source: source || 'copilot-draft',
+				expiresInHours: typeof expiresInHours === 'number' ? expiresInHours : 72
+			});
+
+			let resultMsg = `✅ 已提交 ${recipes.length} 条 Recipe 候选（target: ${res?.targetName ?? targetName ?? '_draft'}）。\n\n`;
+			if (deleteAfterSubmit === true) {
+				const deleted = [];
+				for (const file of successFiles) {
+					try {
+						fs.unlinkSync(file.path);
+						deleted.push(`🗑️ ${file.name} (${file.count} 条)`);
+					} catch (e) {
+						errors.push(`删除失败 ${file.name}: ${e.message}`);
+					}
+				}
+				if (deleted.length > 0) resultMsg += `已删除草稿文件:\n${deleted.join('\n')}\n\n`;
+			}
+			resultMsg += `📋 请在 Dashboard Candidates 页审核。纯介绍类（无代码）候选审核后不会生成 Snippet。`;
+			if (errors.length > 0) resultMsg += `\n\n⚠️ 未处理:\n${errors.join('\n')}`;
+
+			return { content: [{ type: 'text', text: resultMsg }] };
+		} catch (e) {
+			return { content: [{ type: 'text', text: `提交失败: ${e.message}。请确认 asd ui 已启动且路径在知识库外。` }] };
 		}
 	}
 );

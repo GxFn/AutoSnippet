@@ -11,6 +11,7 @@
 | [权威评分系统与数据格式](./权威评分系统与数据格式.md) | 使用热度、权威分、综合权威分及 recipe-stats 数据格式 |
 | [context 配置说明](./context配置说明.md) | 语义索引的 storage、sources、chunking 配置；存储适配器切换（json/lance）；测试覆盖说明 |
 | [MCP 配置说明](./MCP配置说明.md) | Cursor MCP 配置与可用工具 |
+| [MCP与Skills重设计](./MCP与Skills重设计.md) | 架构梳理、Recipe 设计、MCP/Skills 现状与重设计方案（职责明确、无冲突） |
 | [Guard-误报与排除策略](./Guard-误报与排除策略.md) | Guard 规则误报场景、排除策略与 Knowledge 目录说明 |
 | [权限设置说明](./权限设置说明.md) | 写权限探针与完整性校验的配置、行为与常见问题 |
 | [按场景-语言-模块的个性化推荐-实现计划](./按场景-语言-模块的个性化推荐-实现计划.md) | 按场景/语言/模块的个性化推荐实现计划 |
@@ -20,5 +21,5 @@
 ## 快速开始
 
 1. 安装：`npm install -g autosnippet`
-2. 在项目根执行：`asd setup` → `asd ui`
+2. 在项目根执行：`asd setup` → `asd install:cursor-skill --mcp` → `asd ui`
 3. 详见 [使用文档](./使用文档.md)。

@@ -4,6 +4,78 @@
 
 ---
 
+## [1.6.0] - 2026-02-04
+
+### 新增
+
+- **CLI 版本选项**：新增 `-v, --version` 选项，方便快速查看当前版本。
+- **完整的集成测试框架**：新增全面的 Dashboard API 集成测试套件，提供零依赖的测试基础设施。相关内容：
+  - 新增 `test/integration/` 目录，包含完整测试框架和 39 个测试用例
+  - 框架组件：TestClient（HTTP 客户端）、TestAssert（13+ 断言方法）、TestContext（数据管理）、TestRunner（测试执行）、TestResults（报告生成）
+  - 测试覆盖：Recipe API（15 个测试）、权限系统（12 个测试）、跨项目功能（12 个测试），总体 92% 覆盖率
+  - 自动报告生成：JSON + HTML 格式，含详细的执行统计和失败分析
+  - npm 脚本：`npm run test:integration` 及其变体（recipes/permissions/cross-project）
+  - 文档：[测试指南](docs/TESTING.md)、[快速参考](docs/TESTING_QUICKREF.md)、[项目文档](test/integration/README.md)、[速查表](test/integration/QUICKSTART.md)
+  - 详见：`test/integration/README.md` 和 `docs/TESTING.md`
+
+- **Dashboard 智能复用**：运行 `asd ui` 时会自动检测端口 3000 是否已运行 Dashboard 服务。如果已运行，则直接复用并打开浏览器标签页，避免启动多个服务实例。相关实现：
+  - 新增端口检测和 Dashboard 识别逻辑（`isPortAvailable`、`isDashboardRunning`）
+  - 新增健康检查接口 `GET /api/health`
+  - 端口被其他服务占用时提示使用 `--port` 参数
+  - 详见：[Dashboard 复用功能文档](docs/dashboard-reuse.md)
+
+### 修复
+
+- **GitHub Actions CI 集成测试支持**：修复集成测试在 CI 环境下的兼容性问题：
+  - 新增 `ASD_DISABLE_WRITE_GUARD` 环境变量，允许 CI 环境跳过 git push --dry-run 权限检查
+  - 新增 `ASD_DISABLE_RATE_LIMIT` 环境变量，允许测试环境跳过速率限制
+  - Recipe API 接口规范化：record-usage 支持 `name` 参数，get 接口返回一致的错误格式
+  - Recipe 名称验证：拒绝路径遍历攻击（`..`、`/`、`\`）
+  - 更新 `.github/workflows/ci.yml` 配置，确保 Dashboard 在后台启动并通过健康检查
+  - 所有 39 个集成测试在 CI 环境 100% 通过
+
+- **候选文件存储位置**：修复 `candidateService` 硬编码 `Knowledge` 目录的问题。现在会根据 `AutoSnippetRoot.boxspec.json` 中的 `recipes.dir` 配置来决定候选文件（`candidates.json`）的存储位置。例如：
+  - 如果 `recipes.dir` 为 `"Knowledge/recipes"`，候选文件保存到 `Knowledge/.autosnippet/candidates.json`
+  - 如果 `recipes.dir` 为 `"docs/recipes"`，候选文件保存到 `docs/.autosnippet/candidates.json`
+  - 这确保了项目的所有 AutoSnippet 相关文件都在统一的目录结构下
+
+### 改进
+
+- **单元测试改进**：修复 checksums-verify 测试在不同环境下的稳定性问题：
+  - 测试环境变量隔离：确保测试不受当前 shell 环境变量影响
+  - 更新测试命令：使用 `help` 替代已废弃的 `status` 命令
+  - 改进测试断言：更准确地验证预期行为
+
+---
+
+## [待发布] - 2026-02-04
+
+### 新增
+
+- **完整的集成测试框架**：新增全面的 Dashboard API 集成测试套件，提供零依赖的测试基础设施。相关内容：
+  - 新增 `test/integration/` 目录，包含完整测试框架和 39 个测试用例
+  - 框架组件：TestClient（HTTP 客户端）、TestAssert（13+ 断言方法）、TestContext（数据管理）、TestRunner（测试执行）、TestResults（报告生成）
+  - 测试覆盖：Recipe API（15 个测试）、权限系统（12 个测试）、跨项目功能（12 个测试），总体 92% 覆盖率
+  - 自动报告生成：JSON + HTML 格式，含详细的执行统计和失败分析
+  - npm 脚本：`npm run test:integration` 及其变体（recipes/permissions/cross-project）
+  - 文档：[测试指南](docs/TESTING.md)、[快速参考](docs/TESTING_QUICKREF.md)、[项目文档](test/integration/README.md)、[速查表](test/integration/QUICKSTART.md)
+  - 详见：`test/integration/README.md` 和 `docs/TESTING.md`
+
+- **Dashboard 智能复用**：运行 `asd ui` 时会自动检测端口 3000 是否已运行 Dashboard 服务。如果已运行，则直接复用并打开浏览器标签页，避免启动多个服务实例。相关实现：
+  - 新增端口检测和 Dashboard 识别逻辑（`isPortAvailable`、`isDashboardRunning`）
+  - 新增健康检查接口 `GET /api/health`
+  - 端口被其他服务占用时提示使用 `--port` 参数
+  - 详见：[Dashboard 复用功能文档](docs/dashboard-reuse.md)
+
+### 修复
+
+- **候选文件存储位置**：修复 `candidateService` 硬编码 `Knowledge` 目录的问题。现在会根据 `AutoSnippetRoot.boxspec.json` 中的 `recipes.dir` 配置来决定候选文件（`candidates.json`）的存储位置。例如：
+  - 如果 `recipes.dir` 为 `"Knowledge/recipes"`，候选文件保存到 `Knowledge/.autosnippet/candidates.json`
+  - 如果 `recipes.dir` 为 `"docs/recipes"`，候选文件保存到 `docs/.autosnippet/candidates.json`
+  - 这确保了项目的所有 AutoSnippet 相关文件都在统一的目录结构下
+
+---
+
 ## [1.5.9] - 2025-02-02
 
 ### 修复
@@ -32,7 +104,7 @@
 
 - **Recipe 保存频率限制**：按「项目根 + 客户端 IP」固定窗口限流，防止短时间内多次保存；超限返回 429，前端提示「保存过于频繁，请稍后再试」。配置：`ASD_RECIPE_SAVE_RATE_LIMIT`（默认 20）、`ASD_RECIPE_SAVE_RATE_WINDOW_SECONDS`（默认 60），设为 0 表示不限制。
 - **Recipe 保存防重复点击**：编辑 Recipe 弹窗「Save Changes」、SPM 审核页「保存为 Recipe」、对比弹窗「审核候选」在请求进行中禁用按钮并显示「保存中...」，避免重复提交。
-- **完整性校验入口（Swift）**：原生入口为 Swift 实现（`resources/asd-entry/main.swift`），仅 macOS 构建为 `bin/asd-verify`；使用 CryptoKit 做 SHA-256 校验。`bin/asd` 优先执行 `asd-verify`，不存在则回退 `node bin/asnip.js`。项目仅在 macOS 运行，故保留 Swift 入口。
+- **完整性校验入口（Swift）**：原生入口为 Swift 实现（`resources/asd-entry/main.swift`），仅 macOS 构建为 `bin/asd-verify`；使用 CryptoKit 做 SHA-256 校验。`bin/asd` 优先执行 `asd-verify`，不存在则回退 `node bin/asd-cli.js`。项目仅在 macOS 运行，故保留 Swift 入口。
 
 ### 文档
 
@@ -52,7 +124,7 @@
 ### 新增
 
 - **写权限探针（阶段一）**：保存/删除 Recipe、保存/删除 Snippet 前在配置的探针目录（如子仓库 `auth-data`）执行 `git push --dry-run`，非零退出则返回 403（`RECIPE_WRITE_FORBIDDEN`）；探针通过后仍写主项目原路径。配置：`ASD_RECIPES_WRITE_DIR` 或 rootSpec `recipes.writeDir`，未设则不启用；`ASD_PROBE_TTL_SECONDS` 默认 24h，进程内缓存。
-- **完整性校验（阶段二）**：`bin/asd` 优先执行原生入口 `bin/asd-verify`（Swift），存在 `checksums.json` 时对关键文件做 SHA-256 校验，不通过则 exit(1)，通过则 spawn `node bin/asnip.js`；无 checksums 或未构建 asd-verify 时回退到 `node bin/asnip.js`。发布前 `prepublishOnly` 自动生成 `checksums.json`。
+- **完整性校验（阶段二）**：`bin/asd` 优先执行原生入口 `bin/asd-verify`（Swift），存在 `checksums.json` 时对关键文件做 SHA-256 校验，不通过则 exit(1)，通过则 spawn `node bin/asd-cli.js`；无 checksums 或未构建 asd-verify 时回退到 `node bin/asd-cli.js`。发布前 `prepublishOnly` 自动生成 `checksums.json`。
 - **Node 校验脚本**：`npm run verify-checksums` 复现 Swift 校验逻辑（无 Swift 环境/CI 可用）；拒绝 `..`、绝对路径与路径逃逸。
 - **单元测试**：`test/unit/checksums-verify.test.js` 覆盖合法清单通过、错误哈希/无效 JSON/路径逃逸/缺失文件失败；已加入 `test/unit/run-all.js`。
 

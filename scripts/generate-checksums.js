@@ -13,9 +13,16 @@ const root = path.resolve(__dirname, '..');
 
 /** 参与完整性校验的关键文件（相对项目根） */
 const KEY_FILES = [
-	'bin/asnip.js',
-	'bin/ui.js',
+	'bin/asd-cli.js',
+	'bin/dashboard-server.js',
 	'lib/writeGuard.js',
+	'lib/rateLimit.js',
+	'lib/services/context/ContextService.js',
+	'lib/application/services/ContextServiceV2.js',
+	'lib/context/adapters/MilvusAdapter.js',
+	'lib/context/adapters/JsonAdapter.js',
+	'lib/ai/AiFactory.js',
+	'lib/ai/AiProvider.js',
 ];
 
 const checksums = {};

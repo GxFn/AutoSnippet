@@ -79,6 +79,14 @@ export interface ExtractedRecipe {
 	moduleName?: string;
 	/** 是否引入头文件：true 时 snippet 内写入 // as:include 标记，watch 按标记注入依赖 */
 	includeHeaders?: boolean;
+	/** 难度等级：beginner / intermediate / advanced */
+	difficulty?: 'beginner' | 'intermediate' | 'advanced';
+	/** 权威分 1～5，审核人员可设置初始值 */
+	authority?: number;
+	/** 版本号 */
+	version?: string;
+	/** 更新时间戳（毫秒） */
+	updatedAt?: number;
 }
 
 /** 候选池中的候选项（含 id）或 SPM 审核页中的项（含 candidateId/candidateTargetName） */

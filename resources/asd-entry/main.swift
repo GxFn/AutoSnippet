@@ -1,7 +1,7 @@
 #!/usr/bin/env swift
 /*
  * AutoSnippet 完整性校验入口（Swift，仅 macOS）
- * 读 checksums.json，校验关键文件 SHA-256，通过则设置 ASD_VERIFIED=1 并 spawn node bin/asnip.js。
+ * 读 checksums.json，校验关键文件 SHA-256，通过则设置 ASD_VERIFIED=1 并 spawn node bin/asd-cli.js。
  * 收到 SIGINT/SIGTERM 时转发给子进程，避免 asd ui 按 Ctrl+C 后 Node 成为孤儿进程占用 3000 端口。
  * 构建：node scripts/build-asd-entry.js，产物 bin/asd-verify。
  */
@@ -71,12 +71,12 @@ func verifyIntegrity(root: String, checksumsPath: String) -> Bool {
 	return true
 }
 
-/// 执行 node bin/asnip.js [args...]，将调用时的 cwd 传入 ASD_CWD，校验通过则设 ASD_VERIFIED=1。
+/// 执行 node bin/asd-cli.js [args...]，将调用时的 cwd 传入 ASD_CWD，校验通过则设 ASD_VERIFIED=1。
 /// 收到 SIGINT/SIGTERM 时转发给子进程，避免 asd ui 按 Ctrl+C 后 Node 未退出导致 3000 端口被占用。
 func spawnNode(root: String, integrityVerified: Bool) -> Int32 {
-	let asnipPath = (root as NSString).appendingPathComponent("bin/asnip.js")
+	let asnipPath = (root as NSString).appendingPathComponent("bin/asd-cli.js")
 	guard FileManager.default.fileExists(atPath: asnipPath) else {
-		fail("asd: 未找到 bin/asnip.js")
+		fail("asd: 未找到 bin/asd-cli.js")
 	}
 	let nodeArgs = ["node", asnipPath] + Array(CommandLine.arguments.dropFirst())
 	let process = Process()

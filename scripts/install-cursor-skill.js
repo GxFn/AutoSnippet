@@ -1,24 +1,59 @@
 #!/usr/bin/env node
 /**
  * 将 AutoSnippet 自带的 Agent Skills 安装到「当前项目根」的 Cursor 环境（项目根/.cursor/skills/）。
- * 项目根：从当前工作目录向上查找含 AutoSnippetRoot.boxspec.json 的目录；未找到则用当前目录。
- * 对 autosnippet-recipes：会从项目 Knowledge/recipes/（或 spec.recipes.dir）生成 references/project-recipes-context.md，供 Cursor 作为项目上下文加载。
+ * 项目根：从当前工作目录向上查找含 AutoSnippet.boxspec.json 的目录的父级；未找到则用当前目录。
+ * 对 autosnippet-recipes：会从项目 AutoSnippet/recipes/（或 spec.recipes.dir）生成 references/project-recipes-context.md，供 Cursor 作为项目上下文加载。
  * 运行方式：在项目根目录执行 npm run install:cursor-skill，或 asd install:cursor-skill，或 node scripts/install-cursor-skill.js
  */
 
 const fs = require('fs');
 const path = require('path');
-const defaults = require('../lib/infra/defaults');
+const defaults = require('../lib/infrastructure/config/Defaults');
 
 const autoSnippetRoot = path.join(__dirname, '..');
 const skillsSource = path.join(autoSnippetRoot, 'skills');
 
 let projectRoot = process.cwd();
-try {
-	const findPath = require(path.join(autoSnippetRoot, 'bin', 'findPath.js'));
-	const found = findPath.findProjectRootSync(process.cwd());
-	if (found) projectRoot = found;
-} catch (err) {}
+
+// 首先在当前工作目录及其父目录中查找 AutoSnippet.boxspec.json（项目标记）
+// 如果找到，其所在目录的父级就是项目根
+function findProjectRootFromCwd() {
+	let current = path.resolve(process.cwd());
+	const maxLevels = 20;
+	let levels = 0;
+	
+	while (levels < maxLevels) {
+		const boxspecPath = path.join(current, 'AutoSnippet', 'AutoSnippet.boxspec.json');
+		if (fs.existsSync(boxspecPath)) {
+			return current; // 当前目录就是项目根
+		}
+		
+		// 还要检查当前目录本身就是知识库目录的情况（用户直接在 AutoSnippet/ 中运行）
+		const directBoxspec = path.join(current, 'AutoSnippet.boxspec.json');
+		if (fs.existsSync(directBoxspec)) {
+			return path.dirname(current); // 当前是知识库，其父级才是项目根
+		}
+		
+		const parentPath = path.dirname(current);
+		if (parentPath === current) break;
+		current = parentPath;
+		levels++;
+	}
+	
+	return null;
+}
+
+const found = findProjectRootFromCwd();
+if (found) {
+	projectRoot = found;
+} else {
+	// 备选方案：使用PathFinder的查找逻辑
+	try {
+		const findPath = require(path.join(autoSnippetRoot, 'lib', 'infrastructure/paths/PathFinder.js'));
+		const fallback = findPath.findProjectRootSync(process.cwd());
+		if (fallback) projectRoot = fallback;
+	} catch (err) {}
+}
 
 const skillsTarget = path.join(projectRoot, '.cursor', 'skills');
 
@@ -41,7 +76,8 @@ if (!fs.existsSync(skillsTarget)) {
 }
 
 function getRecipesDir(root) {
-	const specPath = path.join(root, defaults.ROOT_SPEC_FILENAME);
+	const Paths = require(path.join(autoSnippetRoot, 'lib', 'infrastructure', 'config', 'Paths.js'));
+	const specPath = Paths.getProjectSpecPath(root);
 	if (!fs.existsSync(specPath)) return path.join(root, defaults.RECIPES_DIR);
 	try {
 		const spec = JSON.parse(fs.readFileSync(specPath, 'utf8'));
@@ -228,6 +264,7 @@ if (fs.existsSync(cursorRulesSource)) {
 		}
 	}
 }
+
 
 // 可选：写入 MCP 配置，使 autosnippet_context_search 等工具可用（连接层封装在此）
 const mcpPath = path.join(projectRoot, '.cursor', 'mcp.json');

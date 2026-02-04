@@ -9,7 +9,7 @@ This skill gives the agent context about the project's **SPM (Swift Package Mana
 
 ## Where the Dependency Structure Lives
 
-- **Path**: `Knowledge/AutoSnippet.spmmap.json` under the **project root**.
+- **Path**: `AutoSnippet/AutoSnippet.spmmap.json` under the **project root**.
 - **Project root**: The directory containing `AutoSnippetRoot.boxspec.json` (same as Recipe context).
 - **Update command**: Run `asd spm-map` (or `asd spmmap`) from the project root to (re)generate or update this file by scanning `Package.swift` files.
 
@@ -50,7 +50,7 @@ When present, `graph` contains:
 
 ## What to Do
 
-1. **Locate the file**: Resolve project root (directory with `AutoSnippetRoot.boxspec.json`), then read `Knowledge/AutoSnippet.spmmap.json`.
+1. **Locate the file**: Resolve project root (directory with `AutoSnippetRoot.boxspec.json`), then read `AutoSnippet/AutoSnippet.spmmap.json`.
 2. **Answer dependency questions**: Use `graph.packages` for package/target layout; use `graph.edges` for "A depends on B" and reverse lookups for "who depends on B."
 3. **Suggest edits**: When suggesting new dependencies or module changes, align with existing `packages` and `products` and the direction of `graph.edges` (no cycles if policy says so).
 4. **If file missing or stale**: Tell the user to run `asd spm-map` from the project root to generate or update the file.
@@ -61,5 +61,5 @@ Use MCP tool `autosnippet_context_search` for on-demand semantic search; pass `q
 
 ## Relation to Other AutoSnippet Skills
 
-- **autosnippet-recipes**: Recipes live under `Knowledge/recipes/`; dep graph lives under `Knowledge/AutoSnippet.spmmap.json`. Both are under the same project root.
+- **autosnippet-recipes**: Recipes live under `AutoSnippet/recipes/`; dep graph lives under `AutoSnippet/AutoSnippet.spmmap.json`. Both are under the same project root.
 - Use **autosnippet-dep-graph** for dependency/structure questions; use **autosnippet-recipes** for code standards and Guard/Recipe content.

@@ -9,7 +9,7 @@
 4. **基础优先**：优先保证非 AI 核心功能的稳定性。
 
 ### 测试覆盖概览
-- **basic**：`asd -v`、`asd init`、`asd root`。
+- **basic**：`asd -v`。
 - **create**：在**自建临时项目**中测试 AI 模式和预置模式，全方位覆盖 **Swift** 和 **OC**。
 - **install**：在自建项目中校验重定向目录下生成至少一个 `.codesnippet` 文件。
 - **search**：验证检索功能。
@@ -26,10 +26,10 @@
 - **test:unit:lance**：LanceDB 适配器本地测试（不纳入 CI）。先 `asd install:full --lancedb`，再 `npm run test:unit:lance`。未安装时自动跳过。
 
 ### 根据修改内容选择测试（`--changed`）
-- **AI 修改完代码后请执行**：`npm run test:changed`（按 git 变更选测），或传入本次修改的文件路径只跑相关测试：`node test/runner.js --changed -- bin/create.js lib/snippet/specRepository.js`。
+- **AI 修改完代码后请执行**：`npm run test:changed`（按 git 变更选测），或传入本次修改的文件路径只跑相关测试：`node test/runner.js --changed -- bin/create-snippet.js lib/snippet/specRepository.js`。
 - **变更来源**（优先级）：1) 命令行 `--` 后的路径；2) 环境变量 `ASD_TEST_CHANGED_FILES`（逗号或换行分隔）；3) `git diff --name-only HEAD`。
-- **路径→套件映射**：`runner.js` 内 `PATH_TO_SUITES` 定义（如 `bin/create.js` → create/update，`lib/watch/fileWatcher.js` → watch）。AI 修改代码后可将本次改动的文件列表写入 `ASD_TEST_CHANGED_FILES`，再执行 `node test/runner.js --changed` 只跑相关测试。
-- **依赖**：若选中的套件包含 create/install/update/search/spmmap/watch 之一，会自动加入 basic，保证 `asd init` 已执行。
+- **路径→套件映射**：`runner.js` 内 `PATH_TO_SUITES` 定义（如 `bin/create-snippet.js` → create/update，`lib/watch/fileWatcher.js` → watch）。AI 修改代码后可将本次改动的文件列表写入 `ASD_TEST_CHANGED_FILES`，再执行 `node test/runner.js --changed` 只跑相关测试。
+- **依赖**：若选中的套件包含 create/install/update/search/spmmap/watch 之一，会自动加入 basic，保证 `asd setup` 已执行。
 
 ## 🛠️ 配置说明
 测试环境路径通过环境变量 `ASD_TEST_HOME` 配置。
@@ -42,14 +42,14 @@ export ASD_TEST_HOME=/path/to/your/test/project
 ## 🚀 运行测试
 
 ```bash
-# 运行全量测试 (使用本地 bin/asnip.js)
+# 运行全量测试 (使用本地 bin/asd-cli.js)
 npm test
 
 # 根据修改内容自动选择测试（AI 修改完代码后可直接跑对应测试）
 npm run test:changed
 # 或：node test/runner.js --changed
 # 变更来源（优先级）：1) 命令行 -- 后的路径；2) 环境变量 ASD_TEST_CHANGED_FILES；3) git diff --name-only HEAD
-# 示例（仅跑与修改文件相关的测试）：node test/runner.js --changed -- bin/create.js lib/snippet/specRepository.js
+# 示例（仅跑与修改文件相关的测试）：node test/runner.js --changed -- bin/create-snippet.js lib/snippet/specRepository.js
 
 # 仅运行指定模块
 node test/runner.js --basic         # 仅 asd -v / init / root

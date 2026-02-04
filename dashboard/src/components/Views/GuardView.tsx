@@ -287,16 +287,16 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
 							</div>
 						</div>
 						<div>
-							<label className="block text-xs font-medium text-slate-600 mb-1">审查规模（可选，as:g 后缀可限定）</label>
-							<select
-								value={addRuleForm.dimension}
-								onChange={e => setAddRuleForm(f => ({ ...f, dimension: e.target.value as '' | 'file' | 'target' | 'project' }))}
-								className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-							>
-								<option value="">不限制（任意 as:g / as:g file / as:g target / as:g project 均运行）</option>
-								<option value="file">同文件（仅 as:g file 时运行）</option>
-								<option value="target">同 target（仅 as:g target 时运行）</option>
-								<option value="project">同项目（仅 as:g project 时运行）</option>
+						<label className="block text-xs font-medium text-slate-600 mb-1">审查规模（可选，as:audit 后缀可限定）</label>
+						<select
+							value={addRuleForm.dimension}
+							onChange={e => setAddRuleForm(f => ({ ...f, dimension: e.target.value as '' | 'file' | 'target' | 'project' }))}
+							className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+						>
+							<option value="">不限制（任意 as:audit / as:audit file / as:audit target / as:audit project 均运行）</option>
+							<option value="file">同文件（仅 as:audit file 时运行）</option>
+							<option value="target">同 target（仅 as:audit target 时运行）</option>
+							<option value="project">同项目（仅 as:audit project 时运行）</option>
 							</select>
 						</div>
 						<div>
@@ -368,7 +368,7 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
 				</h3>
 				{runs.length === 0 ? (
 					<div className="bg-slate-50 border border-slate-200 rounded-xl py-12 text-center text-slate-500">
-						暂无违反记录。在源码中写入 <code className="bg-slate-200 px-1 rounded">// as:guard</code> 并保存，watch 会执行静态规则检查并记录在此。
+					暂无违反记录。在源码中写入 <code className="bg-slate-200 px-1 rounded">// as:audit</code> 并保存，watch 会执行静态规则检查并记录在此。
 					</div>
 				) : (
 					<div className="space-y-2">

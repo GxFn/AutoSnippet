@@ -1,6 +1,6 @@
 {
 	"name": "autosnippet",
-	"version": "1.5.9",
+	"version": "1.6.0",
 	"description": "A iOS module management tool.",
 	"main": "index.js",
 	"scripts": {
@@ -12,26 +12,36 @@
 		"build:native-ui": "swiftc resources/native-ui/main.swift -o resources/native-ui/native-ui -framework AppKit",
 		"install:cursor-skill": "node scripts/install-cursor-skill.js",
 		"install:cursor-skill:mcp": "node scripts/install-cursor-skill.js --mcp",
+		"install:vscode-copilot": "node scripts/install-vscode-copilot.js",
 		"install:full": "node scripts/install-full.js",
 		"verify:context-api": "node scripts/verify-context-api.js",
+		"setup:mcp": "node scripts/setup-mcp-config.js --editor vscode && node scripts/setup-mcp-config.js --editor cursor",
 		"build:dashboard": "cd dashboard && npm run build",
+		"dashboard": "node bin/asd-cli.js ui",
 		"test": "node test/runner.js",
 		"test:unit": "node test/unit/run-all.js",
-		"test:unit:lance": "node test/unit/context-lance.test.js",
 		"test:changed": "node test/runner.js --changed",
 		"test:global": "node test/runner.js --global",
+		"test:integration": "node test/integration/run-tests.js",
+		"test:integration:recipes": "node test/integration/suites/recipes.test.js",
+		"test:integration:permissions": "node test/integration/suites/permissions.test.js",
+		"test:integration:cross-project": "node test/integration/suites/cross-project.test.js",
 		"dev:link": "npm install -g .",
 		"dev:verify": "which asd && asd -v",
-		"dev:ui": "ASD_UI_BUILD=1 node bin/asnip.js ui",
-		"test:init": "node bin/asnip.js init",
-		"test:version": "node bin/asnip.js -v",
-		"test:help": "node bin/asnip.js -h",
-		"test:install": "node bin/asnip.js i",
-		"test:create": "node bin/asnip.js c",
-		"test:share": "node bin/asnip.js s",
-		"test:update": "node bin/asnip.js u",
-		"test:watch": "node bin/asnip.js w",
-		"test:root": "node bin/asnip.js root"
+		"dev:ui": "ASD_UI_BUILD=1 node bin/asd-cli.js ui",
+		"test:init": "node bin/asd-cli.js init",
+		"test:version": "node bin/asd-cli.js -v",
+		"test:help": "node bin/asd-cli.js -h",
+		"test:install": "node bin/asd-cli.js i",
+		"test:create": "node bin/asd-cli.js c",
+		"test:share": "node bin/asd-cli.js s",
+		"test:update": "node bin/asd-cli.js u",
+		"test:watch": "node bin/asd-cli.js w",
+		"test:root": "node bin/asd-cli.js root",
+		"migrate:run": "node scripts/migration/run.js",
+		"migrate:validate": "node scripts/migration/validate.js",
+		"migrate:fix": "node scripts/migration/fix.js",
+		"migrate:guard": "node scripts/migrate-guard-rules.js"
 	},
 	"author": "gaoxuefeng",
 	"license": "MIT",
@@ -51,6 +61,7 @@
 	"dependencies": {
 		"@google/generative-ai": "^0.21.0",
 		"@modelcontextprotocol/sdk": "^1.25.3",
+		"@zilliz/milvus2-sdk-node": "^2.6.9",
 		"axios": "^1.6.7",
 		"chokidar": "^3.6.0",
 		"commander": "^7.2.0",
@@ -91,8 +102,7 @@
 		"lib": "lib",
 		"test": "test"
 	},
-	"optionalDependencies": {
-		"@lancedb/lancedb": "^0.23.0"
-	},
-	"devDependencies": {}
+	"devDependencies": {
+		"mocha": "^11.7.5"
+	}
 }

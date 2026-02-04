@@ -29,6 +29,7 @@ async function testJsonAdapter() {
 	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'as-context-test-'));
 	try {
 		const adapter = new JsonAdapter(tmpDir);
+		await adapter.init();  // 初始化 adapter
 		await adapter.upsert({
 			id: 'test_1',
 			content: 'hello',
@@ -65,7 +66,7 @@ async function testScanPathSource() {
 }
 
 function testPersistencePaths() {
-	const paths = require('../../lib/infra/paths');
+	const paths = require('../../lib/infrastructure/config/Paths');
 	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'as-pers-test-'));
 	try {
 		const storagePath = paths.getContextStoragePath(tmpDir);

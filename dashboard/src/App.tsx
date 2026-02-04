@@ -22,11 +22,12 @@ import SnippetEditor from './components/Modals/SnippetEditor';
 import RecipeEditor from './components/Modals/RecipeEditor';
 import CreateModal from './components/Modals/CreateModal';
 import SearchModal from './components/Modals/SearchModal';
+import XcodeSearchSimulator from './components/Views/XcodeSearchSimulator';
 
 const App: React.FC = () => {
 	const getTabFromPath = (): TabType => {
 		const path = window.location.pathname.replace(/^\//, '').split('/')[0] || '';
-		return (validTabs.includes(path as any) ? path : 'recipes') as any;
+		return (validTabs.includes(path as any) ? path : 'help') as any;
 	};
 
 	// State
@@ -54,6 +55,7 @@ const App: React.FC = () => {
 	const [semanticResults, setSemanticResults] = useState<any[] | null>(null);
 	const [searchAction, setSearchAction] = useState<{ q: string; path: string } | null>(null);
 	const [isSavingRecipe, setIsSavingRecipe] = useState(false);
+	const [showXcodeSimulator, setShowXcodeSimulator] = useState(false);
 
 	const abortControllerRef = useRef<AbortController | null>(null);
 	const chatAbortControllerRef = useRef<AbortController | null>(null);
@@ -172,6 +174,29 @@ const App: React.FC = () => {
 		setLoading(true);
 		try {
 			const res = await axios.get<ProjectData>('/api/data');
+			// 清理候选池中重复的语言版本
+			if (res.data.candidates) {
+				const cleanedCandidates: typeof res.data.candidates = {};
+				Object.entries(res.data.candidates).forEach(([targetName, targetData]) => {
+					const cleanedItems = targetData.items.map(item => {
+						// 清理重复的语言版本：如果 summary_en 和 summary_cn/summary 相同，则删除 summary_en
+						const summary_cn = item.summary_cn || item.summary || '';
+						const summary_en = item.summary_en && item.summary_en !== summary_cn ? item.summary_en : undefined;
+						const usageGuide_cn = item.usageGuide_cn || item.usageGuide || '';
+						const usageGuide_en = item.usageGuide_en && item.usageGuide_en !== usageGuide_cn ? item.usageGuide_en : undefined;
+						
+						return {
+							...item,
+							summary_cn,
+							summary_en,
+							usageGuide_cn,
+							usageGuide_en
+						};
+					});
+					cleanedCandidates[targetName] = { ...targetData, items: cleanedItems };
+				});
+				res.data.candidates = cleanedCandidates;
+			}
 			setData(res.data);
 		} catch (_) {
 		} finally {
@@ -210,15 +235,27 @@ const App: React.FC = () => {
 		setIsExtracting(true);
 		try {
 			const res = await axios.post<{ result: ExtractedRecipe[], isMarked: boolean }>('/api/extract/path', { relativePath: specifiedPath });
-			setScanResults(res.data.result.map(item => ({ 
-				...item, 
-				mode: 'full',
-				lang: 'cn',
-				includeHeaders: true,
-				category: item.category || 'Utility',
-				summary: item.summary_cn || item.summary || '',
-				usageGuide: item.usageGuide_cn || item.usageGuide || ''
-			})));
+			setScanResults(res.data.result.map(item => {
+				// 清理重复的语言版本：如果 summary_en 和 summary_cn/summary 相同，则删除 summary_en
+				const summary_cn = item.summary_cn || item.summary || '';
+				const summary_en = item.summary_en && item.summary_en !== summary_cn ? item.summary_en : undefined;
+				const usageGuide_cn = item.usageGuide_cn || item.usageGuide || '';
+				const usageGuide_en = item.usageGuide_en && item.usageGuide_en !== usageGuide_cn ? item.usageGuide_en : undefined;
+				
+				return {
+					...item,
+					summary_cn,
+					summary_en,
+					usageGuide_cn,
+					usageGuide_en,
+					mode: 'full',
+					lang: 'cn',
+					includeHeaders: true,
+					category: item.category || 'Utility',
+					summary: summary_cn,
+					usageGuide: usageGuide_cn
+				};
+			}));
 			navigateToTab('spm', { preserveSearch: true });
 			setShowCreateModal(false);
 			fetchData();
@@ -237,15 +274,27 @@ const App: React.FC = () => {
 		setIsExtracting(true);
 		try {
 			const res = await axios.post<{ result: ExtractedRecipe[], isMarked: boolean }>('/api/extract/path', { relativePath: createPath });
-			setScanResults(res.data.result.map(item => ({ 
-				...item, 
-				mode: 'full', 
-				lang: 'cn',
-				includeHeaders: true,
-				category: item.category || 'Utility',
-				summary: item.summary_cn || item.summary || '',
-				usageGuide: item.usageGuide_cn || item.usageGuide || ''
-			})));
+			setScanResults(res.data.result.map(item => {
+				// 清理重复的语言版本：如果 summary_en 和 summary_cn/summary 相同，则删除 summary_en
+				const summary_cn = item.summary_cn || item.summary || '';
+				const summary_en = item.summary_en && item.summary_en !== summary_cn ? item.summary_en : undefined;
+				const usageGuide_cn = item.usageGuide_cn || item.usageGuide || '';
+				const usageGuide_en = item.usageGuide_en && item.usageGuide_en !== usageGuide_cn ? item.usageGuide_en : undefined;
+				
+				return {
+					...item,
+					summary_cn,
+					summary_en,
+					usageGuide_cn,
+					usageGuide_en,
+					mode: 'full',
+					lang: 'cn',
+					includeHeaders: true,
+					category: item.category || 'Utility',
+					summary: summary_cn,
+					usageGuide: usageGuide_cn
+				};
+			}));
 			navigateToTab('spm');
 			setShowCreateModal(false);
 			fetchData();
@@ -279,15 +328,25 @@ const App: React.FC = () => {
 				});
 				const item = res.data;
 				
+				// 清理重复的语言版本
+				const summary_cn = item.summary_cn || item.summary || '';
+				const summary_en = item.summary_en && item.summary_en !== summary_cn ? item.summary_en : undefined;
+				const usageGuide_cn = item.usageGuide_cn || item.usageGuide || '';
+				const usageGuide_en = item.usageGuide_en && item.usageGuide_en !== usageGuide_cn ? item.usageGuide_en : undefined;
+				
 				const multipleCount = (item as ExtractedRecipe & { _multipleCount?: number })._multipleCount;
 				setScanResults([{ 
-					...item, 
+					...item,
+					summary_cn,
+					summary_en,
+					usageGuide_cn,
+					usageGuide_en,
 					mode: 'full', 
 					lang: 'cn',
 					includeHeaders: true,
 					category: item.category || 'Utility',
-					summary: item.summary_cn || item.summary || '',
-					usageGuide: item.usageGuide_cn || item.usageGuide || ''
+					summary: summary_cn,
+					usageGuide: usageGuide_cn
 				}]);
 				navigateToTab('spm', { preserveSearch: true });
 				setShowCreateModal(false);
@@ -397,18 +456,34 @@ const App: React.FC = () => {
 		const newResults = [...scanResults];
 		const current = { ...newResults[index], ...updates };
 		
-		if (updates.lang !== undefined) {
+		// 初始化语言字段：确保 summary_cn 有值（作为中文版本的基础）
+		// 但要避免覆盖已存在的 summary_en
+		if (!current.summary_cn && current.summary && !current.summary_en) {
+			// 只有在既没有 summary_cn 也没有 summary_en 时，才初始化 summary_cn
+			current.summary_cn = current.summary;
+		}
+		if (!current.usageGuide_cn && current.usageGuide && !current.usageGuide_en) {
+			// 只有在既没有 usageGuide_cn 也没有 usageGuide_en 时，才初始化 usageGuide_cn
+			current.usageGuide_cn = current.usageGuide;
+		}
+		
+		// 当直接设置 summary/usageGuide（用于翻译后直接显示）时，跳过语言判断
+		// 只有在没有直接提供这些字段时，才根据 lang 来决定使用哪个版本
+		if (updates.lang !== undefined && updates.summary === undefined) {
 			current.summary = updates.lang === 'cn' ? (current.summary_cn || current.summary) : (current.summary_en || current.summary);
+		}
+		if (updates.lang !== undefined && updates.usageGuide === undefined) {
 			current.usageGuide = updates.lang === 'cn' ? (current.usageGuide_cn || current.usageGuide) : (current.usageGuide_en || current.usageGuide);
-		} else {
-			if (updates.summary !== undefined) {
-				if (current.lang === 'cn') current.summary_cn = updates.summary;
-				else current.summary_en = updates.summary;
-			}
-			if (updates.usageGuide !== undefined) {
-				if (current.lang === 'cn') current.usageGuide_cn = updates.usageGuide;
-				else current.usageGuide_en = updates.usageGuide;
-			}
+		}
+		
+		// 编辑 summary 或 usageGuide 时，保存到对应的语言版本
+		if (updates.summary !== undefined && updates.lang === undefined) {
+			if (current.lang === 'cn') current.summary_cn = updates.summary;
+			else current.summary_en = updates.summary;
+		}
+		if (updates.usageGuide !== undefined && updates.lang === undefined) {
+			if (current.lang === 'cn') current.usageGuide_cn = updates.usageGuide;
+			else current.usageGuide_en = updates.usageGuide;
 		}
 
 		newResults[index] = current;
@@ -419,7 +494,12 @@ const App: React.FC = () => {
 		if (isSavingRecipe) return;
 		setIsSavingRecipe(true);
 		try {
-			const triggers = extracted.trigger.split(/[,，\s]+/).map(t => t.trim()).filter(Boolean);
+			const triggers = (extracted.trigger || '').split(/[,，\s]+/).map(t => t.trim()).filter(Boolean);
+			if (triggers.length === 0) {
+				notify('请输入 Trigger', { type: 'error' });
+				setIsSavingRecipe(false);
+				return;
+			}
 			const primarySnippetId = crypto.randomUUID().toUpperCase();
 			
 			if (extracted.mode === 'full') {
@@ -428,12 +508,12 @@ const App: React.FC = () => {
 					const includeHeaders = (extracted as any).includeHeaders !== false;
 					const snippet: Snippet = {
 						identifier: i === 0 ? primarySnippetId : crypto.randomUUID().toUpperCase(),
-						title: triggers.length > 1 ? `${extracted.title} (${t})` : extracted.title,
+						title: triggers.length > 1 ? `${extracted.title || 'Untitled'} (${t})` : (extracted.title || 'Untitled'),
 						completionKey: t,
-						category: extracted.category,
-						summary: extracted.summary,
-						language: extracted.language,
-						content: extracted.code.split('\n'),
+						category: extracted.category || 'Utility',
+						summary: extracted.summary || '',
+						language: extracted.language || 'swift',
+						content: (extracted.code || '').split('\n'),
 						headers: includeHeaders ? (extracted.headers || []) : [],
 						headerPaths: includeHeaders ? (extracted.headerPaths || []) : undefined,
 						moduleName: extracted.moduleName,
@@ -443,28 +523,64 @@ const App: React.FC = () => {
 				}
 			}
 
-			const recipeName = `${extracted.title.replace(/\s+/g, '-')}.md`;
-			const recipeContent = `---
+		const recipeName = `${(extracted.title || 'Untitled').replace(/\s+/g, '-')}.md`;
+		
+		// 准备中英文版本
+		const summary_cn = extracted.summary_cn || extracted.summary || '';
+		const summary_en = extracted.summary_en || extracted.summary || '';
+		const usageGuide_cn = extracted.usageGuide_cn || extracted.usageGuide || '';
+		const usageGuide_en = extracted.usageGuide_en || extracted.usageGuide || '';
+		
+		// 构建 Frontmatter
+		let frontmatter = `---
 id: ${extracted.mode === 'full' ? primarySnippetId : 'preview-only'}
-title: ${extracted.title}
-language: ${extracted.language}
+title: ${extracted.title || 'Untitled Recipe'}
+language: ${extracted.language || 'swift'}
 trigger: ${triggers.join(', ')}
 category: ${extracted.category || 'Utility'}
-summary: ${extracted.summary}
-type: ${extracted.mode}
-headers: ${JSON.stringify(extracted.headers || [])}
----
+summary: ${summary_cn}
+summary_cn: ${summary_cn}`;
 
+		if (summary_en && summary_en !== summary_cn) {
+			frontmatter += `\nsummary_en: ${summary_en}`;
+		}
+		
+		frontmatter += `
+headers: ${JSON.stringify(extracted.headers || [])}`;
+		
+		if (extracted.difficulty) {
+			frontmatter += `\ndifficulty: ${extracted.difficulty}`;
+		}
+		if (extracted.authority) {
+			frontmatter += `\nauthority: ${extracted.authority}`;
+		}
+		
+		frontmatter += `
+version: "1.0.0"
+updatedAt: ${Date.now()}
+---`;
+
+		// 构建正文
+		let body = `
 ## Snippet / Code Reference
 
-\`\`\`${extracted.language}
-${extracted.code}
+\`\`\`${extracted.language || 'swift'}
+${extracted.code || ''}
 \`\`\`
 
 ## AI Context / Usage Guide
 
-${extracted.usageGuide}
-`;
+${usageGuide_cn}`;
+
+		if (usageGuide_en && usageGuide_en !== usageGuide_cn) {
+			body += `
+
+## AI Context / Usage Guide (EN)
+
+${usageGuide_en}`;
+		}
+		
+		const recipeContent = frontmatter + body;
 			await axios.post('/api/recipes/save', { name: recipeName, content: recipeContent });
 			
 			notify(extracted.mode === 'full' ? '已保存为 Snippet 和 Recipe' : '已保存到 KB');
@@ -490,7 +606,37 @@ ${extracted.usageGuide}
 		if (!editingRecipe || isSavingRecipe) return;
 		setIsSavingRecipe(true);
 		try {
-			await axios.post('/api/recipes/save', { name: editingRecipe.name, content: editingRecipe.content });
+			// 清理重复的英文版本：保留只有一份 "## AI Context / Usage Guide (EN)"
+			let cleanedContent = editingRecipe.content;
+			
+			// 用简单的方式：找到第一份英文版本，删除之后的所有重复英文版本
+			const enGuidePattern = '\n## AI Context / Usage Guide (EN)';
+			const firstIndex = cleanedContent.indexOf(enGuidePattern);
+			
+			if (firstIndex !== -1) {
+				// 找第一份英文版本后面是否还有其他 "## AI Context / Usage Guide (EN)"
+				const afterFirst = cleanedContent.substring(firstIndex + enGuidePattern.length);
+				const secondIndex = afterFirst.indexOf(enGuidePattern);
+				
+				if (secondIndex !== -1) {
+					// 有重复，找出第一份的完整范围（到下一个标题或末尾）
+					const nextHeaderMatch = afterFirst.match(/\n## /);
+					let endOfFirst = afterFirst.length;
+					
+					if (nextHeaderMatch && nextHeaderMatch.index !== undefined && nextHeaderMatch.index < secondIndex) {
+						// 第一份英文版本后有其他标题
+						endOfFirst = nextHeaderMatch.index;
+						cleanedContent = cleanedContent.substring(0, firstIndex + enGuidePattern.length) + 
+										  afterFirst.substring(0, endOfFirst);
+					} else {
+						// 第一份英文版本就到文件末尾（或只到第二份之前）
+						cleanedContent = cleanedContent.substring(0, firstIndex + enGuidePattern.length) + 
+										  afterFirst.substring(0, secondIndex);
+					}
+				}
+			}
+			
+			await axios.post('/api/recipes/save', { name: editingRecipe.name, content: cleanedContent });
 			closeRecipeEdit();
 			fetchData();
 		} catch (err) {
@@ -650,6 +796,7 @@ ${extracted.usageGuide}
 					aiConfig={data?.aiConfig}
 					onBeforeAiSwitch={stopCurrentAiTasks}
 					onAiConfigChange={fetchData}
+					setShowXcodeSimulator={setShowXcodeSimulator}
 					onSemanticSearchResults={(results) => {
 						setSemanticResults(results);
 						if (activeTab !== 'recipes' && activeTab !== 'snippets') {
@@ -798,7 +945,13 @@ ${extracted.usageGuide}
 						}}
 					/>
 				)}
-			</main>
+
+			{/* Xcode 搜索模拟器 */}
+			<XcodeSearchSimulator 
+				isOpen={showXcodeSimulator}
+				onClose={() => setShowXcodeSimulator(false)}
+			/>
+		</main>
 		</div>
 	);
 };

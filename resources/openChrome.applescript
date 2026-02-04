@@ -32,10 +32,10 @@ on run argv
 			set found to my lookupTabWithUrl(lookupUrl)
 			if found then
 				-- 复用：激活并导航到目标 URL（支持 as:create / as:search 复用已有 Dashboard 标签）
-				set targetTab's URL to targetUrl
 				set targetWindow's active tab index to targetTabIndex
-				tell targetWindow to activate
 				set index of targetWindow to 1
+				activate
+				set targetTab's URL to targetUrl
 				return
 			end if
 

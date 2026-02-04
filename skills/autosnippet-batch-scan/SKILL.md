@@ -22,7 +22,15 @@ This skill describes **when and how** to use **Cursor as a batch scanning tool**
    Call MCP **`autosnippet_get_target_files`** with `targetName`. Result is the list of source files (path, name) for that Target.
 
 3. **Extract candidates per file**  
-   For each file: read file content (in editor or via Cursor), use **Cursor’s model** to extract Recipe-shaped items (title, summary, trigger, language, code, usageGuide; optional summary_cn, usageGuide_cn, category, headers). Collect into an `items` array.
+   For each file: read file content (in editor or via Cursor), use **Cursor's model** to extract Recipe-shaped items. **Each item should be a SINGLE independent usage pattern** (one specific scenario, one focused code snippet). Extract fields: title, summary, trigger, language, code, usageGuide; optional summary_cn, usageGuide_cn, category, headers.
+   
+   **Important extraction rules**:
+   - ✅ **One Recipe per specific usage**: If a file has 3 different usage patterns (e.g. init, load, refresh), extract 3 separate Recipe items.
+   - ❌ **Don't create mega-Recipes**: Avoid combining multiple patterns ("This module does A, B, C...") into one Recipe.
+   - ✅ **Focus on reusable snippets**: Each Recipe's code block should be a self-contained, copy-pasteable example for ONE scenario.
+   - ✅ **Clear trigger per scenario**: `@ModuleInit`, `@ModuleLoad`, `@ModuleRefresh` — not just `@Module`.
+   
+   Collect into an `items` array.
 
 4. **Submit candidates**  
    Call MCP **`autosnippet_submit_candidates`** with `targetName`, `items`, and optional `source` (e.g. `cursor-scan`), `expiresInHours` (e.g. 24). Candidates are appended to Dashboard for the given target.
@@ -45,6 +53,8 @@ Both feed the same **Candidates** pool; review and save flow in Dashboard is ide
 1. **Recommend only when it fits**: e.g. user wants to scan a Target with Cursor, or wants to compare Cursor vs project AI for extraction.
 2. **Do not hard-code URLs or HTTP**: use MCP tools only. If MCP is unavailable, suggest running `asd ui` and configuring MCP, or using `asd ais [Target]` instead.
 3. **One flow at a time**: get_targets → get_target_files → extract (per file) → submit_candidates. Do not skip steps; each tool is provided by MCP.
+4. **Output via Candidates**: Batch scan outputs candidates via **`autosnippet_submit_candidates`**.
+5. **Hard rule — Single scenario per Recipe**: Each extracted item **must** represent one specific usage scenario. If multiple patterns are found, split into multiple items.
 
 ## Relation to other skills
 

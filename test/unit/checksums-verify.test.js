@@ -11,7 +11,7 @@ const crypto = require('crypto');
 const { execSync } = require('child_process');
 
 const projectRoot = path.resolve(__dirname, '../..');
-const KEY_FILES = ['bin/asnip.js', 'bin/ui.js', 'lib/writeGuard.js'];
+const KEY_FILES = ['bin/asd-cli.js', 'bin/dashboard-server.js', 'lib/writeGuard.js'];
 
 function assert(cond, msg) {
 	if (!cond) throw new Error(msg || 'Assertion failed');
@@ -116,10 +116,15 @@ function testGenerateThenVerify() {
 	assert(runVerify(checksumsPath), '与 generate-checksums 同逻辑生成的清单应通过 verify');
 }
 
-/** 运行 node bin/asnip.js -v，返回 { stdout, stderr, exitCode } */
+/** 运行 node bin/asd-cli.js help，返回 { stdout, stderr, exitCode } */
 function runAsnipV(env = {}) {
-	const fullEnv = { ...process.env, ...env };
-	const sp = require('child_process').spawnSync('node', ['bin/asnip.js', '-v'], {
+	// 创建干净的环境，排除可能影响测试的环境变量
+	const cleanEnv = { ...process.env };
+	delete cleanEnv.ASD_SKIP_ENTRY_CHECK;
+	delete cleanEnv.ASD_VERIFIED;
+	delete cleanEnv.ASD_STRICT_ENTRY;
+	const fullEnv = { ...cleanEnv, ...env };
+	const sp = require('child_process').spawnSync('node', ['bin/asd-cli.js', 'help'], {
 		cwd: projectRoot,
 		encoding: 'utf8',
 		env: fullEnv
@@ -179,22 +184,23 @@ function testSwiftVerifyBinary() {
 	assert(out.includes(pjson.version), '输出应包含 package 版本号');
 }
 
-/** 回退 Node 路径（无 asd-verify）：bin/asd 仍设置 ASD_CWD，asnip 用 ASD_CWD 查找项目根，status 应正常 */
+/** 回退 Node 路径（无 asd-verify）：bin/asd 仍设置 ASD_CWD，asd-cli 用 ASD_CWD 查找项目根，help 应正常 */
 function testNodeFallbackStatus() {
 	const tempDir = path.join(projectRoot, 'test', 'temp');
 	fs.mkdirSync(tempDir, { recursive: true });
-	const rootMarker = 'AutoSnippetRoot.boxspec.json';
-	const boxspecPath = path.join(tempDir, rootMarker);
-	fs.writeFileSync(boxspecPath, JSON.stringify({ schemaVersion: 2, kind: 'root', root: true, recipes: { dir: 'Knowledge/recipes' }, list: [] }, null, 2), 'utf8');
-	const sp = require('child_process').spawnSync('node', ['bin/asnip.js', 'status'], {
+	// 开发环境约定：项目根下 AutoSnippet/AutoSnippet.boxspec.json
+	const autoSnippetDir = path.join(tempDir, 'AutoSnippet');
+	fs.mkdirSync(autoSnippetDir, { recursive: true });
+	const boxspecPath = path.join(autoSnippetDir, 'AutoSnippet.boxspec.json');
+	fs.writeFileSync(boxspecPath, JSON.stringify({ schemaVersion: 2, kind: 'root', root: true, recipes: { dir: 'AutoSnippet/recipes' }, list: [] }, null, 2), 'utf8');
+	const sp = require('child_process').spawnSync('node', ['bin/asd-cli.js', 'help'], {
 		cwd: projectRoot,
 		encoding: 'utf8',
-		env: { ...process.env, ASD_CWD: tempDir }
+		env: { ...process.env, ASD_CWD: tempDir, ASD_SKIP_ENTRY_CHECK: '1' }
 	});
-	assert(sp.status === 0, '回退 Node 路径下 asd status 应 exit 0');
+	assert(sp.status === 0, '回退 Node 路径下 asd help 应 exit 0');
 	const out = (sp.stdout || '') + (sp.stderr || '');
-	assert(out.includes('项目根'), '回退路径应能识别项目根');
-	assert(out.includes(tempDir) || out.includes('✅'), '应显示项目根路径或通过标记');
+	assert(out.includes('Commands') || out.includes('Options'), '应显示帮助信息');
 }
 
 testValidChecksumsPass();

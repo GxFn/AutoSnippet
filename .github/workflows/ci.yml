@@ -29,5 +29,30 @@ jobs:
       - name: Build Dashboard
         run: npm run build:dashboard
 
+      - name: Start Dashboard (background)
+        run: npm run dashboard -- --port 3100 --no-open &
+        env:
+          ASD_SKIP_ENTRY_CHECK: '1'
+          ASD_DISABLE_WRITE_GUARD: '1'
+          ASD_DISABLE_RATE_LIMIT: '1'
+
+      - name: Wait for Dashboard
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:3100/api/health > /dev/null; then
+              echo "Dashboard ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Dashboard not ready"
+          exit 1
+
       - name: Run unit tests
         run: npm run test:unit
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          ASD_DISABLE_WRITE_GUARD: '1'
+          ASD_DISABLE_RATE_LIMIT: '1'

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, RefreshCw, BrainCircuit, Loader2, Cpu, ChevronDown } from 'lucide-react';
+import { Search, Plus, RefreshCw, BrainCircuit, Loader2, Cpu, ChevronDown, Zap } from 'lucide-react';
 import axios from 'axios';
 
 interface AiProvider {
@@ -17,9 +17,10 @@ interface HeaderProps {
 	onSemanticSearchResults?: (results: any[]) => void;
 	onBeforeAiSwitch?: () => void;
 	onAiConfigChange?: () => void;
+	setShowXcodeSimulator?: (show: boolean) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCreateModal, handleSyncToXcode, aiConfig, onSemanticSearchResults, onBeforeAiSwitch, onAiConfigChange }) => {
+const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCreateModal, handleSyncToXcode, aiConfig, onSemanticSearchResults, onBeforeAiSwitch, onAiConfigChange, setShowXcodeSimulator }) => {
 	const [isSemanticSearching, setIsSemanticSearching] = useState(false);
 	const [aiDropdownOpen, setAiDropdownOpen] = useState(false);
 	const [aiProviders, setAiProviders] = useState<AiProvider[]>([]);
@@ -94,6 +95,14 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCre
 				</button>
 			</div>
 			<div className="flex items-center gap-4">
+				<button 
+					onClick={() => setShowXcodeSimulator?.(true)}
+					className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 text-xs font-medium transition-colors"
+					title="Xcode 搜索模拟器"
+				>
+					<Zap size={14} />
+					Xcode 模拟器
+				</button>
 				{aiConfig && (
 					<div className="relative" ref={aiDropdownRef}>
 						<button

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { X, Save, Eye, Edit3, Star, Loader2 } from 'lucide-react';
+import { X, Save, Eye, Edit3, Loader2 } from 'lucide-react';
 import { Recipe } from '../../types';
 import MarkdownWithHighlight from '../Shared/MarkdownWithHighlight';
 
@@ -72,6 +72,18 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
 
 	const { metadata, body } = parseContent(editingRecipe.content || '');
 
+	// 格式化时间戳
+	const formatTimestamp = (ts: number | undefined) => {
+		if (!ts) return '';
+		return new Date(ts).toLocaleString('zh-CN', { 
+			year: 'numeric', 
+			month: '2-digit', 
+			day: '2-digit', 
+			hour: '2-digit', 
+			minute: '2-digit' 
+		});
+	};
+
 	return (
 		<div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
 			<div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl flex flex-col h-[85vh]">
@@ -81,21 +93,19 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
 						<div className="flex items-center gap-2">
 							<span className="text-xs font-medium text-slate-500">权威分</span>
 							{viewMode === 'preview' ? (
-								<span className="text-sm text-slate-700">{(editingRecipe.stats?.authority ?? 0)}</span>
+								<span className="text-sm text-slate-700">{(editingRecipe.stats?.authority ?? 3)}</span>
 							) : (
-								<div className="flex gap-0.5">
-									{[1, 2, 3, 4, 5].map((n) => (
-										<button
-											key={n}
-											type="button"
-											onClick={() => handleSetAuthority(n)}
-											className={`p-1 rounded ${(editingRecipe.stats?.authority ?? 0) >= n ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}
-											title={`设为 ${n} 星`}
-										>
-											<Star size={18} fill={(editingRecipe.stats?.authority ?? 0) >= n ? 'currentColor' : 'none'} />
-										</button>
-									))}
-								</div>
+								<select 
+									className="font-bold text-amber-600 bg-amber-50 border border-amber-100 px-2 py-1 rounded-lg outline-none text-[10px] focus:ring-2 focus:ring-amber-500"
+									value={editingRecipe.stats?.authority ?? 3}
+									onChange={e => handleSetAuthority(parseInt(e.target.value))}
+								>
+									<option value="1">⭐ 1 - Basic</option>
+									<option value="2">⭐⭐ 2 - Good</option>
+									<option value="3">⭐⭐⭐ 3 - Solid</option>
+									<option value="4">⭐⭐⭐⭐ 4 - Great</option>
+									<option value="5">⭐⭐⭐⭐⭐ 5 - Excellent</option>
+								</select>
 							)}
 						</div>
 						<div className="flex bg-slate-100 p-1 rounded-lg mr-4">
@@ -139,23 +149,38 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
 								{Object.keys(metadata).length > 0 && (
 									<div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
 										<h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Recipe Metadata</h3>
-										<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-8">
-											{Object.entries(metadata).map(([key, value]) => (
-												<div key={key} className="flex flex-col">
-													<span className="text-[10px] text-slate-400 font-bold uppercase mb-1">{key}</span>
-													<span className="text-sm text-slate-700 break-all font-medium">
-														{value.startsWith('[') && value.endsWith(']') ? (
-															<div className="flex flex-wrap gap-1 mt-1">
-																{value.slice(1, -1).split(',').map((v, i) => (
-																	<span key={i} className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">{v.trim()}</span>
-																))}
-															</div>
-														) : (
-															value
-														)}
-													</span>
+										<div className="space-y-4">
+											{/* 元数据网格（排除 summary） */}
+											{Object.keys(metadata).filter(k => k !== 'summary').length > 0 && (
+												<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-8">
+													{Object.entries(metadata).filter(([k]) => k !== 'summary').map(([key, value]) => (
+														<div key={key} className="flex flex-col">
+															<span className="text-[10px] text-slate-400 font-bold uppercase mb-1">{key}</span>
+															<span className="text-sm text-slate-700 break-all font-medium">
+																{key === 'updatedAt' ? (
+																	formatTimestamp(parseInt(value))
+																) : value.startsWith('[') && value.endsWith(']') ? (
+																	<div className="flex flex-wrap gap-1 mt-1">
+																		{value.slice(1, -1).split(',').map((v, i) => (
+																			<span key={i} className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">{v.trim()}</span>
+																		))}
+																	</div>
+																) : (
+																	value
+																)}
+															</span>
+														</div>
+													))}
 												</div>
-											))}
+											)}
+											
+											{/* Summary - 在 Metadata 层级最底部独立一行 */}
+											{metadata.summary && (
+												<div className="mt-4">
+													<span className="text-[10px] text-slate-400 font-bold uppercase mb-2 block">Summary</span>
+													<p className="text-sm text-slate-700 leading-relaxed">{metadata.summary}</p>
+												</div>
+											)}
 										</div>
 									</div>
 								)}
