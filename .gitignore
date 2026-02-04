@@ -32,9 +32,9 @@ recipes/async-patterns/
 # 集成测试报告（本地生成，不提交）
 test/integration/reports/
 
-# 临时测试文件（根目录下的测试脚本）
-test-*.js
-diagnose-*.js
+# 临时测试文件（仅根目录下的测试脚本）
+/test-*.js
+/diagnose-*.js
 
 # 日志文件
 *.log
