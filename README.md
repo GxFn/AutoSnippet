@@ -139,10 +139,7 @@ npm run build:parser       # 构建 ParsePackage（需本机已安装 Swift）
 | **项目根** | 含 `AutoSnippetRoot.boxspec.json` 的目录 |
 | **Target** | SPM 模块/编译单元；`asd ais <Target>` 扫描该 Target 下的源码提取候选 |
 
-**详细介绍**：启动 `asd ui` 后访问 Dashboard → **使用说明** 页；或参阅：
-- 📖 **[完整使用说明书](docs/USER_MANUAL.md)**：15,000 字详细文档，涵盖从入门到高级的所有功能
-- 📝 **[使用文档](docs/使用文档.md)**：简明版使用说明（含 Skills 一览、AI 配置、闭环详解等）
-- ⚙️ **[npm 脚本参考](docs/NPM_SCRIPTS_REFERENCE.md)**：所有 npm 命令详细说明和使用示例
+**详细介绍**：启动 `asd ui` 后访问 Dashboard → **使用说明** 页；
 
 ## AutoSnippet 目录与 Git
 
