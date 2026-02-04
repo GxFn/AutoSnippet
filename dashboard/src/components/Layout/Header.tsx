@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, RefreshCw, BrainCircuit, Loader2, Cpu, ChevronDown, Zap } from 'lucide-react';
+import { Search, Plus, RefreshCw, BrainCircuit, Loader2, Cpu, ChevronDown } from 'lucide-react';
 import axios from 'axios';
+import { ICON_SIZES } from '../../constants/icons';
 
 interface AiProvider {
 	id: string;
@@ -17,10 +18,9 @@ interface HeaderProps {
 	onSemanticSearchResults?: (results: any[]) => void;
 	onBeforeAiSwitch?: () => void;
 	onAiConfigChange?: () => void;
-	setShowXcodeSimulator?: (show: boolean) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCreateModal, handleSyncToXcode, aiConfig, onSemanticSearchResults, onBeforeAiSwitch, onAiConfigChange, setShowXcodeSimulator }) => {
+const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCreateModal, handleSyncToXcode, aiConfig, onSemanticSearchResults, onBeforeAiSwitch, onAiConfigChange }) => {
 	const [isSemanticSearching, setIsSemanticSearching] = useState(false);
 	const [aiDropdownOpen, setAiDropdownOpen] = useState(false);
 	const [aiProviders, setAiProviders] = useState<AiProvider[]>([]);
@@ -74,7 +74,7 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCre
 		<header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
 			<div className="flex items-center gap-4">
 				<div className="relative w-96">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+					<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={ICON_SIZES.md} />
 					<input 
 						type="text" 
 						placeholder="Search knowledge..." 
@@ -90,19 +90,11 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCre
 					className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all ${isSemanticSearching ? 'bg-blue-50 text-blue-400' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
 					title="Semantic Search (Brain AI)"
 				>
-					{isSemanticSearching ? <Loader2 size={14} className="animate-spin" /> : <BrainCircuit size={14} />}
+					{isSemanticSearching ? <Loader2 size={ICON_SIZES.sm} className="animate-spin" /> : <BrainCircuit size={ICON_SIZES.sm} />}
 					Semantic
 				</button>
 			</div>
 			<div className="flex items-center gap-4">
-				<button 
-					onClick={() => setShowXcodeSimulator?.(true)}
-					className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 text-xs font-medium transition-colors"
-					title="Xcode 搜索模拟器"
-				>
-					<Zap size={14} />
-					Xcode 模拟器
-				</button>
 				{aiConfig && (
 					<div className="relative" ref={aiDropdownRef}>
 						<button
@@ -111,9 +103,9 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCre
 							className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium hover:bg-slate-200 transition-colors"
 							title="点击切换 AI 提供商"
 						>
-							<Cpu size={14} />
+							<Cpu size={ICON_SIZES.sm} />
 							{aiConfig.provider} / {aiConfig.model}
-							<ChevronDown size={12} className={aiDropdownOpen ? 'rotate-180' : ''} />
+							<ChevronDown size={ICON_SIZES.xs} className={aiDropdownOpen ? 'rotate-180' : ''} />
 						</button>
 						{aiDropdownOpen && (
 							<div className="absolute top-full right-0 mt-1 py-1 rounded-lg border border-slate-200 bg-white shadow-lg z-50 min-w-[200px]">
@@ -140,10 +132,10 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCre
 					</div>
 				)}
 				<button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors">
-					<Plus size={16} /> New Recipe
+					<Plus size={ICON_SIZES.md} /> New Recipe
 				</button>
 				<button onClick={handleSyncToXcode} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
-					<RefreshCw size={16} /> Sync to Xcode
+					<RefreshCw size={ICON_SIZES.md} /> Sync to Xcode
 				</button>
 			</div>
 		</header>

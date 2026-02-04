@@ -3,6 +3,7 @@ import { Edit3, Trash2 } from 'lucide-react';
 import { Recipe } from '../../types';
 import { categoryConfigs } from '../../constants';
 import Pagination from '../Shared/Pagination';
+import { ICON_SIZES } from '../../constants/icons';
 
 interface RecipesViewProps {
 	recipes: Recipe[];
@@ -54,8 +55,8 @@ const RecipesView: React.FC<RecipesViewProps> = ({
 				{paginatedRecipes.map((recipe) => (
 				<div key={recipe.name} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group relative">
 					<div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-						<button onClick={(e) => { e.stopPropagation(); openRecipeEdit(recipe); }} className="p-1.5 bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"><Edit3 size={14} /></button>
-						<button onClick={(e) => { e.stopPropagation(); handleDeleteRecipe(recipe.name); }} className="p-1.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"><Trash2 size={14} /></button>
+						<button onClick={(e) => { e.stopPropagation(); openRecipeEdit(recipe); }} className="p-1.5 bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"><Edit3 size={ICON_SIZES.sm} /></button>
+						<button onClick={(e) => { e.stopPropagation(); handleDeleteRecipe(recipe.name); }} className="p-1.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"><Trash2 size={ICON_SIZES.sm} /></button>
 					</div>
 					<div onClick={() => openRecipeEdit(recipe)} className="cursor-pointer">
 						<div className="flex justify-between items-center mb-2 pr-12">
@@ -67,7 +68,7 @@ const RecipesView: React.FC<RecipesViewProps> = ({
 									const Icon = config.icon;
 									return (
 										<span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase flex items-center gap-1 border ${config.bg} ${config.color} ${config.border}`}>
-											<Icon size={10} />
+											<Icon size={ICON_SIZES.xs} />
 											{category}
 										</span>
 									);

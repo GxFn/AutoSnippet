@@ -22,7 +22,6 @@ import SnippetEditor from './components/Modals/SnippetEditor';
 import RecipeEditor from './components/Modals/RecipeEditor';
 import CreateModal from './components/Modals/CreateModal';
 import SearchModal from './components/Modals/SearchModal';
-import XcodeSearchSimulator from './components/Views/XcodeSearchSimulator';
 
 const App: React.FC = () => {
 	const getTabFromPath = (): TabType => {
@@ -55,7 +54,6 @@ const App: React.FC = () => {
 	const [semanticResults, setSemanticResults] = useState<any[] | null>(null);
 	const [searchAction, setSearchAction] = useState<{ q: string; path: string } | null>(null);
 	const [isSavingRecipe, setIsSavingRecipe] = useState(false);
-	const [showXcodeSimulator, setShowXcodeSimulator] = useState(false);
 
 	const abortControllerRef = useRef<AbortController | null>(null);
 	const chatAbortControllerRef = useRef<AbortController | null>(null);
@@ -796,7 +794,6 @@ ${usageGuide_en}`;
 					aiConfig={data?.aiConfig}
 					onBeforeAiSwitch={stopCurrentAiTasks}
 					onAiConfigChange={fetchData}
-					setShowXcodeSimulator={setShowXcodeSimulator}
 					onSemanticSearchResults={(results) => {
 						setSemanticResults(results);
 						if (activeTab !== 'recipes' && activeTab !== 'snippets') {
@@ -946,11 +943,6 @@ ${usageGuide_en}`;
 					/>
 				)}
 
-			{/* Xcode 搜索模拟器 */}
-			<XcodeSearchSimulator 
-				isOpen={showXcodeSimulator}
-				onClose={() => setShowXcodeSimulator(false)}
-			/>
 		</main>
 		</div>
 	);

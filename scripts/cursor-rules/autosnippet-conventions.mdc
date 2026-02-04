@@ -17,17 +17,18 @@ These rules are written when installing AutoSnippet Skills (`asd install:cursor-
 ## Project basics (for AI)
 
 - **Project root**: directory containing `*.boxspec.json` (this repo: `AutoSnippet.boxspec.json`).
-- **Knowledge base**: `Knowledge/` (read-only for AI).
-- **Recipes**: `Knowledge/recipes/*.md` (Markdown + Frontmatter + Snippet/Usage Guide).
-- **Snippets**: `Knowledge/snippets/*.json` or root spec `list`.
-- **Candidates**: `Knowledge/.autosnippet/candidates.json` (reviewed in Dashboard).
-- **Vector index**: `Knowledge/.autosnippet/context/` (`asd embed`).
-- **Recipe stats**: `Knowledge/.autosnippet/recipe-stats.json` (usage + authority).
-- **Weights**: `Knowledge/.autosnippet/recipe-stats-weights.json` or boxspec `recipes.statsWeights`.
+- **Knowledge base**: `AutoSnippet/` (read-only for AI).
+- **Recipes**: `AutoSnippet/recipes/*.md` (Markdown + Frontmatter + Snippet/Usage Guide; path is fixed).
+- **Snippets**: `AutoSnippet/snippets/*.json` or root spec `list`.
+- **Candidates**: `AutoSnippet/.autosnippet/candidates.json` (reviewed in Dashboard).
+- **Vector index**: `AutoSnippet/.autosnippet/context/` (`asd embed`).
+- **Recipe stats**: `AutoSnippet/.autosnippet/recipe-stats.json` (usage + authority).
+- **Weights**: `AutoSnippet/.autosnippet/recipe-stats-weights.json` or boxspec `recipes.statsWeights`.
 
 ## Knowledge base and submission
 
-- **Do not edit** `Knowledge/recipes/` or `Knowledge/snippets/` directly; all Recipe/Snippet changes go through Dashboard and are saved after human review.
+- **Do not edit** `AutoSnippet/recipes/` or `AutoSnippet/snippets/` directly; all Recipe/Snippet changes go through Dashboard and are saved after human review.
+- **Path is fixed**: Recipes are always stored in `AutoSnippet/recipes/`; this path cannot be customized.
 - **Search**: When you need Recipe/docs on demand, use MCP tool `autosnippet_context_search` (pass `query`, `limit?`) or read `.cursor/skills/autosnippet-recipes/references/project-recipes-context.md`. Search returns content only; it does not trigger any adoption form.
 - **Retry policy**: If an MCP call fails, do not retry within the same agent turn; fall back to static docs or already-read context.
 - **Adoption form**: Tool `autosnippet_confirm_recipe_usage` shows a “confirm use?” dialog. **Meaning**: On confirm, it records one human usage (humanUsageCount +1) for the recipe and affects usage stats and authority ranking. You may **decide when to show it** (e.g. when the user explicitly says they adopt, or when you infer they have adopted the recipe). Do not show it right after presenting a recipe or when the user only asks “should I adopt?”—then just answer. Pass the recipe file name(s) (e.g. from sourcePath basename).

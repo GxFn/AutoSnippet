@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { RefreshCw, Layers } from 'lucide-react';
+import { ICON_SIZES } from '../../constants/icons';
 
 interface DepGraphNode {
 	id: string;
@@ -8,6 +9,7 @@ interface DepGraphNode {
 	type: string;
 	packageDir?: string;
 	packageSwift?: string;
+	packageName?: string;
 	targets?: string[];
 }
 
@@ -101,12 +103,13 @@ const DepGraphView: React.FC = () => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+	const [graphLevel, setGraphLevel] = useState<'package' | 'target'>('package');
 
 	const fetchGraph = async () => {
 		setLoading(true);
 		setError(null);
 		try {
-			const res = await axios.get<DepGraphData>('/api/dep-graph');
+			const res = await axios.get<DepGraphData>(`/api/dep-graph?level=${graphLevel}`);
 			const raw = res.data;
 			setData({
 				nodes: Array.isArray(raw?.nodes) ? raw.nodes : [],
@@ -123,7 +126,7 @@ const DepGraphView: React.FC = () => {
 
 	useEffect(() => {
 		fetchGraph();
-	}, []);
+	}, [graphLevel]);
 
 	const nodes = Array.isArray(data?.nodes) ? data.nodes : [];
 	const edges = Array.isArray(data?.edges) ? data.edges : [];
@@ -209,7 +212,7 @@ const DepGraphView: React.FC = () => {
 			<div className="flex flex-wrap items-center justify-between gap-4">
 				<div className="flex items-center gap-3">
 					<div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 border border-blue-100">
-						<Layers size={22} className="text-blue-600" />
+							<Layers size={ICON_SIZES.lg} className="text-blue-600" />
 					</div>
 					<div>
 						<h2 className="text-xl font-bold text-slate-900">项目依赖关系图</h2>
@@ -225,10 +228,12 @@ const DepGraphView: React.FC = () => {
 				</div>
 				<button
 					type="button"
-					onClick={fetchGraph}
+					onClick={() => {
+						fetchGraph();
+					}}
 					className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium text-sm shadow-sm transition-colors"
 				>
-					<RefreshCw size={16} /> 刷新
+					<RefreshCw size={ICON_SIZES.md} /> 刷新
 				</button>
 			</div>
 
@@ -400,6 +405,11 @@ const DepGraphView: React.FC = () => {
 						))}
 					</ul>
 				</div>
+			{graphLevel === 'target' && (
+				<p className="text-xs text-slate-500 mt-2">
+					Target 级节点格式：<span className="font-mono">Package::Target</span>
+				</p>
+			)}
 			</div>
 		</div>
 	);

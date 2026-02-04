@@ -15,6 +15,7 @@ function registerSpmRoutes(app, ctx) {
 	// API: 获取项目 SPM 依赖关系图（优先读 spmmap 全解析结果，用于前端「依赖关系图」页展示）
 	app.get('/api/dep-graph', async (req, res) => {
 		try {
+			const level = String(req.query?.level || 'package');
 			const knowledgeDir = Paths.getProjectKnowledgePath(projectRoot);
 			const mapPath = path.join(knowledgeDir, 'AutoSnippet.spmmap.json');
 			let graph = null;
@@ -31,18 +32,48 @@ function registerSpmRoutes(app, ctx) {
 			if (!graph || !graph.packages) {
 				return res.json({ nodes: [], edges: [], projectRoot: null });
 			}
-			const nodes = Object.keys(graph.packages).map((id) => ({
-				id,
-				label: id,
-				type: 'package',
-				packageDir: graph.packages[id]?.packageDir,
-				packageSwift: graph.packages[id]?.packageSwift,
-				targets: graph.packages[id]?.targets,
-			}));
-			const edges = [];
-			for (const [from, tos] of Object.entries(graph.edges || {})) {
-				for (const to of tos || []) {
-					edges.push({ from, to });
+			let nodes = [];
+			let edges = [];
+
+			if (level === 'target') {
+				const nodeList = [];
+				const baseEdges = [];
+				for (const [pkgName, pkgInfo] of Object.entries(graph.packages)) {
+					const targetsInfo = pkgInfo?.targetsInfo || {};
+					for (const [targetName, info] of Object.entries(targetsInfo)) {
+						const id = `${pkgName}::${targetName}`;
+						nodeList.push({
+							id,
+							label: targetName,
+							type: 'target',
+							packageName: pkgName,
+						});
+						const deps = info?.dependencies || [];
+						for (const d of deps) {
+							const depName = d?.name;
+							if (!depName) continue;
+							const depPkg = d?.package || pkgName;
+							const toId = `${depPkg}::${depName}`;
+							baseEdges.push({ from: id, to: toId, source: 'base' });
+						}
+					}
+				}
+
+				nodes = nodeList;
+				edges = baseEdges;
+			} else {
+				nodes = Object.keys(graph.packages).map((id) => ({
+					id,
+					label: id,
+					type: 'package',
+					packageDir: graph.packages[id]?.packageDir,
+					packageSwift: graph.packages[id]?.packageSwift,
+					targets: graph.packages[id]?.targets,
+				}));
+				for (const [from, tos] of Object.entries(graph.edges || {})) {
+					for (const to of tos || []) {
+						edges.push({ from, to, source: 'base' });
+					}
 				}
 			}
 			res.json({
@@ -56,6 +87,7 @@ function registerSpmRoutes(app, ctx) {
 			res.status(500).json({ error: err.message });
 		}
 	});
+
 
 	// API: 获取 Target 将要扫描的文件列表（不调用 AI）。支持 body.target 或 body.targetName（按名称查 target）
 	app.post('/api/spm/target-files', async (req, res) => {

@@ -20,7 +20,7 @@ This skill tells the agent how to **submit module usage code** (that Cursor has 
 8. **Alternative (in editor)**: User adds **`// as:create`** in the source file, copies the code (or keeps the code you just wrote), saves the file → **watch** (from `asd watch` or `asd ui`) opens the Dashboard with current file path and clipboard → user completes "Use Copied Code" in the web, **reviews**, and saves → added to knowledge base.
 9. **Draft & clipboard auto-add**: When you write to **`_draft_recipe.md`** (project root) or user uses **`// as:create`** with clipboard content, **watch** automatically reads the draft/clipboard, adds it to **Candidates** (target `_draft` or `_watch`), and shows a **friendly prompt** (e.g. "已创建候选「xxx」，请在 Candidates 页审核" in notification and console). User only needs to open Dashboard **Candidates** to review and save — no manual copy-paste required.
 10. **Multiple recipes**: Prefer **one .md file per Recipe** in a draft folder (e.g. `.autosnippet-drafts/`), call **`autosnippet_submit_draft_recipes`** with the list of file paths, then **delete the draft folder** after submit. Do not use one big file for many Recipes.
-11. **Project root** = directory with `AutoSnippetRoot.boxspec.json`. All commands run from the project root.
+11. **Project root** = directory with `AutoSnippet/AutoSnippet.boxspec.json`. All commands run from the project root.
 
 ---
 

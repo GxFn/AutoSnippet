@@ -23,10 +23,11 @@ const fs = require('fs');
 const path = require('path');
 
 // 入口校验：包内存在 checksums.json 且未经过 asd-verify（无 ASD_VERIFIED）时，可拒跑或警告，避免绕过完整性校验直接运行 node bin/asd-cli.js
+// 开发环境可设 ASD_SKIP_CHECKSUMS=1 或 ASD_SKIP_ENTRY_CHECK=1 来跳过检查
 const pkgRoot = path.join(__dirname, '..');
 const checksumsPath = path.join(pkgRoot, 'checksums.json');
-if (fs.existsSync(checksumsPath) && process.env.ASD_VERIFIED !== '1') {
-	const msg = 'asd: 未经过完整性校验入口（请使用 asd 命令，勿直接运行 node bin/asd-cli.js）。开发/调试可设 ASD_SKIP_ENTRY_CHECK=1 跳过。';
+if (fs.existsSync(checksumsPath) && process.env.ASD_VERIFIED !== '1' && process.env.ASD_SKIP_CHECKSUMS !== '1') {
+	const msg = 'asd: 未经过完整性校验入口（请使用 asd 命令，勿直接运行 node bin/asd-cli.js）。开发/调试可设 ASD_SKIP_CHECKSUMS=1 或 ASD_SKIP_ENTRY_CHECK=1 跳过。';
 	if (process.env.ASD_STRICT_ENTRY === '1') {
 		console.error(msg);
 		process.exit(1);

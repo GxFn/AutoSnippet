@@ -7,6 +7,7 @@ import { categoryConfigs } from '../../constants';
 import CodeBlock from '../Shared/CodeBlock';
 import MarkdownWithHighlight, { stripFrontmatter } from '../Shared/MarkdownWithHighlight';
 import Pagination from '../Shared/Pagination';
+import { ICON_SIZES } from '../../constants/icons';
 
 interface SimilarRecipe { recipeName: string; similarity: number; }
 
@@ -115,7 +116,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({ data, isShellTarget, is
 	return (
 		<div className="flex-1 flex flex-col overflow-hidden">
 			<div className="mb-4 flex justify-between items-center shrink-0">
-				<h2 className="text-xl font-bold flex items-center gap-2"><Zap className="text-amber-500" /> AI Scan Candidates</h2>
+				<h2 className="text-xl font-bold flex items-center gap-2"><Zap className="text-amber-500" size={ICON_SIZES.lg} /> AI Scan Candidates</h2>
 				<div className="text-xs text-slate-400 bg-slate-100 px-3 py-1 rounded-full">
 					这些内容由 AI 批量扫描生成，等待您的审核入库。
 				</div>
@@ -141,7 +142,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({ data, isShellTarget, is
 											? 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm'
 											: 'bg-slate-50/80 text-slate-600 border-slate-100 hover:border-slate-200 hover:bg-slate-100'}`}
 								>
-									{isShell ? <Box size={14} className={isSelected ? 'text-blue-500' : 'text-slate-400'} /> : <Box size={14} className={isSelected ? 'text-blue-600' : 'text-slate-500'} />}
+									{isShell ? <Box size={ICON_SIZES.sm} className={isSelected ? 'text-blue-500' : 'text-slate-400'} /> : <Box size={ICON_SIZES.sm} className={isSelected ? 'text-blue-600' : 'text-slate-500'} />}
 									<span>{targetName}</span>
 									{isSilent && silentLabel && <span className="text-[9px] text-amber-600 border border-amber-200 px-1 rounded">{silentLabel}</span>}
 									<span className="text-[10px] font-normal text-slate-400">({count})</span>
@@ -155,7 +156,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({ data, isShellTarget, is
 			<div className="flex-1 overflow-y-auto pr-2">
 				{(!data?.candidates || Object.keys(data.candidates).length === 0) && (
 					<div className="h-64 flex flex-col items-center justify-center bg-white rounded-2xl border border-dashed border-slate-200 text-slate-400">
-						<FileSearch size={48} className="mb-4 opacity-20" />
+						<FileSearch size={ICON_SIZES.xxxl} className="mb-4 opacity-20" />
 						<p>未发现候选内容。</p>
 						<p className="mt-2 text-xs">可执行 <code>asd ais --all</code> 扫描，或 <code>asd candidate</code> 从剪贴板创建，或在代码中写 <code>// as:create</code> 后保存。</p>
 					</div>
@@ -197,7 +198,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({ data, isShellTarget, is
 						return (
 							<div key={targetName} className="space-y-4">
 								<div className={`flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-100 ${isShell ? 'bg-slate-50/50' : 'bg-white'}`}>
-									{isShell ? <Box size={18} className="text-slate-400" /> : <Box size={18} className="text-blue-600" />}
+									{isShell ? <Box size={ICON_SIZES.md} className="text-slate-400" /> : <Box size={ICON_SIZES.md} className="text-blue-600" />}
 									<span className={`text-lg font-bold ${isShell ? 'text-slate-400' : 'text-slate-800'}`}>{targetName}</span>
 									{isSilent && <span className="text-[10px] font-bold text-amber-600 border border-amber-200 px-1 rounded ml-2">{silentLabel}</span>}
 									{isShell && !isSilent && <span className="text-[10px] font-bold text-slate-300 border border-slate-200 px-1 rounded ml-2">SHELL MODULE</span>}
@@ -245,14 +246,14 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({ data, isShellTarget, is
 														<span className={`w-fit mt-1 text-[8px] font-bold px-1.5 py-0.5 rounded uppercase flex items-center gap-1 border ${categoryConfigs[cand.category]?.bg || 'bg-slate-50'} ${categoryConfigs[cand.category]?.color || 'text-slate-400'} ${categoryConfigs[cand.category]?.border || 'border-slate-100'}`}>
 															{(() => {
 																const Icon = categoryConfigs[cand.category]?.icon || Layers;
-																return <Icon size={10} />;
+																return <Icon size={ICON_SIZES.xs} />;
 															})()}
 															{cand.category}
 														</span>
 													)}
 												</div>
 												<div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-													<button onClick={() => handleDeleteCandidate(targetName, cand.id)} title="忽略" className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-colors"><Trash2 size={14} /></button>
+													<button onClick={() => handleDeleteCandidate(targetName, cand.id)} title="忽略" className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-colors"><Trash2 size={ICON_SIZES.sm} /></button>
 												</div>
 											</div>
 											<p className="text-xs text-slate-500 line-clamp-2 mb-4 flex-1 h-8 leading-relaxed">{cand.summary}</p>
@@ -276,7 +277,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({ data, isShellTarget, is
 																			className="text-[10px] font-bold px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors flex items-center gap-1"
 																			title={`与 ${s.recipeName} 相似 ${(s.similarity * 100).toFixed(0)}%，点击对比`}
 																		>
-																			<GitCompare size={10} />
+																			<GitCompare size={ICON_SIZES.xs} />
 																			{s.recipeName.replace(/\.md$/i, '')} {(s.similarity * 100).toFixed(0)}%
 																		</button>
 																	))
@@ -303,13 +304,13 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({ data, isShellTarget, is
 														className={`p-1.5 rounded-lg transition-colors ${expandedId === cand.id ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400 hover:text-blue-600'}`}
 														title={expandedId === cand.id ? "隐藏预览" : "查看代码/指南预览"}
 													>
-														{expandedId === cand.id ? <EyeOff size={14} /> : <Eye size={14} />}
+														{expandedId === cand.id ? <EyeOff size={ICON_SIZES.sm} /> : <Eye size={ICON_SIZES.sm} />}
 													</button>
 													<span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${isShell ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-600'}`}>{cand.trigger}</span>
 													<span className="text-[10px] text-slate-400 uppercase font-bold">{cand.language}</span>
 												</div>
 												<button onClick={() => onAuditCandidate(cand, targetName)} className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1">
-													<Edit3 size={12} /> 审核并保存
+													<Edit3 size={ICON_SIZES.xs} /> 审核并保存
 												</button>
 											</div>
 										</div>
@@ -392,20 +393,20 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({ data, isShellTarget, is
 									<button onClick={handleAuditCandidate} className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded">审核候选</button>
 									<button onClick={handleEditRecipe} className="text-xs text-emerald-600 hover:bg-emerald-50 px-2 py-1 rounded">审核 Recipe</button>
 								</div>
-								<button onClick={() => setCompareModal(null)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors"><X size={18} /></button>
+								<button onClick={() => setCompareModal(null)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors"><X size={ICON_SIZES.lg} /></button>
 							</div>
 							<div className="flex-1 grid grid-cols-2 overflow-hidden min-h-0" style={{ gridTemplateRows: 'auto 1fr' }}>
 								<div className="px-4 py-3 bg-blue-50 border-b border-r border-slate-100 flex flex-col justify-center min-h-0">
 									<div className="flex items-center justify-between gap-2">
 										<span className="text-sm font-bold text-blue-700 truncate flex-1 min-w-0" title={cand.title}>候选：{cand.title}</span>
-										<button onClick={copyCandidate} className="p-1.5 hover:bg-blue-100 rounded-lg text-blue-600 shrink-0" title="复制"> <Copy size={14} /> </button>
+										<button onClick={copyCandidate} className="p-1.5 hover:bg-blue-100 rounded-lg text-blue-600 shrink-0" title="复制"> <Copy size={ICON_SIZES.sm} /> </button>
 									</div>
 									<div className="min-h-[28px] mt-2 shrink-0" />
 								</div>
 								<div className="px-4 py-3 bg-emerald-50 border-b border-slate-100 flex flex-col justify-center min-h-0">
 									<div className="flex items-center justify-between gap-2">
 										<span className="text-sm font-bold text-emerald-700 truncate flex-1 min-w-0" title={compareModal.recipeName}>Recipe：{compareModal.recipeName.replace(/\.md$/i, '')}</span>
-										<button onClick={copyRecipe} className="p-1.5 hover:bg-emerald-100 rounded-lg text-emerald-600 shrink-0" title="复制"> <Copy size={14} /> </button>
+										<button onClick={copyRecipe} className="p-1.5 hover:bg-emerald-100 rounded-lg text-emerald-600 shrink-0" title="复制"> <Copy size={ICON_SIZES.sm} /> </button>
 									</div>
 									{compareModal.similarList.length > 1 ? (
 										<div className="flex flex-wrap gap-1 mt-2 shrink-0">

@@ -17,9 +17,10 @@ const create = require('./create-snippet.js');
 const watch = require('../lib/watch/fileWatcher.js');
 const cache = require('../lib/infrastructure/cache/CacheStore.js');
 const pjson = require('../package.json');
+const swiftParserClient = require('../lib/infrastructure/external/spm/swiftParserClient');
 
 function registerCommands(cmd, ctx) {
-	const { CMD_PATH, findPath, install, create, watch, cache, helpers, inquirer, fs, execSync, pjson } = ctx;
+	const { CMD_PATH, findPath, install, create, watch, cache, helpers, inquirer, fs, execSync, pjson, spmDepMapUpdater } = ctx;
 
 	// 配置 version 选项
 	cmd.version(pjson.version, '-v, --version', 'output the current version');
@@ -129,8 +130,8 @@ function registerCommands(cmd, ctx) {
 				}
 			}
 			
-// Step 4: 安装依赖和配置工具链
-		console.log('🔧 步骤 4/4：安装依赖和配置工具链...\n');
+			// Step 4: 安装依赖和配置工具链
+			console.log('🔧 步骤 4/5：安装依赖和配置工具链...\n');
 		
 		// 查找 asd 安装位置（全局或本地）
 		let asdPath;
@@ -229,6 +230,33 @@ function registerCommands(cmd, ctx) {
 				}
 			}
 			
+			// Step 5: 生成 spmmap（依赖 Swift 解析器）
+			console.log('🧭 步骤 5/5：生成依赖图 AutoSnippet.spmmap.json...');
+			const parserBin = swiftParserClient.getParserBin(projectRoot);
+			if (!parserBin) {
+				console.warn('⚠️ 未检测到 Swift 解析器（ParsePackage），已跳过 spmmap 生成。');
+				console.warn('   请先安装解析器：asd install:full --parser');
+				console.warn('   安装完成后请重新执行：asd setup\n');
+			} else {
+				try {
+					const result = await spmDepMapUpdater.updateSpmDepMap(projectRoot, {
+						aggressive: true,
+						requireParser: true
+					});
+					if (result && result.ok) {
+						console.log('✅ spmmap 已生成/更新\n');
+					} else if (result && result.reason === 'parserMissing') {
+						console.warn('⚠️ 未检测到 Swift 解析器（ParsePackage），已跳过 spmmap 生成。');
+						console.warn('   请先安装解析器：asd install:full --parser');
+						console.warn('   安装完成后请重新执行：asd setup\n');
+					} else {
+						console.warn('⚠️ spmmap 生成失败，请检查 Package.swift 或解析器状态\n');
+					}
+				} catch (err) {
+					console.warn(`⚠️ spmmap 生成失败：${err.message}\n`);
+				}
+			}
+
 			console.log('\n========================================');
 			console.log('✅ 工作空间初始化完成！');
 			console.log('========================================\n');
@@ -236,10 +264,27 @@ function registerCommands(cmd, ctx) {
 			console.log('📁 Recipe 目录: AutoSnippet/recipes/');
 			console.log('⚙️  VSCode MCP: .vscode/settings.json');
 			console.log('⚙️  Cursor MCP: .cursor/mcp.json\n');
-			console.log('🚀 后续步骤：');
-			console.log('  1. 重启编辑器 (VSCode/Cursor)');
+			
+			// Step 6: 初始化 Xcode Snippets（仅在 macOS）
+			if (process.platform === 'darwin') {
+				console.log('🚀 步骤 6/6：初始化 Xcode Snippets...');
+				try {
+					const { initialize: initXcodeSnippets } = require('../scripts/init-xcode-snippets.js');
+					const success = await initXcodeSnippets();
+					if (success) {
+						console.log('✅ Xcode Snippets 已添加\n');
+					}
+				} catch (err) {
+					console.warn(`⚠️  Xcode Snippets 初始化失败：${err.message}`);
+					console.warn('   可稍后手动运行：npm run init:snippets\n');
+				}
+			}
+			
+			console.log('🎯 后续步骤：');
+			console.log('  1. 重启编辑器 (VSCode/Cursor/Xcode)');
 			console.log('  2. 测试 MCP: @autosnippet search');
-			console.log('  3. 启动面板: asd ui\n');
+			console.log('  3. 在 Xcode 中输入 "ass" 尝试 Snippet');
+			console.log('  4. 启动面板: asd ui\n');
 		});
 
 
@@ -393,11 +438,26 @@ function registerCommands(cmd, ctx) {
 		.option('-s, --skip-spm', 'skip SPM scanning')
 		.description('recognize that Snippet automatically injects dependency header files')
 		.action((options) => {
-			const args = {
-				skipSpm: options.skipSpm || false,
-				projectRoot: CMD_PATH,
-			};
-			watch.watch(args);
+			// 使用异步版本来确保得到结果或超时
+			const timeoutId = setTimeout(() => {
+				console.error('❌ 未找到 AutoSnippet.boxspec.json 配置文件');
+				console.error('   请在包含 AutoSnippet.boxspec.json 的目录或其子目录中运行此命令');
+				console.error('   或使用 asd init 初始化项目');
+				process.exit(1);
+			}, 3000);
+
+			getSpecFile(function (specFile) {
+				clearTimeout(timeoutId);
+				if (!specFile) {
+					console.error('❌ Watch 启动失败：未找到 AutoSnippet.boxspec.json 配置文件');
+					process.exit(1);
+				}
+				const args = {
+					skipSpm: options.skipSpm || false,
+					projectRoot: CMD_PATH,
+				};
+				watch.watchFileChange(specFile, CMD_PATH, args);
+			});
 		});
 
 	// spm-map 命令
@@ -422,14 +482,14 @@ function registerCommands(cmd, ctx) {
 			}
 		});
 
-	// ui 命令 - 启动 Dashboard Web 界面
+	// ui 命令 - 启动 Dashboard Web 界面（自动包含 watch 功能）
 	cmd
 		.command('ui')
 		.option('-p, --port <port>', 'specify port (default: 3000)', '3000')
 		.option('--no-open', 'do not open browser automatically')
 		.option('-b, --force-build', 'force rebuild dashboard frontend')
 		.option('-d, --dir <directory>', 'specify AutoSnippet project directory (default: current directory)')
-		.description('start AutoSnippet Dashboard web interface')
+		.description('start AutoSnippet Dashboard web interface (includes file watcher)')
 		.action(async (options) => {
 			const ui = ctx.ui;
 			if (!ui || typeof ui.launch !== 'function') {
@@ -441,6 +501,13 @@ function registerCommands(cmd, ctx) {
 				const port = parseInt(options.port, 10);
 				// 使用 -d 选项指定的目录，或 ASD_CWD 环境变量，或当前目录
 				const projectRoot = options.dir || process.env.ASD_CWD || CMD_PATH;
+				
+				// 提示用户 watch 功能已包含
+				const isDebugMode = process.env.ASD_DEBUG_WATCH === '1' || process.env.ASD_DEBUG_SEARCH === '1';
+				if (isDebugMode) {
+					console.log('💡 调试模式已启用，将显示文件监听日志');
+				}
+				
 				await ui.launch(projectRoot, port, {
 					forceBuild: options.forceBuild || false,
 					openBrowser: options.open !== false,
@@ -450,19 +517,105 @@ function registerCommands(cmd, ctx) {
 			}
 		});
 
+	// status 命令 - 环境自检
+	cmd
+		.command('status')
+		.description('check AutoSnippet environment (project root, AI, index, Dashboard, Native UI)')
+		.action(async () => {
+			const { runStatus } = require('../lib/cli/statusCommand');
+			const projectRoot = CMD_PATH;
+			await runStatus(projectRoot);
+		});
+
+	// search 命令 - 搜索知识库
+	cmd
+		.command('search <keyword>')
+		.alias('s')
+		.option('--copy', 'copy first result to clipboard')
+		.option('--pick', 'interactive selection')
+		.option('-m, --semantic', 'use semantic search (requires embed)')
+		.option('--without-agent', 'disable intelligent agent enhancement')
+		.option('--session <id>', 'specify session ID for agent personalization')
+		.description('search Recipes and Snippets')
+		.action(async (keyword, options) => {
+			const { runSearch } = require('../lib/cli/searchCommand');
+			const projectRoot = CMD_PATH;
+			await runSearch(projectRoot, keyword, options);
+		});
+
+	// embed 命令 - 构建语义索引
+	cmd
+		.command('embed')
+		.option('--clear', 'clear and rebuild index')
+		.description('build semantic vector index for Recipes')
+		.action(async (options) => {
+			const { runEmbed } = require('../lib/cli/embedCommand');
+			const projectRoot = CMD_PATH;
+			await runEmbed(projectRoot, options);
+		});
+
+	// candidate 命令 - 从剪贴板创建候选
+	cmd
+		.command('candidate')
+		.option('-t, --title <title>', 'candidate title')
+		.option('-c, --category <category>', 'candidate category')
+		.description('create candidate from clipboard')
+		.action(async (options) => {
+			const { runCandidate } = require('../lib/cli/candidateCommand');
+			const projectRoot = CMD_PATH;
+			await runCandidate(projectRoot, options);
+		});
+
+	// install:full 命令 - 全量安装
+	cmd
+		.command('install:full')
+		.option('--parser', 'install Swift parser')
+		.description('install all optional dependencies')
+		.action(async (options) => {
+			const { execSync } = require('child_process');
+			const path = require('path');
+			const rootDir = path.join(__dirname, '..');
+			const scriptPath = path.join(rootDir, 'scripts/install-full.js');
+			
+			const env = { ...process.env };
+			if (options.parser) env.ASD_INSTALL_PARSER = '1';
+			
+			try {
+				execSync(`node "${scriptPath}"`, { 
+					stdio: 'inherit',
+					env,
+					cwd: rootDir
+				});
+			} catch (err) {
+				console.error('❌ 安装失败');
+				process.exit(1);
+			}
+		});
+
 	cmd.addHelpText('after', `
 
 Examples:
   asd setup               # 初始化工作空间
+  asd status              # 环境自检
   asd install             # 安装依赖/skills/MCP
   asd extract             # 同步 snippets 到 Xcode
   asd create              # 创建 snippet
-  asd watch               # 监听文件变化
-  asd ui                  # 启动 Dashboard Web 界面
+  asd watch               # 监听文件变化（单独运行）
+  asd ui                  # 启动 Dashboard（自动包含 watch）
+  asd search <keyword>    # 搜索知识库
+  asd embed               # 构建语义索引
+  asd candidate           # 从剪贴板创建候选
+
+Advanced:
   asd ui -d /path/to/AutoSnippet  # 启动 Dashboard，操作指定项目
+  asd install:full --parser       # 全量安装 + Swift 解析器
+
+Debug modes:
+  ASD_DEBUG_WATCH=1 asd ui         # Dashboard + 文件监听日志
+  ASD_DEBUG_SEARCH=1 asd ui        # Dashboard + 搜索调试日志
 
 Notes:
-  - 老命令仍可用：i/c/e/u/w 只是别名，不会破坏现有脚本。
+  - 老命令仍可用：i/c/e/u/w/s 只是别名，不会破坏现有脚本。
   - 在非 AutoSnippet 目录中，使用 -d 或 ASD_CWD 环境变量指定项目路径。
 `);
 }

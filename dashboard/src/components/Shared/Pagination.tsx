@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ICON_SIZES } from '../../constants/icons';
 
 interface PaginationProps {
 	currentPage: number;
@@ -97,7 +98,7 @@ const Pagination: React.FC<PaginationProps> = ({
 					className="p-1.5 rounded-md hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 					title="第一页"
 				>
-					<ChevronsLeft size={18} className="text-slate-600" />
+					<ChevronsLeft size={ICON_SIZES.md} className="text-slate-600" />
 				</button>
 
 				{/* 上一页 */}
@@ -107,7 +108,7 @@ const Pagination: React.FC<PaginationProps> = ({
 					className="p-1.5 rounded-md hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 					title="上一页"
 				>
-					<ChevronLeft size={18} className="text-slate-600" />
+					<ChevronLeft size={ICON_SIZES.md} className="text-slate-600" />
 				</button>
 
 				{/* 页码 */}
@@ -140,7 +141,7 @@ const Pagination: React.FC<PaginationProps> = ({
 					className="p-1.5 rounded-md hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 					title="下一页"
 				>
-					<ChevronRight size={18} className="text-slate-600" />
+					<ChevronRight size={ICON_SIZES.md} className="text-slate-600" />
 				</button>
 
 				{/* 最后一页 */}
@@ -150,7 +151,7 @@ const Pagination: React.FC<PaginationProps> = ({
 					className="p-1.5 rounded-md hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 					title="最后一页"
 				>
-					<ChevronsRight size={18} className="text-slate-600" />
+					<ChevronsRight size={ICON_SIZES.md} className="text-slate-600" />
 				</button>
 			</div>
 		</div>

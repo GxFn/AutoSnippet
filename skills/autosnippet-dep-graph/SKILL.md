@@ -10,7 +10,7 @@ This skill gives the agent context about the project's **SPM (Swift Package Mana
 ## Where the Dependency Structure Lives
 
 - **Path**: `AutoSnippet/AutoSnippet.spmmap.json` under the **project root**.
-- **Project root**: The directory containing `AutoSnippetRoot.boxspec.json` (same as Recipe context).
+- **Project root**: The directory containing `AutoSnippet/AutoSnippet.boxspec.json` (same as Recipe context).
 - **Update command**: Run `asd spm-map` (or `asd spmmap`) from the project root to (re)generate or update this file by scanning `Package.swift` files.
 
 ## File Structure (AutoSnippet.spmmap.json)

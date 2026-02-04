@@ -9,7 +9,7 @@ This skill explains [AutoSnippet](https://github.com/GxFn/AutoSnippet)'s **knowl
 
 ## Instructions for the agent
 
-1. **Project root** = directory containing `AutoSnippetRoot.boxspec.json`. All paths below are relative to the project root.
+1. **Project root** = directory containing `AutoSnippet/AutoSnippet.boxspec.json`. All paths below are relative to the project root.
 2. For **looking up** existing Recipe content or **searching** recipes, use the **autosnippet-recipes** skill.
 3. For **creating** a new Recipe or Snippet, use the **autosnippet-create** skill.
 
@@ -42,7 +42,7 @@ The knowledge base has **context storage** capability: Recipes, docs, etc. are e
 | **Storage path** | `AutoSnippet/.autosnippet/context/` |
 | **Build command** | Run `asd embed` from project root |
 | **Index sources** | `recipe` (AutoSnippet/recipes/*.md), `doc` (docs dir), `target-readme` (SPM target READMEs) |
-| **Storage adapter** | Default `json`; configurable `lance` (requires optional LanceDB) |
+| **Storage adapter** | Default `json` |
 | **Usage** | With `asd ui` running, MCP tool `autosnippet_context_search` takes `query`, `limit?` for semantic search |
 | **Use cases** | On-demand lookup of relevant Recipe/docs; Guard review against knowledge base; Dashboard semantic search |
 

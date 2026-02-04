@@ -62,16 +62,16 @@ function testRecordAndSetAuthority() {
 	const tmpDir = path.join(projectRoot, 'test', 'tmp-recipestats-' + Date.now());
 	fs.mkdirSync(tmpDir, { recursive: true });
 	try {
-		recipeStats.recordRecipeUsage(tmpDir, { trigger: '@Test', recipeFilePath: 'Knowledge/recipes/Test.md', source: 'human' });
-		recipeStats.recordRecipeUsage(tmpDir, { trigger: '@Test', recipeFilePath: 'Knowledge/recipes/Test.md', source: 'human' });
-		recipeStats.recordRecipeUsage(tmpDir, { trigger: '@Test', recipeFilePath: 'Knowledge/recipes/Test.md', source: 'guard' });
+		recipeStats.recordRecipeUsage(tmpDir, { trigger: '@Test', recipeFilePath: 'AutoSnippet/recipes/Test.md', source: 'human' });
+		recipeStats.recordRecipeUsage(tmpDir, { trigger: '@Test', recipeFilePath: 'AutoSnippet/recipes/Test.md', source: 'human' });
+		recipeStats.recordRecipeUsage(tmpDir, { trigger: '@Test', recipeFilePath: 'AutoSnippet/recipes/Test.md', source: 'guard' });
 		const stats = recipeStats.getRecipeStats(tmpDir);
 		assert(stats.byTrigger['@Test'], 'byTrigger 应有 @Test');
 		assert(stats.byTrigger['@Test'].humanUsageCount === 2 && stats.byTrigger['@Test'].guardUsageCount === 1, 'human 2 guard 1');
 		assert(stats.byFile['Test.md'], 'byFile 应有 Test.md');
 		assert(stats.byFile['Test.md'].humanUsageCount === 2 && stats.byFile['Test.md'].guardUsageCount === 1, 'byFile human 2 guard 1');
 
-		recipeStats.setAuthority(tmpDir, { trigger: '@Test', recipeFilePath: 'Knowledge/recipes/Test.md' }, 4);
+		recipeStats.setAuthority(tmpDir, { trigger: '@Test', recipeFilePath: 'AutoSnippet/recipes/Test.md' }, 4);
 		const stats2 = recipeStats.getRecipeStats(tmpDir);
 		assert(stats2.byTrigger['@Test'].authority === 4, 'setAuthority 后 byTrigger authority 应为 4');
 		assert(stats2.byFile['Test.md'].authority === 4, 'setAuthority 后 byFile authority 应为 4');

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BookOpen, Rocket, Database, Zap, Search, Shield, Code, GitBranch, MessageSquare, Terminal, FileCode, List, ChevronDown, ChevronRight } from 'lucide-react';
+import { ICON_SIZES } from '../../constants/icons';
 
 const HelpView: React.FC = () => {
 	const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['quick-start']));
@@ -26,7 +27,7 @@ const HelpView: React.FC = () => {
 						{icon}
 						<h2 className="text-lg font-bold text-slate-800">{title}</h2>
 					</div>
-					{isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+					{isExpanded ? <ChevronDown size={ICON_SIZES.lg} /> : <ChevronRight size={ICON_SIZES.lg} />}
 				</button>
 				{isExpanded && <div className="p-4 bg-white">{children}</div>}
 			</section>
@@ -38,7 +39,7 @@ const HelpView: React.FC = () => {
 			{/* 头部 */}
 			<div className="mb-8 text-center">
 				<h1 className="text-4xl font-bold text-slate-900 mb-4 flex items-center justify-center gap-3">
-					<BookOpen size={40} className="text-blue-600" />
+					<BookOpen size={ICON_SIZES.xxl} className="text-blue-600" />
 					AutoSnippet 使用说明
 				</h1>
 				<p className="text-slate-600 text-lg max-w-3xl mx-auto">
@@ -56,7 +57,7 @@ const HelpView: React.FC = () => {
 
 			<div className="space-y-4">
 				{/* 快速开始 */}
-				<Section id="quick-start" title="快速开始" icon={<Rocket size={24} className="text-blue-600" />}>
+				<Section id="quick-start" title="快速开始" icon={<Rocket size={ICON_SIZES.xl} className="text-blue-600" />}>
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 						<div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
 							<div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center mb-3 font-bold">1</div>
@@ -81,7 +82,7 @@ const HelpView: React.FC = () => {
 				</Section>
 
 				{/* 核心概念 */}
-				<Section id="concepts" title="核心概念" icon={<Database size={24} className="text-blue-600" />}>
+				<Section id="concepts" title="核心概念" icon={<Database size={ICON_SIZES.xl} className="text-blue-600" />}>
 					{/* 三大角色 */}
 					<div className="mb-6">
 						<h3 className="text-lg font-semibold text-slate-700 mb-3">三大角色</h3>
@@ -121,7 +122,7 @@ const HelpView: React.FC = () => {
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
 								<h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-									<FileCode size={18} />
+									<FileCode size={ICON_SIZES.lg} />
 									Recipe（配方）
 								</h4>
 								<p className="text-blue-800 text-sm mb-3">Markdown 格式的知识文档</p>
@@ -133,7 +134,7 @@ const HelpView: React.FC = () => {
 							</div>
 							<div className="bg-green-50 rounded-lg p-4 border border-green-200">
 								<h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
-									<Zap size={18} />
+									<Zap size={ICON_SIZES.lg} />
 									Snippet（代码片段）
 								</h4>
 								<p className="text-green-800 text-sm mb-3">Xcode 代码补全片段</p>
@@ -145,7 +146,7 @@ const HelpView: React.FC = () => {
 							</div>
 							<div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
 								<h4 className="font-semibold text-purple-900 mb-2 flex items-center gap-2">
-									<Search size={18} />
+									<Search size={ICON_SIZES.lg} />
 									向量索引（Context）
 								</h4>
 								<p className="text-purple-800 text-sm mb-3">语义搜索引擎</p>
@@ -157,7 +158,7 @@ const HelpView: React.FC = () => {
 							</div>
 							<div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
 								<h4 className="font-semibold text-amber-900 mb-2 flex items-center gap-2">
-									<List size={18} />
+									<List size={ICON_SIZES.lg} />
 									Candidates（候选）
 								</h4>
 								<p className="text-amber-800 text-sm mb-3">待审核的 Recipe 草案</p>
@@ -208,11 +209,11 @@ const HelpView: React.FC = () => {
 				</Section>
 
 				{/* 核心功能 */}
-				<Section id="features" title="核心功能" icon={<Zap size={24} className="text-blue-600" />}>
+				<Section id="features" title="核心功能" icon={<Zap size={ICON_SIZES.xl} className="text-blue-600" />}>
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 						<div className="border border-slate-200 rounded-lg p-5 hover:shadow-lg transition-shadow">
 							<div className="flex items-center gap-2 mb-3">
-								<Code size={20} className="text-blue-600" />
+									<Code size={ICON_SIZES.lg} className="text-blue-600" />
 								<h3 className="font-semibold text-slate-800">知识库构建</h3>
 							</div>
 							<ul className="text-slate-600 text-sm space-y-2 list-disc list-inside">
@@ -224,7 +225,7 @@ const HelpView: React.FC = () => {
 						</div>
 						<div className="border border-slate-200 rounded-lg p-5 hover:shadow-lg transition-shadow">
 							<div className="flex items-center gap-2 mb-3">
-								<Search size={20} className="text-blue-600" />
+									<Search size={ICON_SIZES.lg} className="text-blue-600" />
 								<h3 className="font-semibold text-slate-800">语义检索</h3>
 							</div>
 							<ul className="text-slate-600 text-sm space-y-2 list-disc list-inside">
@@ -236,7 +237,7 @@ const HelpView: React.FC = () => {
 						</div>
 						<div className="border border-slate-200 rounded-lg p-5 hover:shadow-lg transition-shadow">
 							<div className="flex items-center gap-2 mb-3">
-								<Shield size={20} className="text-blue-600" />
+									<Shield size={ICON_SIZES.lg} className="text-blue-600" />
 								<h3 className="font-semibold text-slate-800">代码审查（Audit）</h3>
 							</div>
 							<ul className="text-slate-600 text-sm space-y-2 list-disc list-inside">
@@ -262,7 +263,7 @@ const HelpView: React.FC = () => {
 				</Section>
 
 				{/* 编辑器指令 */}
-				<Section id="editor-directives" title="编辑器指令" icon={<Terminal size={24} className="text-blue-600" />}>
+				<Section id="editor-directives" title="编辑器指令" icon={<Terminal size={ICON_SIZES.xl} className="text-blue-600" />}>
 					<p className="text-slate-600 text-sm mb-4">需先运行 <code className="bg-slate-100 px-1 rounded">asd watch</code> 或 <code className="bg-slate-100 px-1 rounded">asd ui</code></p>
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
@@ -304,7 +305,7 @@ const HelpView: React.FC = () => {
 				</Section>
 
 				{/* Cursor 集成 */}
-				<Section id="cursor-integration" title="Cursor AI 集成" icon={<MessageSquare size={24} className="text-blue-600" />}>
+				<Section id="cursor-integration" title="Cursor AI 集成" icon={<MessageSquare size={ICON_SIZES.xl} className="text-blue-600" />}>
 					<div className="mb-5">
 						<h3 className="font-semibold text-slate-800 mb-3">MCP 工具</h3>
 						<div className="overflow-x-auto">
@@ -347,7 +348,7 @@ const HelpView: React.FC = () => {
 				</Section>
 
 				{/* 命令速查 */}
-				<Section id="cli-reference" title="命令行速查" icon={<Terminal size={24} className="text-blue-600" />}>
+				<Section id="cli-reference" title="命令行速查" icon={<Terminal size={ICON_SIZES.xl} className="text-blue-600" />}>
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<div>
 							<h3 className="font-semibold text-slate-800 mb-2">初始化与环境</h3>

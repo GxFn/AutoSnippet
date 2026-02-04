@@ -6,8 +6,8 @@
 - 项目根：包含 `*.boxspec.json` 的目录（当前仓库为 `AutoSnippet.boxspec.json`）。
 
 ## 知识库与结构
-- 知识库根目录：`AutoSnippet/`（默认，**用户项目可通过 `boxspec.knowledgeBase.dir` 配置改为 `Knowledge/` 或其他**）
-- Recipe：`AutoSnippet/recipes/*.md`（或用户配置的 `{knowledgeBase.dir}/recipes/`）
+- 知识库根目录：`AutoSnippet/`（**固定路径，不支持自定义配置**）
+- Recipe：`AutoSnippet/recipes/*.md`（路径已固定）
 - Snippet：`AutoSnippet/snippets/*.json` 或 root spec `list`
 - Candidates：`AutoSnippet/.autosnippet/candidates.json`
 - 向量索引：`AutoSnippet/.autosnippet/context/`（`asd embed` 生成）

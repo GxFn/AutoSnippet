@@ -83,7 +83,7 @@ asd ui                     # 启动 Dashboard + watch
 
 | 命令 | 说明 |
 |------|------|
-| `asd setup` | 初始化项目根（创建 AutoSnippetRoot.boxspec.json） |
+| `asd setup` | 初始化项目根（创建 AutoSnippet/AutoSnippet.boxspec.json） |
 | `asd ui` | 启动 Dashboard + watch |
 | `asd status` | 环境自检（含项目根、AI、索引、Dashboard/Watch、Native UI） |
 | `asd create --clipboard` | 从剪贴板创建 Recipe/Snippet |
@@ -93,7 +93,7 @@ asd ui                     # 启动 Dashboard + watch
 | `asd search [keyword] --copy` | 搜索并复制第一条到剪贴板 |
 | `asd search [keyword] --pick` | 交互选择后复制/插入 |
 | `asd install:cursor-skill --mcp` | 安装 Skills、Cursor 规则（`.cursor/rules/*.mdc`）并配置 MCP。配置时可运行；MCP 工具使用时需 `asd ui` 已启动 |
-| `asd install:full` | 全量安装；`--parser` 含 Swift 解析器；`--lancedb` 仅 LanceDB |
+| `asd install:full` | 全量安装；`--parser` 含 Swift 解析器 |
 | `asd embed` | 手动构建语义向量索引（`asd ui` 启动时也会自动执行） |
 | `asd spm-map` | 刷新 SPM 依赖映射（依赖关系图数据来源） |
 
@@ -149,7 +149,7 @@ AutoSnippet 下各路径与版本控制的关系建议如下（可按项目需�
 |------|------|------|
 | **AutoSnippet/recipes/** | Recipe 的 Markdown 文件 | **Git 子仓库**：单独建远程仓库并 `git submodule add <url> AutoSnippet/recipes`，用于权限拦截（仅能 push 子仓库的人可保存/上传 Recipe）。详见 [权限设置说明](docs/权限设置说明.md) 中「只把 AutoSnippet/recipes 作为子仓库」。 |
 | **AutoSnippet/.autosnippet/** | Guard 规则、违反记录、candidates、recipe-stats、context 配置等 | **跟随主仓库 Git**：规则与配置建议提交到主仓库，便于团队共享。 |
-| **AutoSnippet/.autosnippet/context/index/** | 语义向量索引（embed 生成） | **不跟随 Git**：体积大、机器相关，建议加入 `.gitignore`（如 `AutoSnippet/.autosnippet/context/index/` 或其下 `lancedb/`、`vector_index.json`）。 |
+| **AutoSnippet/.autosnippet/context/index/** | 语义向量索引（embed 生成） | **不跟随 Git**：体积大、机器相关，建议加入 `.gitignore`（如 `AutoSnippet/.autosnippet/context/index/`）。 |
 | **AutoSnippet/.autosnippet/candidates/**（若存在） | 候选数据等 | 视需要：若仅本地缓存可不提交；若团队共享可跟随主仓库或单独子仓库。 |
 | **AutoSnippet/AutoSnippet.spmmap.json**（若存在） | SPM 依赖映射 | **跟随主仓库 Git**：便于依赖关系图一致。 |
 

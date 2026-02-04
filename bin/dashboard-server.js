@@ -130,12 +130,25 @@ async function launch(projectRoot, port = 3000, options = {}) {
 
 	const specRepository = new SpecRepositoryV2(projectRoot);
 	const forceBuild = options.forceBuild === true || process.env.ASD_UI_BUILD === '1' || process.env.ASD_UI_REBUILD === '1';
-	// 1. 在后台启动 Watcher
-	console.log(`[Dashboard] 正在后台启动项目监听器...`);
+	
+	// 1. 在后台启动 Watcher（支持调试模式）
+	const isDebugMode = process.env.ASD_DEBUG_WATCH === '1' || process.env.ASD_DEBUG_SEARCH === '1';
+	if (isDebugMode) {
+		console.log(`[Dashboard] 正在启动项目监听器（调试模式）...`);
+	} else {
+		console.log(`[Dashboard] 正在后台启动项目监听器...`);
+	}
+	
 	const rootSpecPath = Paths.getProjectSpecPath(projectRoot);
 	try {
-		watch.watchFileChange(rootSpecPath, projectRoot, { quiet: true });
-		console.log(`[Dashboard] ✅ 监听器已就绪`);
+		// 调试模式下不启用 quiet，以便看到详细日志
+		watch.watchFileChange(rootSpecPath, projectRoot, { quiet: !isDebugMode });
+		if (isDebugMode) {
+			console.log(`[Dashboard] ✅ 监听器已就绪（调试模式已启用）`);
+			console.log(`[Dashboard] 💡 在 Xcode 中使用 // as:s 将触发搜索`);
+		} else {
+			console.log(`[Dashboard] ✅ 监听器已就绪`);
+		}
 	} catch (err) {
 		console.error(`[Dashboard] ❌ 监听器启动失败: ${err.message}`);
 	}

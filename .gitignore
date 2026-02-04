@@ -46,6 +46,10 @@ copilotDocs/
 # 性能测试结果（本地生成，不提交）
 benchmarks/
 
+# 本地缓存与测试覆盖率
+.cache/
+tests/coverage/
+
 # AutoSnippet 目录（AutoSnippet 工具项目不需要提交）
 AutoSnippet/
 

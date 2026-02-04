@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Shield, AlertTriangle, AlertCircle, Trash2, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { GITHUB_ISSUES_NEW_GUARD_URL } from '../../constants';
+import { ICON_SIZES } from '../../constants/icons';
 
 interface GuardRule {
 	message: string;
@@ -162,7 +163,7 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
 		<div className="p-6">
 			<div className="flex items-center justify-between mb-6">
 				<h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-					<Shield size={24} className="text-blue-600" />
+					<Shield size={ICON_SIZES.xl} className="text-blue-600" />
 					Guard 规则与违反记录
 				</h2>
 				<div className="flex items-center gap-3">
@@ -172,14 +173,14 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
 						rel="noopener noreferrer"
 						className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
 					>
-						<ExternalLink size={16} /> 提交误报/建议
+						<ExternalLink size={ICON_SIZES.md} /> 提交误报/建议
 					</a>
 					<button
 						type="button"
 						onClick={() => setShowAiWriteRule(!showAiWriteRule)}
 						className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
 					>
-						{showAiWriteRule ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+						{showAiWriteRule ? <ChevronDown size={ICON_SIZES.md} /> : <ChevronRight size={ICON_SIZES.md} />}
 						AI 写入规则
 					</button>
 					{runs.length > 0 && (
@@ -188,7 +189,7 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
 							onClick={handleClearViolations}
 							className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
 						>
-							<Trash2 size={14} /> 清空历史
+							<Trash2 size={ICON_SIZES.sm} /> 清空历史
 						</button>
 					)}
 				</div>
@@ -382,14 +383,14 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
 										onClick={() => setExpandedRunId(isExpanded ? null : run.id)}
 										className="w-full flex items-center gap-2 py-3 px-4 text-left hover:bg-slate-50 transition-colors"
 									>
-										{isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+										{isExpanded ? <ChevronDown size={ICON_SIZES.md} /> : <ChevronRight size={ICON_SIZES.md} />}
 										<span className="font-mono text-sm text-slate-700">{run.filePath}</span>
 										<span className="text-xs text-slate-400">
 											{new Date(run.triggeredAt).toLocaleString()}
 										</span>
 										{hasViolations ? (
 											<span className="ml-auto flex items-center gap-1 text-amber-600 text-xs font-medium">
-												<AlertTriangle size={14} /> {run.violations.length} 处违反
+												<AlertTriangle size={ICON_SIZES.sm} /> {run.violations.length} 处违反
 											</span>
 										) : (
 											<span className="ml-auto text-slate-400 text-xs">无违反</span>
@@ -404,9 +405,9 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
 													{run.violations.map((v, i) => (
 														<li key={i} className="flex items-start gap-2 text-sm">
 															{v.severity === 'error' ? (
-																<AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+																<AlertCircle size={ICON_SIZES.md} className="text-red-500 shrink-0 mt-0.5" />
 															) : (
-																<AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+																<AlertTriangle size={ICON_SIZES.md} className="text-amber-500 shrink-0 mt-0.5" />
 															)}
 															<div>
 																<span className="font-mono text-xs text-slate-500">[{v.ruleId}] {v.filePath ? `${v.filePath}:${v.line}` : `L${v.line}`}</span>

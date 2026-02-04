@@ -15,7 +15,13 @@ runner.test('应该能正确识别当前 projectRoot', async (ctx) => {
   
   TestAssert.assertStatusCode(response, 200);
   TestAssert.assertExists(response.body.projectRoot);
-  TestAssert.assertTrue(response.body.projectRoot.includes('AutoSnippet'));
+  const expectedRoot = process.env.ASD_TEST_PROJECT_ROOT;
+  const expectedBasename = process.env.ASD_TEST_PROJECT_BASENAME;
+  if (expectedRoot) {
+    TestAssert.assertEquals(response.body.projectRoot, expectedRoot);
+  } else if (expectedBasename) {
+    TestAssert.assertTrue(response.body.projectRoot.includes(expectedBasename));
+  }
   
   ctx.set('currentProjectRoot', response.body.projectRoot);
 });
@@ -237,11 +243,16 @@ runner.test('应该支持通过环境变量切换项目 (ASD_CWD)', async (ctx) 
   const projectRoot = response.body.projectRoot;
   
   TestAssert.assertTrue(projectRoot.length > 0);
-  // 在本地是 Documents/github/AutoSnippet，在 CI 是 /home/runner/work/AutoSnippet/AutoSnippet
-  TestAssert.assertTrue(
-    projectRoot.includes('AutoSnippet'),
-    `projectRoot should contain 'AutoSnippet', got: ${projectRoot}`
-  );
+  const expectedRoot = process.env.ASD_TEST_PROJECT_ROOT;
+  const expectedBasename = process.env.ASD_TEST_PROJECT_BASENAME;
+  if (expectedRoot) {
+    TestAssert.assertEquals(projectRoot, expectedRoot);
+  } else if (expectedBasename) {
+    TestAssert.assertTrue(
+      projectRoot.includes(expectedBasename),
+      `projectRoot should contain '${expectedBasename}', got: ${projectRoot}`
+    );
+  }
   
   ctx.set('projectRootEnvironment', projectRoot);
 });

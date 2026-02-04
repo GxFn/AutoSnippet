@@ -4,6 +4,7 @@ import { Box, Zap, Edit3, Cpu, CheckCircle, Pencil, Check, GitCompare, X, Copy, 
 import { SPMTarget, ExtractedRecipe, ScanResultItem, Recipe } from '../../types';
 import { notify } from '../../utils/notification';
 import { categories } from '../../constants';
+import { ICON_SIZES } from '../../constants/icons';
 import CodeBlock from '../Shared/CodeBlock';
 import MarkdownWithHighlight, { stripFrontmatter } from '../Shared/MarkdownWithHighlight';
 import ContextAwareSearchPanel from './ContextAwareSearchPanel';
@@ -213,7 +214,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 								{isShell ? (
 									<span className="text-[9px] font-bold text-slate-300 border border-slate-100 px-1 rounded">SHELL</span>
 								) : (
-									<Zap size={14} className={`shrink-0 ${isSelected ? 'text-blue-500 opacity-100' : 'text-blue-500 opacity-0 group-hover:opacity-100'} transition-opacity`} />
+									<Zap size={ICON_SIZES.sm} className={`shrink-0 ${isSelected ? 'text-blue-500 opacity-100' : 'text-blue-500 opacity-0 group-hover:opacity-100'} transition-opacity`} />
 								)}
 							</button>
 						);
@@ -223,7 +224,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 			<div className="flex-1 bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden relative">
 				<div className="p-4 bg-slate-50 border-b border-slate-200 font-bold text-sm flex justify-between items-center">
 					<div className="flex items-center gap-2">
-						<Edit3 size={16} className="text-slate-400" />
+						<Edit3 size={ICON_SIZES.md} className="text-slate-400" />
 						<span>审核提取结果 {scanResults.length > 0 && <span className="text-blue-600 ml-1">[{scanResults[0].trigger ? 'Candidate' : 'New'}]</span>}</span>
 					</div>
 					<button
@@ -234,7 +235,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 						className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors"
 						title="智能搜索相关 Recipes"
 					>
-						<Search size={14} />
+						<Search size={ICON_SIZES.sm} />
 						智能搜索
 					</button>
 				</div>
@@ -244,7 +245,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 						<div className="absolute inset-0 bg-white/90 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center text-blue-600 px-8 overflow-y-auto">
 							<div className="relative mb-6">
 								<div className="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
-								<Cpu size={32} className="absolute inset-0 m-auto text-blue-600 animate-pulse" />
+								<Cpu size={ICON_SIZES.xxl} className="absolute inset-0 m-auto text-blue-600 animate-pulse" />
 							</div>
 							<p className="font-bold text-lg animate-pulse mb-1">文件扫描与识别</p>
 							<p className="text-sm text-slate-500 mb-4">{scanProgress.status}</p>
@@ -272,7 +273,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 
 					{!isScanning && scanResults.length === 0 && (
 						<div className="h-full flex flex-col items-center justify-center text-slate-400 text-center">
-							<Box size={48} className="mb-4 opacity-20" />
+							<Box size={ICON_SIZES.xxxl} className="mb-4 opacity-20" />
 							<p className="font-medium text-slate-600">深度扫描与提取</p>
 							<p className="text-xs mt-2">从左侧选择一个模块，让 AI 识别可复用的代码片段和最佳实践。</p>
 						</div>
@@ -328,7 +329,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 											<div className="flex bg-slate-100 p-1 rounded-lg items-center gap-1">
 											<button onClick={() => handleContentLangChange(i, 'cn', res)} disabled={translatingIndex !== null} className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${res.lang === 'cn' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>CN</button>
 											<button onClick={() => handleContentLangChange(i, 'en', res)} disabled={translatingIndex !== null} className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all flex items-center gap-1 ${res.lang === 'en' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>
-												{translatingIndex === i ? <Loader2 size={10} className="animate-spin" /> : null}
+												{translatingIndex === i ? <Loader2 size={ICON_SIZES.xs} className="animate-spin" /> : null}
 												EN
 												</button>
 											</div>
@@ -369,7 +370,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 								</div>
 								<div className="ml-4 flex flex-col gap-2">
 									 <button onClick={() => handleSaveExtracted(res)} disabled={isSavingRecipe} className={`text-xs px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${res.mode === 'full' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-amber-600 text-white hover:bg-amber-700'}`}>
-										{isSavingRecipe ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+										{isSavingRecipe ? <Loader2 size={ICON_SIZES.md} className="animate-spin" /> : <CheckCircle size={ICON_SIZES.md} />}
 										{isSavingRecipe ? '保存中...' : '保存为 Recipe'}
 									 </button>
 								</div>
@@ -499,7 +500,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 														className="text-[10px] font-bold px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors flex items-center gap-1"
 														title={`与 ${s.recipeName} 相似 ${(s.similarity * 100).toFixed(0)}%，点击对比`}
 													>
-														<GitCompare size={10} />
+														<GitCompare size={ICON_SIZES.xs} />
 														{s.recipeName.replace(/\.md$/i, '')} {(s.similarity * 100).toFixed(0)}%
 													</button>
 												))
@@ -514,11 +515,11 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 										<label className="text-[10px] font-bold text-slate-400 uppercase">Standardized Usage Example (标准使用示例)</label>
 										{editingCodeIndex === i ? (
 											<button type="button" onClick={() => setEditingCodeIndex(null)} className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 px-2 py-1 rounded bg-blue-50">
-												<Check size={12} /> 完成
+												<Check size={ICON_SIZES.xs} /> 完成
 											</button>
 										) : (
 											<button type="button" onClick={() => setEditingCodeIndex(i)} className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100" title="编辑代码">
-												<Pencil size={12} /> 编辑
+												<Pencil size={ICON_SIZES.xs} /> 编辑
 											</button>
 										)}
 									</div>
@@ -607,25 +608,25 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 										<button onClick={handleDelete} className="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded">删除候选</button>
 									)}
 									<button onClick={handleAuditCandidate} disabled={isSavingRecipe} className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
-										{isSavingRecipe ? <Loader2 size={12} className="animate-spin" /> : null}
+										{isSavingRecipe ? <Loader2 size={ICON_SIZES.xs} className="animate-spin" /> : null}
 										审核候选
 									</button>
 									<button onClick={handleEditRecipe} className="text-xs text-emerald-600 hover:bg-emerald-50 px-2 py-1 rounded">审核 Recipe</button>
 								</div>
-								<button onClick={() => setCompareModal(null)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors"><X size={18} /></button>
+								<button onClick={() => setCompareModal(null)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors"><X size={ICON_SIZES.md} /></button>
 							</div>
 							<div className="flex-1 grid grid-cols-2 overflow-hidden min-h-0" style={{ gridTemplateRows: 'auto 1fr' }}>
 								<div className="px-4 py-3 bg-blue-50 border-b border-r border-slate-100 flex flex-col justify-center min-h-0">
 									<div className="flex items-center justify-between gap-2">
 										<span className="text-sm font-bold text-blue-700 truncate flex-1 min-w-0" title={cand.title}>候选：{cand.title}</span>
-										<button onClick={copyCandidate} className="p-1.5 hover:bg-blue-100 rounded-lg text-blue-600 shrink-0" title="复制"> <Copy size={14} /> </button>
+										<button onClick={copyCandidate} className="p-1.5 hover:bg-blue-100 rounded-lg text-blue-600 shrink-0" title="复制"> <Copy size={ICON_SIZES.sm} /> </button>
 									</div>
 									<div className="min-h-[28px] mt-2 shrink-0" />
 								</div>
 								<div className="px-4 py-3 bg-emerald-50 border-b border-slate-100 flex flex-col justify-center min-h-0">
 									<div className="flex items-center justify-between gap-2">
 										<span className="text-sm font-bold text-emerald-700 truncate flex-1 min-w-0" title={compareModal.recipeName}>Recipe：{compareModal.recipeName.replace(/\.md$/i, '')}</span>
-										<button onClick={copyRecipe} className="p-1.5 hover:bg-emerald-100 rounded-lg text-emerald-600 shrink-0" title="复制"> <Copy size={14} /> </button>
+										<button onClick={copyRecipe} className="p-1.5 hover:bg-emerald-100 rounded-lg text-emerald-600 shrink-0" title="复制"> <Copy size={ICON_SIZES.sm} /> </button>
 									</div>
 									{compareModal.similarList.length > 1 ? (
 										<div className="flex flex-wrap gap-1 mt-2 shrink-0">

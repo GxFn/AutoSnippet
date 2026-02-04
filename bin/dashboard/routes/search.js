@@ -4,6 +4,23 @@ function registerSearchRoutes(app, ctx) {
 	const { analyzeContext } = require('../../../lib/search/contextAnalyzer.js');
 
 	// ============================================================
+	// 调试工具
+	// ============================================================
+	const DEBUG = process.env.ASD_DEBUG_SEARCH === '1' || process.env.DEBUG?.includes('search');
+	
+	function debug(taskName, step, data) {
+		if (!DEBUG) return;
+		const timestamp = new Date().toISOString().split('T')[1];
+		console.log(`\n[${timestamp}] [Search:${taskName}] ${step}`, data ? JSON.stringify(data, null, 2) : '');
+	}
+
+	function debugError(taskName, step, error) {
+		if (!DEBUG) return;
+		const timestamp = new Date().toISOString().split('T')[1];
+		console.error(`\n[${timestamp}] [Search:${taskName}] ❌ ${step}`, error?.message || error);
+	}
+
+	// ============================================================
 	// 统一的搜索核心函数（共享给所有搜索 API）
 	// ============================================================
 	async function performUnifiedSearch(params) {
@@ -21,33 +38,57 @@ function registerSearchRoutes(app, ctx) {
 			throw new Error('keyword is required');
 		}
 
+		const taskId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+		debug(taskId, 'INIT', {
+			keyword,
+			targetName,
+			currentFile,
+			language,
+			limit,
+			hasFileContent: !!fileContent
+		});
+
 		const { getInstance } = require('../../../lib/context');
 		const recipeStats = require('../../../lib/recipe/recipeStats');
 		const service = getInstance(projectRoot);
 		const rootSpec = require(Paths.getProjectSpecPath(projectRoot));
 
 		// 1. 分析当前上下文（使用 analyzeContext 深度分析）
+		debug(taskId, '1️⃣ Context Analysis Start', { targetName, currentFile, language });
 		const contextInfo = await analyzeContext(projectRoot, { targetName, currentFile, language });
+		debug(taskId, '1️⃣ Context Analysis Complete', contextInfo);
 
 		let vectorResults = [];
 		let keywordResults = [];
 
 		// 2. 向量搜索
+		debug(taskId, '2️⃣ Vector Search Start', { keyword, limit: limit + 5 });
 		try {
 			const ai = await AiFactory.getProvider(projectRoot);
 			if (ai) {
 				vectorResults = await service.search(keyword, { limit: limit + 5, filter: { type: 'recipe' } });
 				vectorResults = vectorResults.map(r => ({ ...r, _vectorScore: r.similarity || 0 }));
+				debug(taskId, '2️⃣ Vector Search Complete', {
+					count: vectorResults.length,
+					topResults: vectorResults.slice(0, 3).map(r => ({
+						name: r.name,
+						score: r._vectorScore
+					}))
+				});
+			} else {
+				debug(taskId, '2️⃣ Vector Search Skipped', { reason: 'No AI provider' });
 			}
 		} catch (e) {
-			console.warn('[Unified Search] Vector search failed:', e.message);
+			debugError(taskId, '2️⃣ Vector Search Failed', e);
 		}
 
 		// 3. 关键词搜索
+		debug(taskId, '3️⃣ Keyword Search Start', { keyword });
 		try {
 			const recipesDir = Paths.getProjectRecipesPath(projectRoot, rootSpec);
 			if (fs.existsSync(recipesDir)) {
 				const keywordTerms = keyword.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+				debug(taskId, '3️⃣ Keyword Terms', { keywordTerms });
 				
 				// 从 contextInfo 获取丰富的上下文术语
 				const contextTerms = [
@@ -106,15 +147,27 @@ function registerSearchRoutes(app, ctx) {
 							});
 						}
 					} catch (e) {
-						console.warn(`[Unified Search] Failed to read recipe ${recipePath}:`, e.message);
+						debugError(taskId, '3️⃣ Recipe Parse Error', { file: recipePath, error: e.message });
 					}
 				}
+				debug(taskId, '3️⃣ Keyword Search Complete', {
+					count: keywordResults.length,
+					topResults: keywordResults.slice(0, 3).map(r => ({
+						name: r.name,
+						score: r._keywordScore,
+						contextMatches: r._contextMatches
+					}))
+				});
 			}
 		} catch (e) {
-			console.warn('[Unified Search] Keyword search failed:', e.message);
+			debugError(taskId, '3️⃣ Keyword Search Failed', e);
 		}
 
 		// 4. 合并和评分
+		debug(taskId, '4️⃣ Merge & Score Start', {
+			vectorCount: vectorResults.length,
+			keywordCount: keywordResults.length
+		});
 		const mergedMap = new Map();
 		
 		for (const vr of vectorResults) {
@@ -161,10 +214,25 @@ function registerSearchRoutes(app, ctx) {
 		});
 
 		// 6. 权威分加权排序
+		debug(taskId, '5️⃣ Hybrid Score Calculation', {
+			count: results.length,
+			topResults: results.slice(0, 3).map(r => ({
+				name: r.name,
+				hybridScore: r._hybridScore,
+				vectorScore: r._vectorScore,
+				keywordScore: r._keywordScore,
+				isContextRelevant: r.isContextRelevant
+			}))
+		});
 		try {
 			const stats = recipeStats.getRecipeStats(projectRoot);
 			const byFileEntries = Object.values(stats.byFile || {});
 			
+			debug(taskId, '6️⃣ Authority Scoring Start', {
+				statsCount: Object.keys(stats.byFile || {}).length,
+				totalByFileEntries: byFileEntries.length
+			});
+
 			results = results.map(item => {
 				const key = path.basename(item.name);
 				const entry = (stats.byFile || {})[key];
@@ -225,21 +293,36 @@ Recipe: ${results[0]?.name || 'N/A'}
 						similarity: r.similarity * 0.7 + aiBoost * 0.3
 					}));
 
-					console.log(`[Unified Search] AI re-evaluated ${results.length} results, boost: ${aiBoost.toFixed(2)}`);
+					debug(taskId, '7️⃣ AI Evaluation Complete', {
+						aiScore,
+						aiBoost: aiBoost.toFixed(2),
+						topResultFinalScore: results[0]?.similarity
+					});
 				}
 			} catch (e) {
-				console.warn('[Unified Search] AI context evaluation failed:', e.message);
+				debugError(taskId, '7️⃣ AI Evaluation Failed', e);
 			}
 		}
 
 		// 8. 排序和限制
+		debug(taskId, '8️⃣ Sort & Filter Start', { beforeCount: results.length, minSimilarity: vectorResults.length > 0 ? 0.3 : 0.2 });
 		results.sort((a, b) => b.similarity - a.similarity);
 		
 		// 设置最小相似度阈值
 		const minSimilarity = vectorResults.length > 0 ? 0.3 : 0.2;
 		results = results.filter(r => r.similarity >= minSimilarity);
 		
+		debug(taskId, '8️⃣ After Filter', { afterCount: results.length, limit });
 		results = results.slice(0, limit);
+
+		debug(taskId, '✅ COMPLETE', {
+			finalCount: results.length,
+			topResults: results.slice(0, 3).map(r => ({
+				name: r.name,
+				similarity: r.similarity,
+				authority: r.authority
+			}))
+		});
 
 		return {
 			results,
@@ -410,16 +493,58 @@ Recipe: ${results[0]?.name || 'N/A'}
 			console.log('[Trigger from Code] Search Results:', JSON.stringify(resultInfo, null, 2));
 
 			// 5. 清理结果为 Xcode 格式
-			const cleanResults = results.map(r => ({
-				name: r.name,
-				snippet: r.content ? r.content.substring(0, 300) : '',
-				similarity: Math.round(r.similarity * 100),
-				isContextRelevant: r.isContextRelevant,
-				authority: Math.round(r.authority * 100) / 100,
-				usageCount: r.usageCount,
-				stats: r.stats,
-				aiRelevanceScore: r._aiRelevanceScore ? Math.round(r._aiRelevanceScore) : undefined
-			}));
+			// 5.1. 使用 SearchServiceV2 为结果添加 Agent 评分
+			let agentScores = new Map();
+			try {
+				const SearchServiceV2 = require('../../../lib/application/services/SearchServiceV2');
+				const searchServiceV2 = new SearchServiceV2(projectRoot, {
+					enableIntelligentLayer: true,
+					enableLearning: false
+				});
+
+				// 生成 sessionId 和 userId
+				const sessionId = `xcode-${filePath || 'general'}-${Date.now()}`;
+				const userId = process.env.ASD_USER_ID || process.env.USER || process.env.USERNAME || 'unknown';
+
+				// 对前 5 个结果调用 SearchServiceV2 以获得 Agent 评分
+				const agentResults = await searchServiceV2.search(searchKeyword, {
+					limit: 5,
+					sessionId,
+					userId,
+					context: { source: 'dashboard-xcode-watch' }
+				});
+
+				// 构建 agentScores map
+				if (agentResults && Array.isArray(agentResults)) {
+					for (const agentResult of agentResults) {
+						if (agentResult.name && agentResult.qualityScore !== undefined) {
+							agentScores.set(agentResult.name, {
+								qualityScore: agentResult.qualityScore,
+								recommendReason: agentResult.recommendReason || undefined
+							});
+						}
+					}
+				}
+			} catch (e) {
+				console.warn('[Trigger from Code] Agent scoring failed, using defaults:', e.message);
+			}
+
+			// 5.2. 清理结果为 Xcode 格式
+			const cleanResults = results.map(r => {
+				const agentScore = agentScores.get(r.name);
+				return {
+					name: r.name,
+					snippet: r.content ? r.content.substring(0, 300) : '',
+					similarity: Math.round(r.similarity * 100),
+					isContextRelevant: r.isContextRelevant,
+					authority: Math.round(r.authority * 100) / 100,
+					usageCount: r.usageCount,
+					stats: r.stats,
+					aiRelevanceScore: r._aiRelevanceScore ? Math.round(r._aiRelevanceScore) : undefined,
+					qualityScore: agentScore?.qualityScore,
+					recommendReason: agentScore?.recommendReason
+				};
+			});
 
 			const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 			res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -498,18 +623,60 @@ Recipe: ${results[0]?.name || 'N/A'}
 			console.log('[Context-Aware Search] Search Results:', JSON.stringify(resultInfo, null, 2));
 
 			// 格式化结果供 Dashboard 使用
-			const cleanResults = results.map(r => ({
-				name: r.name,
-				content: r.content,
-				similarity: Math.round(r.similarity * 100) / 100,
-				authority: r.authority,
-				usageCount: r.usageCount,
-				stats: r.stats,
-				isContextRelevant: r.isContextRelevant,
-				matchType: r._vectorScore > r._keywordScore ? 'semantic' : 'keyword',
-				metadata: r.metadata,
-				aiRelevanceScore: r.aiRelevanceScore // 多标记 AI 评分
-			}));
+			// 使用 SearchServiceV2 为结果添加 Agent 评分
+			let agentScores = new Map();
+			try {
+				const SearchServiceV2 = require('../../../lib/application/services/SearchServiceV2');
+				const searchServiceV2 = new SearchServiceV2(projectRoot, {
+					enableIntelligentLayer: true,
+					enableLearning: false
+				});
+
+				// 生成 sessionId 和 userId
+				const sessionId = `dashboard-${currentFile || 'general'}-${Date.now()}`;
+				const userId = process.env.ASD_USER_ID || process.env.USER || process.env.USERNAME || 'unknown';
+
+				// 对前 5 个结果调用 SearchServiceV2 以获得 Agent 评分
+				const agentResults = await searchServiceV2.search(keyword, {
+					limit: 5,
+					sessionId,
+					userId,
+					context: { source: 'dashboard-context-aware' }
+				});
+
+				// 构建 agentScores map
+				if (agentResults && Array.isArray(agentResults)) {
+					for (const agentResult of agentResults) {
+						if (agentResult.name && agentResult.qualityScore !== undefined) {
+							agentScores.set(agentResult.name, {
+								qualityScore: agentResult.qualityScore,
+								recommendReason: agentResult.recommendReason || undefined
+							});
+						}
+					}
+				}
+			} catch (e) {
+				console.warn('[Context-Aware Search] Agent scoring failed, using defaults:', e.message);
+			}
+
+			// 格式化结果供 Dashboard 使用
+			const cleanResults = results.map(r => {
+				const agentScore = agentScores.get(r.name);
+				return {
+					name: r.name,
+					content: r.content,
+					similarity: Math.round(r.similarity * 100) / 100,
+					authority: r.authority,
+					usageCount: r.usageCount,
+					stats: r.stats,
+					isContextRelevant: r.isContextRelevant,
+					matchType: r._vectorScore > r._keywordScore ? 'semantic' : 'keyword',
+					metadata: r.metadata,
+					aiRelevanceScore: r.aiRelevanceScore, // 多标记 AI 评分
+					qualityScore: agentScore?.qualityScore,
+					recommendReason: agentScore?.recommendReason
+				};
+			});
 
 			res.json({ 
 				results: cleanResults,

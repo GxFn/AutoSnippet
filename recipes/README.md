@@ -4,10 +4,10 @@ AutoSnippet Recipe 使用 **Markdown + YAML Frontmatter** 格式存储。这种�
 
 ## 目录结构
 
-Recipes 存放在项目根目录下的 `Knowledge/recipes/` 文件夹中，建议按模块或功能划分子目录：
+Recipes 存放在项目根目录下的 `AutoSnippet/recipes/` 文件夹中。**该路径已固定，不支持自定义配置。** 建议按模块或功能划分子目录：
 
 ```
-Knowledge/recipes/
+AutoSnippet/recipes/
 ├── README.md
 ├── BDNetworkControl/
 │   └── RequestTemplate.md

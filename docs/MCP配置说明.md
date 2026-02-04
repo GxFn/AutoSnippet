@@ -49,7 +49,7 @@ Cursor 通过 MCP（Model Context Protocol）调用 AutoSnippet 知识库与 Das
 }
 ```
 
-`cwd` 应为含 `AutoSnippetRoot.boxspec.json` 的项目根，以便 API 请求正确解析项目路径。  
+`cwd` 应为含 `AutoSnippet/AutoSnippet.boxspec.json` 的项目根，以便 API 请求正确解析项目路径。  
 环境变量 `ASD_UI_URL` 可覆盖 Dashboard 地址（默认 `http://localhost:3000`）。
 
 ---

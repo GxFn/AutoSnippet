@@ -4,7 +4,6 @@
  * 全量安装 / 按需安装：统一入口
  * asd install:full           - 核心 + 可选依赖 + Dashboard
  * asd install:full --parser  - 上述 + Swift 解析器
- * asd install:full --lancedb - 仅安装 LanceDB
  */
 
 const path = require('path');
@@ -12,22 +11,14 @@ const fs = require('fs');
 const { execSync } = require('child_process');
 
 const rootDir = path.resolve(__dirname, '..');
-const lancedbOnly = process.env.ASD_INSTALL_LANCEDB_ONLY === '1' || process.env.ASD_INSTALL_LANCEDB_ONLY === 'true';
 const withParser = process.env.ASD_INSTALL_PARSER === '1' || process.env.ASD_INSTALL_PARSER === 'true';
 const withNativeUi = process.env.ASD_INSTALL_NATIVE_UI === '1' || process.env.ASD_INSTALL_NATIVE_UI === 'true';
 const dashboardDist = path.join(rootDir, 'dashboard', 'dist');
 
-if (lancedbOnly) {
-	console.log('=== 安装 LanceDB ===\n');
-	execSync('npm install @lancedb/lancedb', { cwd: rootDir, stdio: 'inherit' });
-	console.log('\n✅ LanceDB 安装完成。在 boxspec 中配置 adapter: "lance" 后执行 asd embed。');
-	process.exit(0);
-}
-
 console.log('=== AutoSnippet 全量安装 ===\n');
 
-// 1. 核心 + 可选依赖（含 LanceDB）
-console.log('1/4 安装核心与可选依赖（含 LanceDB）...');
+// 1. 核心 + 可选依赖
+console.log('1/4 安装核心与可选依赖...');
 execSync('npm install', { cwd: rootDir, stdio: 'inherit' });
 console.log('');
 

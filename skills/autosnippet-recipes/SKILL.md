@@ -10,7 +10,7 @@ This skill **provides the agent with this project's context** from [AutoSnippet]
 ## Instructions for the agent (read this first)
 
 1. **Project context**  
-   This project’s Recipe content is in **`references/project-recipes-context.md`** in this skill folder. Read it when you need project standards, patterns, or Guard context. If that file is missing, read `AutoSnippet/recipes/` under the project root (directory with `AutoSnippetRoot.boxspec.json`).
+   This project's Recipe content is in **`references/project-recipes-context.md`** in this skill folder. Read it when you need project standards, patterns, or Guard context. If that file is missing, read `AutoSnippet/recipes/` under the project root (directory with `AutoSnippet/AutoSnippet.boxspec.json`).
 
 2. **Finding code on demand**  
    When the user asks for code or "how to do X", look up the matching Recipe in `references/project-recipes-context.md` by title, summary, or usage guide, then use that Recipe's **Snippet / Code Reference** (the fenced code block) as the standard code to suggest. Cite the Recipe title.
@@ -31,7 +31,7 @@ This skill **provides the agent with this project's context** from [AutoSnippet]
 **This project's Recipe content is in `references/project-recipes-context.md` in this skill folder.**  
 That file is generated when you run `asd install:cursor-skill` from the project root and contains the current project's Recipes. **Read it first** whenever you need project standards, patterns, or Guard context.
 
-If `references/project-recipes-context.md` is missing (e.g. skill was not installed via `asd install:cursor-skill`, or the project has no recipes yet), read the project’s Recipe files directly: resolve the project root (directory containing `AutoSnippetRoot.boxspec.json`), then read all `.md` files under `AutoSnippet/recipes/` (or the `recipes.dir` path from that spec file).
+If `references/project-recipes-context.md` is missing (e.g. skill was not installed via `asd install:cursor-skill`, or the project has no recipes yet), read the project's Recipe files directly: resolve the project root (directory containing `AutoSnippet/AutoSnippet.boxspec.json`), then read all `.md` files under `AutoSnippet/recipes/` (or the `recipes.dir` path from that spec file).
 
 ## What is a Recipe?
 

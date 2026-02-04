@@ -12,7 +12,7 @@
     "embeddingBatch": 10
   },
   "recipe": {
-    "dir": "Knowledge/recipes",
+    "dir": "AutoSnippet/recipes",
     "autoEmbed": true
   },
   "lint": {

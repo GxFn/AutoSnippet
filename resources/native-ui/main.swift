@@ -23,8 +23,8 @@ struct SyntaxHighlighter {
         let attributed = NSMutableAttributedString(string: code)
         let fullRange = NSRange(location: 0, length: code.utf16.count)
         
-        // 基础样式 - SF Mono 字体 (Xcode 默认)
-        let baseFont = NSFont(name: "SFMono-Regular", size: 13) ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        // 基础样式 - SF Mono 字体 (Xcode 默认) - 增大到 14
+        let baseFont = NSFont(name: "SFMono-Regular", size: 14) ?? NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
         // 普通文本 - Xcode 默认浅灰白色
         let baseColor = NSColor(calibratedRed: 0.83, green: 0.84, blue: 0.85, alpha: 1.0) // #D4D4D6
         attributed.addAttribute(.font, value: baseFont, range: fullRange)
@@ -151,12 +151,17 @@ class ListSelectionWindowController: NSObject, NSTableViewDataSource, NSTableVie
         scrollView.wantsLayer = true
         scrollView.layer?.cornerRadius = 8
         scrollView.layer?.masksToBounds = true
+        // 使用 overlay 滚动条
+        scrollView.scrollerStyle = .overlay
+        scrollView.autohidesScrollers = true
+        scrollView.scrollerKnobStyle = .light
         
         tableView = NSTableView()
         tableView.headerView = nil
         tableView.rowHeight = 36
         tableView.intercellSpacing = NSSize(width: 0, height: 1)
-        tableView.backgroundColor = NSColor(calibratedWhite: 0.12, alpha: 0.5)
+        // Xcode 深色背景：#1F1F24
+        tableView.backgroundColor = NSColor(calibratedRed: 0.12, green: 0.12, blue: 0.14, alpha: 1.0)
         tableView.usesAlternatingRowBackgroundColors = false
         tableView.selectionHighlightStyle = .regular
         tableView.doubleAction = #selector(doubleClicked)
@@ -188,8 +193,6 @@ class ListSelectionWindowController: NSObject, NSTableViewDataSource, NSTableVie
         okButton.keyEquivalent = "\r" // Enter
         okButton.wantsLayer = true
         okButton.layer?.cornerRadius = 6
-        okButton.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
-        okButton.contentTintColor = .white
         okButton.autoresizingMask = [.minXMargin, .maxYMargin]
         contentView.addSubview(okButton)
         
@@ -247,15 +250,6 @@ class ListSelectionWindowController: NSObject, NSTableViewDataSource, NSTableVie
             cellView = NSTableCellView()
             cellView?.identifier = cellIdentifier
             
-            // 图标
-            let iconView = NSImageView()
-            if #available(macOS 11.0, *) {
-                iconView.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: nil)
-            }
-            iconView.translatesAutoresizingMaskIntoConstraints = false
-            cellView?.addSubview(iconView)
-            cellView?.imageView = iconView
-            
             let textField = NSTextField(labelWithString: "")
             textField.font = NSFont.systemFont(ofSize: 13)
             textField.lineBreakMode = .byTruncatingMiddle
@@ -264,11 +258,7 @@ class ListSelectionWindowController: NSObject, NSTableViewDataSource, NSTableVie
             cellView?.textField = textField
             
             NSLayoutConstraint.activate([
-                iconView.leadingAnchor.constraint(equalTo: cellView!.leadingAnchor, constant: 12),
-                iconView.centerYAnchor.constraint(equalTo: cellView!.centerYAnchor),
-                iconView.widthAnchor.constraint(equalToConstant: 16),
-                iconView.heightAnchor.constraint(equalToConstant: 16),
-                textField.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
+                textField.leadingAnchor.constraint(equalTo: cellView!.leadingAnchor, constant: 12),
                 textField.trailingAnchor.constraint(equalTo: cellView!.trailingAnchor, constant: -12),
                 textField.centerYAnchor.constraint(equalTo: cellView!.centerYAnchor)
             ])
@@ -306,7 +296,13 @@ class ListSelectionWindowController: NSObject, NSTableViewDataSource, NSTableVie
 // MARK: - Code Preview Window
 
 class CodePreviewWindowController {
-    func show(title: String, code: String) -> Bool {
+    enum PreviewResult {
+        case confirmed      // 用户点击了“立即插入”
+        case cancelled      // 用户点击了“取消”
+        case returnToList   // 用户点击了“返回”
+    }
+    
+    func show(title: String, code: String) -> PreviewResult {
         let panelWidth: CGFloat = 900
         let panelHeight: CGFloat = 520
         
@@ -366,11 +362,20 @@ class CodePreviewWindowController {
         scrollView.wantsLayer = true
         scrollView.layer?.cornerRadius = 8
         scrollView.layer?.masksToBounds = true
+        // 设置 scrollView 背景色为 Xcode 深色
+        scrollView.backgroundColor = NSColor(calibratedRed: 0.12, green: 0.12, blue: 0.14, alpha: 1.0)
+        // 使用 overlay 滚动条
+        scrollView.scrollerStyle = .overlay
+        scrollView.autohidesScrollers = true
+        scrollView.scrollerKnobStyle = .light
+        scrollView.horizontalScrollElasticity = .automatic
+        scrollView.verticalScrollElasticity = .automatic
         
         let textView = NSTextView(frame: scrollView.bounds)
         textView.isEditable = false
         textView.isSelectable = true
-        textView.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 0.9)
+        // Xcode 深色背景：#1F1F24
+        textView.backgroundColor = NSColor(calibratedRed: 0.12, green: 0.12, blue: 0.14, alpha: 1.0)
         textView.textContainerInset = NSSize(width: 16, height: 16)
         textView.isHorizontallyResizable = true
         textView.isVerticallyResizable = true
@@ -395,14 +400,30 @@ class CodePreviewWindowController {
         contentView.addSubview(scrollView)
         
         // 按钮
+        let backButton = NSButton(title: "← 返回", target: nil, action: nil)
+        backButton.bezelStyle = .rounded
+        backButton.frame = NSRect(x: 20, y: 15, width: 90, height: 32)
+        backButton.autoresizingMask = [.maxXMargin, .maxYMargin]
+        backButton.wantsLayer = true
+        backButton.layer?.cornerRadius = 6
+        contentView.addSubview(backButton)
+        
         let cancelButton = NSButton(title: "取消", target: nil, action: nil)
         cancelButton.bezelStyle = .rounded
-        cancelButton.frame = NSRect(x: panelWidth - 210, y: 15, width: 90, height: 32)
+        cancelButton.frame = NSRect(x: panelWidth - 310, y: 15, width: 90, height: 32)
         cancelButton.keyEquivalent = "\u{1b}"
         cancelButton.autoresizingMask = [.minXMargin, .maxYMargin]
         cancelButton.wantsLayer = true
         cancelButton.layer?.cornerRadius = 6
         contentView.addSubview(cancelButton)
+        
+        let copyButton = NSButton(title: "复制代码", target: nil, action: nil)
+        copyButton.bezelStyle = .rounded
+        copyButton.frame = NSRect(x: panelWidth - 210, y: 15, width: 90, height: 32)
+        copyButton.autoresizingMask = [.minXMargin, .maxYMargin]
+        copyButton.wantsLayer = true
+        copyButton.layer?.cornerRadius = 6
+        contentView.addSubview(copyButton)
         
         let okButton = NSButton(title: "立即插入", target: nil, action: nil)
         okButton.bezelStyle = .rounded
@@ -415,13 +436,21 @@ class CodePreviewWindowController {
         
         class ButtonHandler {
             var result = false
+            var shouldReturnToList = false  // 新增：标记是否需要返回列表
             var panel: NSPanel
+            var codeText: String
             
-            init(panel: NSPanel) {
+            init(panel: NSPanel, codeText: String) {
                 self.panel = panel
+                self.codeText = codeText
             }
             
             @objc func okClicked() {
+                // 插入时也只使用纯代码
+                let pureCode = extractPureCode(codeText)
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(pureCode, forType: .string)
                 result = true
                 panel.close()
                 NSApp.stopModal()
@@ -432,11 +461,49 @@ class CodePreviewWindowController {
                 panel.close()
                 NSApp.stopModal()
             }
+            
+            @objc func backClicked() {
+                // 返回功能：设置标志并关闭窗口
+                result = false
+                shouldReturnToList = true
+                panel.close()
+                NSApp.stopModal()
+            }
+            
+            @objc func copyClicked() {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                // 只复制纯代码，去掉 markdown 代码块标记
+                let pureCode = extractPureCode(codeText)
+                pasteboard.setString(pureCode, forType: .string)
+                print("✅ 代码已复制到剪贴板")
+                // 复制后关闭窗口
+                panel.close()
+                NSApp.stopModal()
+            }
+            
+            private func extractPureCode(_ code: String) -> String {
+                var lines = code.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+                
+                // 移除首尾的代码块标记（```swift、```等）
+                while !lines.isEmpty && (lines.first?.trimmingCharacters(in: .whitespaces).starts(with: "```") ?? false) {
+                    lines.removeFirst()
+                }
+                while !lines.isEmpty && (lines.last?.trimmingCharacters(in: .whitespaces).starts(with: "```") ?? false) {
+                    lines.removeLast()
+                }
+                
+                return lines.joined(separator: "\n")
+            }
         }
         
-        let handler = ButtonHandler(panel: panel)
+        let handler = ButtonHandler(panel: panel, codeText: processedCode)
+        backButton.target = handler
+        backButton.action = #selector(ButtonHandler.backClicked)
         cancelButton.target = handler
         cancelButton.action = #selector(ButtonHandler.cancelClicked)
+        copyButton.target = handler
+        copyButton.action = #selector(ButtonHandler.copyClicked)
         okButton.target = handler
         okButton.action = #selector(ButtonHandler.okClicked)
         
@@ -452,7 +519,14 @@ class CodePreviewWindowController {
         
         NSApp.runModal(for: panel)
         
-        return handler.result
+        // 根据状态返回不同的结果
+        if handler.shouldReturnToList {
+            return .returnToList
+        } else if handler.result {
+            return .confirmed
+        } else {
+            return .cancelled
+        }
     }
 }
 
@@ -462,7 +536,67 @@ func printUsage() {
     print("Usage:")
     print("  native-ui list \"Title 1\" \"Title 2\" ...")
     print("  native-ui preview \"Title\" \"Code Content\"")
+    print("  native-ui combined <keyword> <json_data>  # 新：组合窗口")
     fflush(stdout)
+}
+
+// MARK: - Data Models
+
+struct SearchItem {
+    let title: String
+    let code: String
+    let explanation: String
+    let groupSize: Int
+}
+
+// MARK: - Combined Handler
+
+func handleCombined(_ args: [String]) {
+    guard args.count >= 2 else {
+        fputs("native-ui combined: 需要 keyword 和 json_data 两个参数\n", stderr)
+        fflush(stderr)
+        exit(1)
+    }
+    
+    let keyword = args[0]
+    let jsonData = args[1]
+    
+    // 解析 JSON 数据
+    guard let data = jsonData.data(using: .utf8),
+          let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        fputs("native-ui combined: JSON 解析失败\n", stderr)
+        fflush(stderr)
+        exit(1)
+    }
+    
+    var items: [SearchItem] = []
+    for item in json {
+        if let title = item["title"] as? String, let code = item["code"] as? String {
+            let explanation = item["explanation"] as? String ?? ""
+            let groupSize = (item["groupSize"] as? NSNumber)?.intValue ?? 0
+            items.append(SearchItem(title: title, code: code, explanation: explanation, groupSize: groupSize))
+        }
+    }
+    
+    if items.isEmpty {
+        fputs("native-ui combined: 无有效数据\n", stderr)
+        fflush(stderr)
+        exit(1)
+    }
+    
+    let app = NSApplication.shared
+    app.setActivationPolicy(.accessory)
+    
+    let controller = CombinedSearchWindowController()
+    let result = controller.show(items: items, keyword: keyword)
+    
+    switch result {
+    case .confirmed(let index):
+        print(index)
+        exit(0)
+    case .cancelled:
+        exit(1)
+    }
 }
 
 func handleList(_ items: [String]) {
@@ -504,12 +638,15 @@ func handlePreview(_ args: [String]) {
     app.setActivationPolicy(.accessory)
     
     let controller = CodePreviewWindowController()
-    let confirmed = controller.show(title: title, code: code)
+    let result = controller.show(title: title, code: code)
     
-    if confirmed {
-        exit(0)
-    } else {
-        exit(1)
+    switch result {
+    case .confirmed:
+        exit(0)  // 用户确认插入
+    case .returnToList:
+        exit(2)  // 用户要求返回列表
+    case .cancelled:
+        exit(1)  // 用户取消
     }
 }
 
@@ -531,6 +668,8 @@ case "list":
     handleList(Array(args.dropFirst(2)))
 case "preview":
     handlePreview(Array(args.dropFirst(2)))
+case "combined":
+    handleCombined(Array(args.dropFirst(2)))
 default:
     fputs("未知子命令: \(command)\n", stderr)
     printUsage()

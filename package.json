@@ -1,6 +1,6 @@
 {
 	"name": "autosnippet",
-	"version": "1.6.0",
+	"version": "1.6.2",
 	"description": "A iOS module management tool.",
 	"main": "index.js",
 	"scripts": {
@@ -9,7 +9,7 @@
 		"verify-checksums": "node scripts/verify-checksums.js",
 		"prepublishOnly": "npm run generate-checksums",
 		"build:parser": "cd tools/parse-package && swift build -c release",
-		"build:native-ui": "swiftc resources/native-ui/main.swift -o resources/native-ui/native-ui -framework AppKit",
+		"build:native-ui": "swiftc resources/native-ui/main.swift resources/native-ui/combined-window.swift -o resources/native-ui/native-ui -framework AppKit",
 		"install:cursor-skill": "node scripts/install-cursor-skill.js",
 		"install:cursor-skill:mcp": "node scripts/install-cursor-skill.js --mcp",
 		"install:vscode-copilot": "node scripts/install-vscode-copilot.js",
@@ -41,7 +41,10 @@
 		"migrate:run": "node scripts/migration/run.js",
 		"migrate:validate": "node scripts/migration/validate.js",
 		"migrate:fix": "node scripts/migration/fix.js",
-		"migrate:guard": "node scripts/migrate-guard-rules.js"
+		"migrate:guard": "node scripts/migrate-guard-rules.js",
+		"init:snippets": "node scripts/init-xcode-snippets.js init",
+		"list:snippets": "node scripts/init-xcode-snippets.js list",
+		"remove:snippets": "node scripts/init-xcode-snippets.js remove"
 	},
 	"author": "gaoxuefeng",
 	"license": "MIT",

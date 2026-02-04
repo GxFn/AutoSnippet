@@ -4,6 +4,48 @@
 
 ---
 
+## [1.6.2] - 2026-02-05
+
+### 新增
+
+- **UI 优化增强**：
+  - Dashboard AI Assistant 支持完整 Markdown 渲染（代码块、列表、标题等）
+  - 搜索结果显示优化，移除冗余的百分比和图标展示
+  - 改进搜索服务 V2 结果标题格式
+  - 更新模式预览中的结果展示逻辑
+
+- **原生 UI 改进**：
+  - 移除列表项中的文件图标，简化视觉设计
+  - 调整文本布局位置，提升界面整洁度
+  - 改进窗口控制器的单元格视图配置
+
+### 修复
+
+- **浏览器打开机制优化**：
+  - 修复 macOS 上重复弹出浏览器选择对话框的问题
+  - 增加应用程序安装检查，避免系统错误
+  - 改进 AppleScript 调用的稳定性
+  - 移除强制打开 Safari 的逻辑
+
+- **日志系统优化**：
+  - 将 AI Provider（DeepSeek）的冗余日志改为条件输出
+  - 仅在 `ASD_DEBUG=1` 环境变量设置时显示调试信息
+  - 减少测试执行时的日志噪声
+
+### 改进
+
+- **测试框架稳定性**：
+  - 修正跨项目测试中的路径判断逻辑
+  - 增加对环境变量的灵活支持（ASD_TEST_PROJECT_ROOT、ASD_TEST_PROJECT_BASENAME）
+  - 所有 39 个集成测试保持 100% 通过率
+
+- **开发体验**：
+  - .gitignore 更新，避免版本控制中包含临时文件和缓存
+  - 删除不必要的测试脚本，保持项目结构清洁
+  - 改进版本管理与发布流程
+
+---
+
 ## [1.6.0] - 2026-02-04
 
 ### 新增
@@ -34,8 +76,8 @@
   - 更新 `.github/workflows/ci.yml` 配置，确保 Dashboard 在后台启动并通过健康检查
   - 所有 39 个集成测试在 CI 环境 100% 通过
 
-- **候选文件存储位置**：修复 `candidateService` 硬编码 `Knowledge` 目录的问题。现在会根据 `AutoSnippetRoot.boxspec.json` 中的 `recipes.dir` 配置来决定候选文件（`candidates.json`）的存储位置。例如：
-  - 如果 `recipes.dir` 为 `"Knowledge/recipes"`，候选文件保存到 `Knowledge/.autosnippet/candidates.json`
+- **候选文件存储位置**：修复 `candidateService` 硬编码 `Knowledge` 目录的问题。现在会根据 `AutoSnippet.boxspec.json` 中的 `recipes.dir` 配置来决定候选文件（`candidates.json`）的存储位置。例如：
+  - 如果 `recipes.dir` 为 `\"AutoSnippet/recipes\"`，候选文件保存到 `AutoSnippet/.autosnippet/candidates.json`
   - 如果 `recipes.dir` 为 `"docs/recipes"`，候选文件保存到 `docs/.autosnippet/candidates.json`
   - 这确保了项目的所有 AutoSnippet 相关文件都在统一的目录结构下
 
@@ -69,8 +111,8 @@
 
 ### 修复
 
-- **候选文件存储位置**：修复 `candidateService` 硬编码 `Knowledge` 目录的问题。现在会根据 `AutoSnippetRoot.boxspec.json` 中的 `recipes.dir` 配置来决定候选文件（`candidates.json`）的存储位置。例如：
-  - 如果 `recipes.dir` 为 `"Knowledge/recipes"`，候选文件保存到 `Knowledge/.autosnippet/candidates.json`
+- **候选文件存储位置**：修复 `candidateService` 硬编码 `AutoSnippet` 目录的问题。现在会根据 `AutoSnippet.boxspec.json` 中的 `recipes.dir` 配置来决定候选文件（`candidates.json`）的存储位置。例如：
+  - 如果 `recipes.dir` 为 `"AutoSnippet/recipes"`，候选文件保存到 `AutoSnippet/.autosnippet/candidates.json`
   - 如果 `recipes.dir` 为 `"docs/recipes"`，候选文件保存到 `docs/.autosnippet/candidates.json`
   - 这确保了项目的所有 AutoSnippet 相关文件都在统一的目录结构下
 
@@ -80,7 +122,7 @@
 
 ### 修复
 
-- **asd status 项目根未找到**：CMD_PATH 改为优先使用 `process.env.ASD_CWD`（asd 脚本传入的调用目录），避免 dev:link 等场景下 process.cwd() 与用户所在目录不一致导致找不到 AutoSnippetRoot.boxspec.json。
+- **asd status 项目根未找到**：CMD_PATH 改为优先使用 `process.env.ASD_CWD`（asd 脚本传入的调用目录），避免 dev:link 等场景下 process.cwd() 与用户所在目录不一致导致找不到 AutoSnippet.boxspec.json。
 - **asd ui 端口占用**：asd-verify 收到 SIGINT/SIGTERM 时转发给 Node 子进程，避免 Ctrl+C 后仅 Swift 退出、Node 成为孤儿进程占用 3000 端口。
 
 ### 测试

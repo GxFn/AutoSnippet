@@ -16,7 +16,7 @@
 | **英文名** | **Recipe**（一个单词） |
 | **中文名** | **配方** |
 | **含义** | 描述**某一模块在项目中的标准使用方式**的一份「配方」：包含可插入的**代码片段（Snippet）**与**使用说明（何时用、依赖、约束）**，供 Xcode 插入、AI 检索与 Guard 审查。 |
-| **载体** | 单份 Markdown 文件（YAML Frontmatter + 正文），存放在 `Knowledge/recipes/`。 |
+| **载体** | 单份 Markdown 文件（YAML Frontmatter + 正文），存放在 `AutoSnippet/recipes/`。 |
 | **与「网络标准 Skills」的区别** | Recipe = **代码片段 + 使用说明**，以「可插入代码」和「项目内检索」为主；网络标准 Skills = **name + description + 工作流指令**，以「Agent 发现与执行」为主。 |
 | **与 Guard 的关系** | Guard 会检索 Recipe 来验证代码规范（Guard = 自动化规则检查，非人工 Code Review）。 |
 
@@ -40,7 +40,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  AutoSnippet 内：Recipe（配方）                                   │
-│  - 载体：Knowledge/recipes/*.md                                 │
+│  - 载体：AutoSnippet/recipes/*.md                                 │
 │  - 内容：title, trigger, summary, Snippet 代码块, Usage Guide   │
 │  - 用途：Xcode 插入、as:search、AI 检索、as:lint                │
 └─────────────────────────────────────────────────────────────────┘

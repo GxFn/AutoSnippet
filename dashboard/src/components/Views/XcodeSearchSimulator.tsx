@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { Search, X, Zap, FileText, Loader2, ChevronRight } from 'lucide-react';
+import { ICON_SIZES } from '../../constants/icons';
 import CodeBlock from '../Shared/CodeBlock';
 
 interface XcodeSearchResult {
@@ -11,6 +12,8 @@ interface XcodeSearchResult {
 	authority: number;
 	usageCount: number;
 	stats?: any;
+	qualityScore?: number;
+	recommendReason?: string;
 }
 
 interface XcodeSearchSimulatorProps {
@@ -65,14 +68,14 @@ const XcodeSearchSimulator: React.FC<XcodeSearchSimulatorProps> = ({ isOpen, onC
 				<div className="border-b border-slate-200 p-6 shrink-0">
 					<div className="flex items-center justify-between mb-4">
 						<div className="flex items-center gap-2">
-							<FileText size={20} className="text-blue-600" />
+							<FileText size={ICON_SIZES.lg} className="text-blue-600" />
 							<h2 className="text-xl font-bold text-slate-900">Xcode 搜索模拟器</h2>
 						</div>
 						<button
 							onClick={onClose}
 							className="p-1 hover:bg-slate-100 rounded-lg transition-colors"
 						>
-							<X size={20} className="text-slate-500" />
+							<X size={ICON_SIZES.lg} className="text-slate-500" />
 						</button>
 					</div>
 
@@ -114,9 +117,9 @@ const XcodeSearchSimulator: React.FC<XcodeSearchSimulatorProps> = ({ isOpen, onC
 									className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300 transition-colors flex items-center gap-2"
 								>
 									{isSearching ? (
-										<Loader2 size={16} className="animate-spin" />
+										<Loader2 size={ICON_SIZES.md} className="animate-spin" />
 									) : (
-										<Search size={16} />
+										<Search size={ICON_SIZES.md} />
 									)}
 									{isSearching ? '搜索中...' : '搜索'}
 								</button>
@@ -152,12 +155,17 @@ const XcodeSearchSimulator: React.FC<XcodeSearchSimulatorProps> = ({ isOpen, onC
 											</h4>
 											<div className="flex items-center gap-2 mt-1 flex-wrap">
 												<span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded text-xs text-slate-600">
-													<Zap size={12} />
+													<Zap size={ICON_SIZES.xs} />
 													{result.similarity}%
 												</span>
 												{result.isContextRelevant && (
 													<span className="inline-flex items-center px-2 py-0.5 bg-green-100 rounded text-xs text-green-700 font-medium">
 														✓ 上下文相关
+													</span>
+												)}
+												{result.qualityScore !== undefined && (
+													<span className="inline-flex items-center px-2 py-0.5 bg-blue-100 rounded text-xs text-blue-700 font-medium">
+														🤖 质量: {(result.qualityScore * 100).toFixed(0)}%
 													</span>
 												)}
 											</div>
@@ -172,6 +180,13 @@ const XcodeSearchSimulator: React.FC<XcodeSearchSimulatorProps> = ({ isOpen, onC
 										</div>
 									</div>
 
+									{result.recommendReason && (
+										<div className="text-xs text-slate-500 bg-blue-50 p-2 rounded mt-2 border border-blue-100">
+											<p className="font-medium text-blue-700 mb-0.5">推荐理由:</p>
+											<p>{result.recommendReason}</p>
+										</div>
+									)}
+
 									{result.snippet && (
 										<div className="text-xs text-slate-600 bg-slate-50 p-2 rounded mt-2 max-h-[100px] overflow-hidden">
 											<p className="line-clamp-3">{result.snippet}</p>
@@ -185,7 +200,7 @@ const XcodeSearchSimulator: React.FC<XcodeSearchSimulatorProps> = ({ isOpen, onC
 										}}
 										className="mt-3 w-full py-1.5 bg-blue-50 text-blue-600 rounded text-xs font-medium hover:bg-blue-100 transition-colors flex items-center justify-center gap-1"
 									>
-										<ChevronRight size={14} />
+										<ChevronRight size={ICON_SIZES.sm} />
 										查看完整内容
 									</button>
 								</div>
@@ -194,7 +209,7 @@ const XcodeSearchSimulator: React.FC<XcodeSearchSimulatorProps> = ({ isOpen, onC
 					) : isSearching ? (
 						<div className="flex items-center justify-center h-32">
 							<div className="text-center">
-								<Loader2 size={32} className="animate-spin text-blue-600 mx-auto mb-2" />
+								<Loader2 size={ICON_SIZES.xxl} className="animate-spin text-blue-600 mx-auto mb-2" />
 								<p className="text-slate-600 text-sm">搜索中...</p>
 							</div>
 						</div>
@@ -242,7 +257,7 @@ const XcodeSearchSimulator: React.FC<XcodeSearchSimulatorProps> = ({ isOpen, onC
 									onClick={() => setDetailsOpen(false)}
 									className="p-1 hover:bg-slate-100 rounded transition-colors shrink-0"
 								>
-									<X size={20} className="text-slate-500" />
+									<X size={ICON_SIZES.lg} className="text-slate-500" />
 								</button>
 							</div>
 
@@ -277,7 +292,7 @@ const XcodeSearchSimulator: React.FC<XcodeSearchSimulatorProps> = ({ isOpen, onC
 									}}
 									className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded transition-colors text-sm font-medium flex items-center gap-2"
 								>
-									<ChevronRight size={16} />
+									<ChevronRight size={ICON_SIZES.md} />
 									复制代码
 								</button>
 							</div>

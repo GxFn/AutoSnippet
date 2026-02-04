@@ -3,6 +3,7 @@ import axios from 'axios';
 import { X, Save, Eye, Edit3, Loader2 } from 'lucide-react';
 import { Recipe } from '../../types';
 import MarkdownWithHighlight from '../Shared/MarkdownWithHighlight';
+import { ICON_SIZES } from '../../constants/icons';
 
 interface RecipeEditorProps {
 	editingRecipe: Recipe;
@@ -113,16 +114,16 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
 								onClick={() => setViewMode('preview')} 
 								className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'preview' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}
 							>
-								<Eye size={14} /> Preview
+								<Eye size={ICON_SIZES.sm} /> Preview
 							</button>
 							<button 
 								onClick={() => setViewMode('edit')} 
 								className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'edit' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}
 							>
-								<Edit3 size={14} /> Edit
+								<Edit3 size={ICON_SIZES.sm} /> Edit
 							</button>
 						</div>
-						<button onClick={closeRecipeEdit} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
+						<button onClick={closeRecipeEdit} className="p-2 hover:bg-slate-100 rounded-full"><X size={ICON_SIZES.lg} /></button>
 					</div>
 				</div>
 				<div className="p-6 space-y-4 flex-1 flex flex-col overflow-hidden">
@@ -150,10 +151,10 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
 									<div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
 										<h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Recipe Metadata</h3>
 										<div className="space-y-4">
-											{/* 元数据网格（排除 summary） */}
-											{Object.keys(metadata).filter(k => k !== 'summary').length > 0 && (
+											{/* 元数据网格（排除 summary、summary_cn、summary_en） */}
+											{Object.keys(metadata).filter(k => !['summary', 'summary_cn', 'summary_en'].includes(k)).length > 0 && (
 												<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-8">
-													{Object.entries(metadata).filter(([k]) => k !== 'summary').map(([key, value]) => (
+													{Object.entries(metadata).filter(([k]) => !['summary', 'summary_cn', 'summary_en'].includes(k)).map(([key, value]) => (
 														<div key={key} className="flex flex-col">
 															<span className="text-[10px] text-slate-400 font-bold uppercase mb-1">{key}</span>
 															<span className="text-sm text-slate-700 break-all font-medium">
@@ -174,11 +175,19 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
 												</div>
 											)}
 											
-											{/* Summary - 在 Metadata 层级最底部独立一行 */}
-											{metadata.summary && (
-												<div className="mt-4">
-													<span className="text-[10px] text-slate-400 font-bold uppercase mb-2 block">Summary</span>
-													<p className="text-sm text-slate-700 leading-relaxed">{metadata.summary}</p>
+											{/* summary_cn - 在 Metadata 层级最底部独立一行 */}
+											{metadata.summary_cn && (
+												<div className="mt-4 pt-4 border-t border-slate-200">
+													<span className="text-[10px] text-slate-400 font-bold uppercase mb-2 block">Summary (Chinese)</span>
+													<p className="text-sm text-slate-700 leading-relaxed">{metadata.summary_cn}</p>
+												</div>
+											)}
+
+											{/* summary_en - 在 Metadata 层级最底部独立一行 */}
+											{metadata.summary_en && (
+												<div className="mt-3 pt-3 border-t border-slate-200">
+													<span className="text-[10px] text-slate-400 font-bold uppercase mb-2 block">Summary (English)</span>
+													<p className="text-sm text-slate-700 leading-relaxed">{metadata.summary_en}</p>
 												</div>
 											)}
 										</div>
@@ -200,7 +209,7 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
 				<div className="p-6 border-t border-slate-100 flex justify-end gap-3">
 					<button onClick={closeRecipeEdit} disabled={isSavingRecipe} className="px-4 py-2 text-slate-600 font-medium disabled:opacity-50">Cancel</button>
 					<button onClick={handleSaveRecipe} disabled={isSavingRecipe} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed">
-						{isSavingRecipe ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+						{isSavingRecipe ? <Loader2 size={ICON_SIZES.lg} className="animate-spin" /> : <Save size={ICON_SIZES.lg} />}
 						{isSavingRecipe ? '保存中...' : 'Save Changes'}
 					</button>
 				</div>

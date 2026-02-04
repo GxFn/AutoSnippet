@@ -70,10 +70,8 @@ if (skillDirs.length === 0) {
 	console.log('ℹ️  skills 下暂无 skill 目录，跳过安装。');
 	process.exit(0);
 }
-
-if (!fs.existsSync(skillsTarget)) {
-	fs.mkdirSync(skillsTarget, { recursive: true });
-}
+	
+	console.log('🚀 Cursor Skills 安装\n');
 
 function getRecipesDir(root) {
 	const Paths = require(path.join(autoSnippetRoot, 'lib', 'infrastructure', 'config', 'Paths.js'));
@@ -189,7 +187,7 @@ for (const name of skillDirs) {
 		fs.rmSync(dest, { recursive: true });
 	}
 	fs.cpSync(src, dest, { recursive: true });
-	console.log('✅ 已安装 skill:', name, '->', dest);
+	console.log(`  ✅ ${name}`);
 
 	if (name === 'autosnippet-recipes') {
 		const context = buildProjectRecipesContext(projectRoot);
@@ -198,10 +196,10 @@ for (const name of skillDirs) {
 		const contextPath = path.join(refDir, 'project-recipes-context.md');
 		if (context) {
 			fs.writeFileSync(contextPath, context, 'utf8');
-			console.log('✅ 已生成项目 Recipe 上下文:', contextPath);
+			// 项目 Recipe 上下文已生成
 		} else {
 			if (fs.existsSync(contextPath)) fs.unlinkSync(contextPath);
-			console.log('ℹ️  项目暂无 recipes，未生成 project-recipes-context.md');
+			// 项目暂无 recipes
 		}
 		const { byCategory, index } = buildCategorySlices(projectRoot);
 		if (Object.keys(byCategory).length > 0) {
@@ -217,7 +215,7 @@ for (const name of skillDirs) {
 				fs.writeFileSync(path.join(catDir, `${cat}.md`), parts.join(''), 'utf8');
 			}
 			fs.writeFileSync(path.join(refDir, 'index.json'), JSON.stringify(index, null, 2), 'utf8');
-			console.log('✅ 已生成 by-category 切片:', index.categories.join(', '));
+			// by-category 切片已生成
 		}
 	}
 	if (name === 'autosnippet-dep-graph') {
@@ -227,7 +225,7 @@ for (const name of skillDirs) {
 		const summaryPath = path.join(refDir, 'spmmap-summary.md');
 		if (summary) {
 			fs.writeFileSync(summaryPath, summary, 'utf8');
-			console.log('✅ 已生成 spmmap 摘要:', summaryPath);
+			// spmmap 摘要已生成
 		} else {
 			if (fs.existsSync(summaryPath)) fs.unlinkSync(summaryPath);
 		}
@@ -240,7 +238,7 @@ for (const name of skillDirs) {
 		if (context) {
 			const excerpt = context.length > defaults.GUARD_CONTEXT_EXCERPT_LIMIT ? context.slice(0, defaults.GUARD_CONTEXT_EXCERPT_LIMIT) + '\n\n*(截断，完整内容见 autosnippet-recipes/references/project-recipes-context.md)*' : context;
 			fs.writeFileSync(guardPath, excerpt, 'utf8');
-			console.log('✅ 已生成 guard-context.md');
+			// guard-context.md 已生成
 		} else {
 			if (fs.existsSync(guardPath)) fs.unlinkSync(guardPath);
 		}
@@ -260,7 +258,7 @@ if (fs.existsSync(cursorRulesSource)) {
 			const src = path.join(cursorRulesSource, name);
 			const dest = path.join(cursorRulesTarget, name);
 			fs.copyFileSync(src, dest);
-			console.log('✅ 已安装 Cursor 规则:', name, '->', dest);
+			console.log(`  ✅ ${name}`);
 		}
 	}
 }
@@ -286,18 +284,13 @@ if (addMcp && fs.existsSync(mcpServerScript)) {
 	};
 	fs.mkdirSync(path.dirname(mcpPath), { recursive: true });
 	fs.writeFileSync(mcpPath, JSON.stringify(mcp, null, 2), 'utf8');
-	console.log('✅ 已写入 MCP 配置:', mcpPath);
-	console.log('   在 Cursor 中显示为 autosnippet。请用 Cursor 打开本目录:', projectRoot);
-	console.log('   使用 MCP 工具前需先运行 asd ui');
+	console.log('  ✅ MCP 配置');
 } else if (addMcp) {
-	console.log('ℹ️  --mcp 已指定但 mcp-server.js 不存在，跳过 MCP 配置');
+	// mcp-server.js 不存在，已跳过
 }
 
 console.log('🎯 Cursor skills 已就绪，安装到项目:', projectRoot);
-console.log('   重启 Cursor 或新开 Agent 对话后生效。');
-if (!addMcp) {
-	console.log('   按需语义检索：执行 asd install:cursor-skill --mcp 可添加 MCP 配置。');
-}
+console.log(`\n📌 下一步：重启 Cursor 后生效`);
 
 const runEmbed = process.argv.includes('--embed');
 if (runEmbed) {
@@ -305,7 +298,7 @@ if (runEmbed) {
 		try {
 			const IndexingPipeline = require(path.join(autoSnippetRoot, 'lib', 'context', 'IndexingPipeline'));
 			const result = await IndexingPipeline.run(projectRoot, { clear: false });
-			console.log('✅ 语义索引已更新（indexed:', result.indexed, ', skipped:', result.skipped, '）');
+			// 语义索引已更新
 		} catch (e) {
 			console.warn('⚠️  语义索引更新失败:', e.message);
 		}

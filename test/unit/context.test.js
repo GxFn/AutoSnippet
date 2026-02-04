@@ -18,9 +18,9 @@ function assert(cond, msg) {
 }
 
 function testCreateItemMetadata() {
-	const m = createItemMetadata({ type: 'recipe', sourcePath: 'Knowledge/recipes/x.md' });
+	const m = createItemMetadata({ type: 'recipe', sourcePath: 'AutoSnippet/recipes/x.md' });
 	assert(m.type === 'recipe');
-	assert(m.sourcePath === 'Knowledge/recipes/x.md');
+	assert(m.sourcePath === 'AutoSnippet/recipes/x.md');
 	assert(typeof m.updatedAt === 'number');
 	assert(createItemMetadata().type === 'recipe');
 }
@@ -49,13 +49,13 @@ async function testJsonAdapter() {
 
 async function testScanPathSource() {
 	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'as-scan-test-'));
-	const recipesDir = path.join(tmpDir, 'Knowledge/recipes');
+	const recipesDir = path.join(tmpDir, 'AutoSnippet/recipes');
 	fs.mkdirSync(recipesDir, { recursive: true });
 	fs.writeFileSync(path.join(recipesDir, 'a.md'), '# A\ncontent a');
 	fs.writeFileSync(path.join(recipesDir, 'b.md'), '# B\ncontent b');
 	try {
 		const items = await scan(tmpDir, {
-			sources: [{ path: 'Knowledge/recipes', type: 'recipe' }]
+			sources: [{ path: 'AutoSnippet/recipes', type: 'recipe' }]
 		});
 		assert(items.length >= 2, 'scan 应找到 2 个 md');
 		assert(items.some(i => i.path.includes('a.md')));

@@ -1,5 +1,6 @@
 import React from 'react';
 import { categoryConfigs } from '../../constants';
+import { ICON_SIZES } from '../../constants/icons';
 
 interface CategoryBarProps {
 	selectedCategory: string;
@@ -22,7 +23,7 @@ const CategoryBar: React.FC<CategoryBarProps> = ({ selectedCategory, setSelected
 									? `${config.bg} ${config.color} ${config.border} shadow-sm scale-105` 
 									: 'bg-white text-slate-400 border-slate-100 hover:border-slate-200 hover:text-slate-600'}`}
 						>
-							<Icon size={12} />
+							<Icon size={ICON_SIZES.xs} />
 							{cat}
 						</button>
 					);

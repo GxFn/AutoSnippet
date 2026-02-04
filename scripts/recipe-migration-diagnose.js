@@ -182,7 +182,6 @@ check(
 
 const indexDir = path.join(projectRoot, '.autosnippet', 'context', 'index');
 const hasIndex = fs.existsSync(path.join(indexDir, 'vector_index.json')) ||
-                  fs.existsSync(path.join(indexDir, 'lancedb')) ||
                   fs.existsSync(path.join(indexDir, 'milvus'));
 
 check(
@@ -235,16 +234,6 @@ check(
   `${deps.openai ? `版本: ${deps.openai}` : '未安装'}`,
   () => {
     execSync('npm install openai', { cwd: projectRoot });
-  }
-);
-
-check(
-  'dependencies',
-  'lancedb (向量数据库)',
-  deps.lancedb !== undefined || deps['@lancedb/lancedb'] !== undefined,
-  `${deps.lancedb ? '已安装' : '未安装（可选）'}`,
-  () => {
-    execSync('npm install lancedb', { cwd: projectRoot });
   }
 );
 

@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Snippet } from '../../types';
 import { categories } from '../../constants';
 import CodeBlock from '../Shared/CodeBlock';
+import { ICON_SIZES } from '../../constants/icons';
 
 interface SnippetEditorProps {
 	editingSnippet: Snippet;
@@ -48,16 +49,16 @@ const SnippetEditor: React.FC<SnippetEditorProps> = ({ editingSnippet, setEditin
 								onClick={() => setCodeView('preview')} 
 								className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${codeView === 'preview' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}
 							>
-								<Eye size={14} /> Preview
+								<Eye size={ICON_SIZES.sm} /> Preview
 							</button>
 							<button 
 								onClick={() => setCodeView('edit')} 
 								className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${codeView === 'edit' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}
 							>
-								<Edit3 size={14} /> Edit
+								<Edit3 size={ICON_SIZES.sm} /> Edit
 							</button>
 						</div>
-						<button onClick={closeSnippetEdit} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
+						<button onClick={closeSnippetEdit} className="p-2 hover:bg-slate-100 rounded-full"><X size={ICON_SIZES.lg} /></button>
 					</div>
 				</div>
 				<div className="p-6 space-y-4 overflow-y-auto">
@@ -90,7 +91,7 @@ const SnippetEditor: React.FC<SnippetEditorProps> = ({ editingSnippet, setEditin
 						<>
 							<div className="bg-slate-50 p-4 rounded-xl space-y-3">
 								<div className="flex items-center justify-between">
-									<label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase"><FileCode size={14} /> Headers / Imports</label>
+									<label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase"><FileCode size={ICON_SIZES.sm} /> Headers / Imports</label>
 									<div className="flex items-center gap-2">
 										<span className="text-[10px] font-bold text-slate-400 uppercase">Auto-include in Snippet</span>
 										<button 
@@ -136,7 +137,7 @@ const SnippetEditor: React.FC<SnippetEditorProps> = ({ editingSnippet, setEditin
 				</div>
 				<div className="p-6 border-t border-slate-100 flex justify-end gap-3">
 					<button onClick={closeSnippetEdit} className="px-4 py-2 text-slate-600 font-medium">Cancel</button>
-					<button onClick={handleSaveSnippet} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 hover:bg-blue-700"><Save size={18} />Save Changes</button>
+					<button onClick={handleSaveSnippet} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 hover:bg-blue-700"><Save size={ICON_SIZES.lg} />Save Changes</button>
 				</div>
 			</div>
 		</div>
