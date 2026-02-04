@@ -64,7 +64,7 @@
 	"dependencies": {
 		"@google/generative-ai": "^0.21.0",
 		"@modelcontextprotocol/sdk": "^1.25.3",
-		"@zilliz/milvus2-sdk-node": "^2.6.9",
+		"@zilliz/milvus2-sdk-node": "^2.5.10",
 		"axios": "^1.6.7",
 		"chokidar": "^3.6.0",
 		"commander": "^7.2.0",
@@ -106,6 +106,6 @@
 		"test": "test"
 	},
 	"devDependencies": {
-		"mocha": "^11.7.5"
+		"mocha": "^11.3.0"
 	}
 }

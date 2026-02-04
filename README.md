@@ -110,7 +110,7 @@ asd ui                     # 启动 Dashboard + watch
 AutoSnippet 默认使用 `swift package dump-package` 解析 SPM 依赖。如需更准确的解析，可安装 Swift 解析器：
 
 ```bash
-npm run build:parser       # 构建 ParsePackage（需本机已安装 Swift）
+asd install:full --parser    # 全量安装（含 Swift 解析器）
 ```
 
 构建后会在 `tools/parse-package/.build/release/` 生成解析器，SPM 解析将更准确可靠。未安装时自动回退到 `dump-package`，功能正常。
