@@ -30,30 +30,68 @@ jobs:
         run: npm run build:dashboard
 
       - name: Start Dashboard (background)
-        run: npm run dashboard -- --port 3100 --no-open &
-        env:
-          ASD_SKIP_ENTRY_CHECK: '1'
-          ASD_DISABLE_WRITE_GUARD: '1'
-          ASD_DISABLE_RATE_LIMIT: '1'
+        run: |
+          ASD_SKIP_ENTRY_CHECK=1 ASD_DISABLE_WRITE_GUARD=1 ASD_DISABLE_RATE_LIMIT=1 \
+            npm run dashboard -- --port 3100 --no-open > /tmp/dashboard.log 2>&1 &
+          echo "Dashboard started, PID: $!"
+          sleep 3
 
       - name: Wait for Dashboard
         run: |
-          for i in {1..30}; do
-            if curl -sf http://localhost:3100/api/health > /dev/null; then
-              echo "Dashboard ready"
+          for i in {1..60}; do
+            if curl -sf http://localhost:3100/api/health > /dev/null 2>&1; then
+              echo "✓ Dashboard ready"
               exit 0
             fi
-            sleep 2
+            echo "Attempt $i/60: waiting for Dashboard..."
+            sleep 1
           done
-          echo "Dashboard not ready"
+          echo "✗ Dashboard not ready after 60 seconds"
+          echo "Dashboard log:"
+          cat /tmp/dashboard.log || echo "(no log file)"
           exit 1
 
       - name: MCP Diagnosis Report (inline)
         run: |
           set -e
-          HEALTH=$(curl -sf http://localhost:3100/api/health || echo "{}")
+          echo "Checking Dashboard health..."
+          HEALTH=$(curl -sf http://localhost:3100/api/health 2>/dev/null || echo "{}")
+          
+          # 检查是否获取到有效响应
+          if [ -z "$HEALTH" ] || [ "$HEALTH" = "{}" ]; then
+            echo "⚠️ Dashboard health check returned empty response"
+            HEALTH="{}"
+          fi
+          
+          echo "Health response: $HEALTH"
           echo "$HEALTH" > mcp-health.json
-          node -e "const fs=require('fs'); const health=JSON.parse(fs.readFileSync('mcp-health.json','utf8')); const ok=Boolean(health && (health.status==='healthy'||health.healthy===true)); const report={success: ok, message: ok?'UI 健康检查通过':'UI 不健康', data:{health}, meta:{checker:'ci-inline', baseUrl:'http://localhost:3100'}}; fs.writeFileSync('mcp-report.json', JSON.stringify(report,null,2)); process.exit(ok?0:1);"
+          
+          # 解析并生成报告
+          node -e "
+          const fs = require('fs');
+          const data = fs.readFileSync('mcp-health.json', 'utf8');
+          let health;
+          try {
+            health = JSON.parse(data);
+          } catch (e) {
+            console.error('Failed to parse health JSON:', data);
+            health = {};
+          }
+          
+          const ok = Boolean(health && (health.status === 'healthy' || health.healthy === true));
+          const report = {
+            success: ok,
+            message: ok ? 'UI 健康检查通过' : 'UI 不健康或无响应',
+            data: { health },
+            meta: { checker: 'ci-inline', baseUrl: 'http://localhost:3100' }
+          };
+          fs.writeFileSync('mcp-report.json', JSON.stringify(report, null, 2));
+          if (!ok) {
+            console.error('Dashboard health check failed');
+            process.exit(1);
+          }
+          console.log('✓ Dashboard health OK');
+          "
 
       - name: Upload Diagnosis Report
         uses: actions/upload-artifact@v4
