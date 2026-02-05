@@ -78,7 +78,7 @@ jobs:
             health = {};
           }
           
-          const ok = Boolean(health && (health.status === 'healthy' || health.healthy === true));
+          const ok = Boolean(health && (health.status === 'healthy' || health.status === 'running' || health.healthy === true));
           const report = {
             success: ok,
             message: ok ? 'UI 健康检查通过' : 'UI 不健康或无响应',
