@@ -49,6 +49,8 @@ If `references/project-recipes-context.md` is missing (e.g. skill was not instal
 3. **When the user asks "how we do X here" or "project patterns"**: Base your answer on the Recipe content provided.
 4. **When drafting Recipe content**: Follow **autosnippet-create** flow: prefer writing to project root `_draft_recipe.md` (avoids copy issues for long content), then user submits via Dashboard. If the user wants **candidates**, submit structured items via MCP **`autosnippet_submit_candidates`**.
 5. **When the user mentions Audit or as:audit**: The same Recipe content is what code audit uses; your suggestions should match it.
+6. **Usage Guide depth**: Do not limit to “何时用/关键点”; include dependencies, steps/config, error handling, performance, security, pitfalls, and related Recipes when applicable.
+7. **Placeholders**: Prefer Xcode placeholders in snippets (e.g. `<#URL#>`, `<#Token#>`), and explain their meaning in Usage Guide.
 
 ## Finding relevant code on demand
 
@@ -133,3 +135,5 @@ When you (Cursor) are creating a new Recipe and need to fill the `headers` field
 **Best practice**: Use **Option 3** first (extract from actual code), then verify with **Option 1** (check existing recipes) to ensure consistency with project standards. If headers seem incomplete, use **Option 2** (semantic search) to find related Recipes.
 
 This ensures Cursor can auto-populate headers without manual lookup, and they are complete and consistent with project standards.
+
+```

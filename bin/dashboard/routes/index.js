@@ -10,18 +10,18 @@ const { registerSpmRoutes } = require('./spm');
 const { registerCandidatesRoutes } = require('./candidates');
 
 function registerDashboardRoutes(app, ctx) {
-	registerCoreRoutes(app, ctx);
-	registerSearchRoutes(app, ctx);
-	registerCommandsRoutes(app, ctx);
-	registerExtractRoutes(app, ctx);
-	registerAiRoutes(app, ctx);
-	registerSnippetsRoutes(app, ctx);
-	registerRecipesRoutes(app, ctx);
-	registerGuardRoutes(app, ctx);
-	registerSpmRoutes(app, ctx);
-	registerCandidatesRoutes(app, ctx);
+  registerCoreRoutes(app, ctx);
+  registerSearchRoutes(app, ctx);
+  registerCommandsRoutes(app, ctx);
+  registerExtractRoutes(app, ctx);
+  registerAiRoutes(app, ctx);
+  registerSnippetsRoutes(app, ctx);
+  registerRecipesRoutes(app, ctx);
+  registerGuardRoutes(app, ctx);
+  registerSpmRoutes(app, ctx);
+  registerCandidatesRoutes(app, ctx);
 }
 
 module.exports = {
-	registerDashboardRoutes,
+  registerDashboardRoutes,
 };

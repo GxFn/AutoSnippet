@@ -18,249 +18,249 @@ let projectRoot = process.cwd();
 // 首先在当前工作目录及其父目录中查找 AutoSnippet.boxspec.json（项目标记）
 // 如果找到，其所在目录的父级就是项目根
 function findProjectRootFromCwd() {
-	let current = path.resolve(process.cwd());
-	const maxLevels = 20;
-	let levels = 0;
-	
-	while (levels < maxLevels) {
-		const boxspecPath = path.join(current, 'AutoSnippet', 'AutoSnippet.boxspec.json');
-		if (fs.existsSync(boxspecPath)) {
-			return current; // 当前目录就是项目根
-		}
-		
-		// 还要检查当前目录本身就是知识库目录的情况（用户直接在 AutoSnippet/ 中运行）
-		const directBoxspec = path.join(current, 'AutoSnippet.boxspec.json');
-		if (fs.existsSync(directBoxspec)) {
-			return path.dirname(current); // 当前是知识库，其父级才是项目根
-		}
-		
-		const parentPath = path.dirname(current);
-		if (parentPath === current) break;
-		current = parentPath;
-		levels++;
-	}
-	
-	return null;
+  let current = path.resolve(process.cwd());
+  const maxLevels = 20;
+  let levels = 0;
+  
+  while (levels < maxLevels) {
+  const boxspecPath = path.join(current, 'AutoSnippet', 'AutoSnippet.boxspec.json');
+  if (fs.existsSync(boxspecPath)) {
+    return current; // 当前目录就是项目根
+  }
+  
+  // 还要检查当前目录本身就是知识库目录的情况（用户直接在 AutoSnippet/ 中运行）
+  const directBoxspec = path.join(current, 'AutoSnippet.boxspec.json');
+  if (fs.existsSync(directBoxspec)) {
+    return path.dirname(current); // 当前是知识库，其父级才是项目根
+  }
+  
+  const parentPath = path.dirname(current);
+  if (parentPath === current) break;
+  current = parentPath;
+  levels++;
+  }
+  
+  return null;
 }
 
 const found = findProjectRootFromCwd();
 if (found) {
-	projectRoot = found;
+  projectRoot = found;
 } else {
-	// 备选方案：使用PathFinder的查找逻辑
-	try {
-		const findPath = require(path.join(autoSnippetRoot, 'lib', 'infrastructure/paths/PathFinder.js'));
-		const fallback = findPath.findProjectRootSync(process.cwd());
-		if (fallback) projectRoot = fallback;
-	} catch (err) {}
+  // 备选方案：使用PathFinder的查找逻辑
+  try {
+  const findPath = require(path.join(autoSnippetRoot, 'lib', 'infrastructure/paths/PathFinder.js'));
+  const fallback = findPath.findProjectRootSync(process.cwd());
+  if (fallback) projectRoot = fallback;
+  } catch (err) {}
 }
 
 const skillsTarget = path.join(projectRoot, '.cursor', 'skills');
 
 if (!fs.existsSync(skillsSource)) {
-	console.error('❌ 未找到 skills 目录:', skillsSource);
-	process.exit(1);
+  console.error('❌ 未找到 skills 目录:', skillsSource);
+  process.exit(1);
 }
 
 const skillDirs = fs.readdirSync(skillsSource, { withFileTypes: true })
-	.filter(d => d.isDirectory())
-	.map(d => d.name);
+  .filter(d => d.isDirectory())
+  .map(d => d.name);
 
 if (skillDirs.length === 0) {
-	console.log('ℹ️  skills 下暂无 skill 目录，跳过安装。');
-	process.exit(0);
+  console.log('ℹ️  skills 下暂无 skill 目录，跳过安装。');
+  process.exit(0);
 }
-	
-	console.log('🚀 Cursor Skills 安装\n');
+  
+  console.log('🚀 Cursor Skills 安装\n');
 
 function getRecipesDir(root) {
-	const Paths = require(path.join(autoSnippetRoot, 'lib', 'infrastructure', 'config', 'Paths.js'));
-	const specPath = Paths.getProjectSpecPath(root);
-	if (!fs.existsSync(specPath)) return path.join(root, defaults.RECIPES_DIR);
-	try {
-		const spec = JSON.parse(fs.readFileSync(specPath, 'utf8'));
-		const dir = spec && spec.recipes && spec.recipes.dir;
-		return dir ? path.join(root, dir) : path.join(root, defaults.RECIPES_DIR);
-	} catch (e) {
-		return path.join(root, defaults.RECIPES_DIR);
-	}
+  const Paths = require(path.join(autoSnippetRoot, 'lib', 'infrastructure', 'config', 'Paths.js'));
+  const specPath = Paths.getProjectSpecPath(root);
+  if (!fs.existsSync(specPath)) return path.join(root, defaults.RECIPES_DIR);
+  try {
+  const spec = JSON.parse(fs.readFileSync(specPath, 'utf8'));
+  const dir = spec && spec.recipes && spec.recipes.dir;
+  return dir ? path.join(root, dir) : path.join(root, defaults.RECIPES_DIR);
+  } catch (e) {
+  return path.join(root, defaults.RECIPES_DIR);
+  }
 }
 
 function collectMdFiles(dir, baseDir, list = []) {
-	if (!fs.existsSync(dir)) return list;
-	const entries = fs.readdirSync(dir, { withFileTypes: true });
-	for (const e of entries) {
-		const full = path.join(dir, e.name);
-		if (e.isDirectory() && !e.name.startsWith('.')) {
-			collectMdFiles(full, baseDir, list);
-			continue;
-		}
-		if (e.isFile() && e.name.toLowerCase().endsWith('.md')) {
-			list.push(path.relative(baseDir, full).replace(/\\/g, '/'));
-		}
-	}
-	return list;
+  if (!fs.existsSync(dir)) return list;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const e of entries) {
+  const full = path.join(dir, e.name);
+  if (e.isDirectory() && !e.name.startsWith('.')) {
+    collectMdFiles(full, baseDir, list);
+    continue;
+  }
+  if (e.isFile() && e.name.toLowerCase().endsWith('.md')) {
+    list.push(path.relative(baseDir, full).replace(/\\/g, '/'));
+  }
+  }
+  return list;
 }
 
 function buildProjectRecipesContext(projectRoot) {
-	const recipesDir = getRecipesDir(projectRoot);
-	if (!fs.existsSync(recipesDir)) return null;
-	const mdFiles = collectMdFiles(recipesDir, recipesDir).sort();
-	if (mdFiles.length === 0) return null;
-	let stats = { byFile: {} };
-	try {
-		const recipeStats = require('../lib/recipe/recipeStats');
-		stats = recipeStats.getRecipeStats(projectRoot);
-	} catch (_) {}
-	const byFileEntries = Object.entries(stats.byFile || {}).map(([, e]) => e);
-	const parts = ['# Project Recipes Context\n', 'Generated by `asd install:cursor-skill`. Use this as the project standards and Guard context.\n'];
-	for (const rel of mdFiles) {
-		const full = path.join(recipesDir, rel);
-		const fileKey = path.basename(rel);
-		try {
-			const content = fs.readFileSync(full, 'utf8');
-			parts.push('\n---\n\n## Recipe: ' + rel + '\n\n');
-			const entry = (stats.byFile || {})[fileKey];
-			if (entry) {
-				try {
-					const recipeStats = require('../lib/recipe/recipeStats');
-					const score = recipeStats.getAuthorityScore(entry, byFileEntries, {});
-					parts.push(`*Authority: ${entry.authority ?? 0}/5 | Usage: guard=${entry.guardUsageCount ?? 0}, human=${entry.humanUsageCount ?? 0}, ai=${entry.aiUsageCount ?? 0} | Score: ${score.toFixed(2)}*\n\n`);
-				} catch (_) {}
-			}
-			parts.push(content);
-			parts.push('\n');
-		} catch (err) {
-			parts.push('\n---\n\n## Recipe: ' + rel + '\n\n*(read error)*\n');
-		}
-	}
-	return parts.join('');
+  const recipesDir = getRecipesDir(projectRoot);
+  if (!fs.existsSync(recipesDir)) return null;
+  const mdFiles = collectMdFiles(recipesDir, recipesDir).sort();
+  if (mdFiles.length === 0) return null;
+  let stats = { byFile: {} };
+  try {
+  const recipeStats = require('../lib/recipe/recipeStats');
+  stats = recipeStats.getRecipeStats(projectRoot);
+  } catch (_) {}
+  const byFileEntries = Object.entries(stats.byFile || {}).map(([, e]) => e);
+  const parts = ['# Project Recipes Context\n', 'Generated by `asd install:cursor-skill`. Use this as the project standards and Guard context.\n'];
+  for (const rel of mdFiles) {
+  const full = path.join(recipesDir, rel);
+  const fileKey = path.basename(rel);
+  try {
+    const content = fs.readFileSync(full, 'utf8');
+    parts.push('\n---\n\n## Recipe: ' + rel + '\n\n');
+    const entry = (stats.byFile || {})[fileKey];
+    if (entry) {
+    try {
+      const recipeStats = require('../lib/recipe/recipeStats');
+      const score = recipeStats.getAuthorityScore(entry, byFileEntries, {});
+      parts.push(`*Authority: ${entry.authority ?? 0}/5 | Usage: guard=${entry.guardUsageCount ?? 0}, human=${entry.humanUsageCount ?? 0}, ai=${entry.aiUsageCount ?? 0} | Score: ${score.toFixed(2)}*\n\n`);
+    } catch (_) {}
+    }
+    parts.push(content);
+    parts.push('\n');
+  } catch (err) {
+    parts.push('\n---\n\n## Recipe: ' + rel + '\n\n*(read error)*\n');
+  }
+  }
+  return parts.join('');
 }
 
 function buildCategorySlices(projectRoot) {
-	const recipesDir = getRecipesDir(projectRoot);
-	if (!fs.existsSync(recipesDir)) return { byCategory: {}, index: { categories: [], recipeCount: 0 } };
-	const mdFiles = collectMdFiles(recipesDir, recipesDir).sort();
-	const byCategory = {};
-	for (const rel of mdFiles) {
-		const full = path.join(recipesDir, rel);
-		try {
-			const content = fs.readFileSync(full, 'utf8');
-			const cat = defaults.inferCategory(rel, content);
-			if (!byCategory[cat]) byCategory[cat] = [];
-			byCategory[cat].push({ rel, content });
-		} catch (_) {}
-	}
-	const categories = Object.keys(byCategory).sort();
-	return { byCategory, index: { categories, recipeCount: mdFiles.length } };
+  const recipesDir = getRecipesDir(projectRoot);
+  if (!fs.existsSync(recipesDir)) return { byCategory: {}, index: { categories: [], recipeCount: 0 } };
+  const mdFiles = collectMdFiles(recipesDir, recipesDir).sort();
+  const byCategory = {};
+  for (const rel of mdFiles) {
+  const full = path.join(recipesDir, rel);
+  try {
+    const content = fs.readFileSync(full, 'utf8');
+    const cat = defaults.inferCategory(rel, content);
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push({ rel, content });
+  } catch (_) {}
+  }
+  const categories = Object.keys(byCategory).sort();
+  return { byCategory, index: { categories, recipeCount: mdFiles.length } };
 }
 
 function buildSpmmapSummary(projectRoot) {
-	const spmmapPath = path.join(projectRoot, defaults.SPMMAP_PATH);
-	if (!fs.existsSync(spmmapPath)) return null;
-	try {
-		const data = JSON.parse(fs.readFileSync(spmmapPath, 'utf8'));
-		const graph = data.graph || {};
-		const packages = graph.packages || {};
-		const edges = graph.edges || {};
-		const lines = ['# SPM 依赖结构摘要\n', `Generated by \`asd install:cursor-skill\`. Source: ${defaults.SPMMAP_PATH}\n`, '\n## Packages\n'];
-		for (const [pkg, info] of Object.entries(packages)) {
-			const targets = (info.targets || []).join(', ');
-			lines.push(`- **${pkg}**: ${targets || '(no targets)'}\n`);
-		}
-		lines.push('\n## 依赖关系 (from → to)\n');
-		for (const [from, toList] of Object.entries(edges)) {
-			if (Array.isArray(toList)) {
-				lines.push(`- ${from} → ${toList.join(', ')}\n`);
-			}
-		}
-		return lines.join('');
-	} catch (_) {
-		return null;
-	}
+  const spmmapPath = path.join(projectRoot, defaults.SPMMAP_PATH);
+  if (!fs.existsSync(spmmapPath)) return null;
+  try {
+  const data = JSON.parse(fs.readFileSync(spmmapPath, 'utf8'));
+  const graph = data.graph || {};
+  const packages = graph.packages || {};
+  const edges = graph.edges || {};
+  const lines = ['# SPM 依赖结构摘要\n', `Generated by \`asd install:cursor-skill\`. Source: ${defaults.SPMMAP_PATH}\n`, '\n## Packages\n'];
+  for (const [pkg, info] of Object.entries(packages)) {
+    const targets = (info.targets || []).join(', ');
+    lines.push(`- **${pkg}**: ${targets || '(no targets)'}\n`);
+  }
+  lines.push('\n## 依赖关系 (from → to)\n');
+  for (const [from, toList] of Object.entries(edges)) {
+    if (Array.isArray(toList)) {
+    lines.push(`- ${from} → ${toList.join(', ')}\n`);
+    }
+  }
+  return lines.join('');
+  } catch (_) {
+  return null;
+  }
 }
 
 for (const name of skillDirs) {
-	const src = path.join(skillsSource, name);
-	const dest = path.join(skillsTarget, name);
-	if (fs.existsSync(dest)) {
-		fs.rmSync(dest, { recursive: true });
-	}
-	fs.cpSync(src, dest, { recursive: true });
-	console.log(`  ✅ ${name}`);
+  const src = path.join(skillsSource, name);
+  const dest = path.join(skillsTarget, name);
+  if (fs.existsSync(dest)) {
+  fs.rmSync(dest, { recursive: true });
+  }
+  fs.cpSync(src, dest, { recursive: true });
+  console.log(`  ✅ ${name}`);
 
-	if (name === 'autosnippet-recipes') {
-		const context = buildProjectRecipesContext(projectRoot);
-		const refDir = path.join(dest, 'references');
-		if (!fs.existsSync(refDir)) fs.mkdirSync(refDir, { recursive: true });
-		const contextPath = path.join(refDir, 'project-recipes-context.md');
-		if (context) {
-			fs.writeFileSync(contextPath, context, 'utf8');
-			// 项目 Recipe 上下文已生成
-		} else {
-			if (fs.existsSync(contextPath)) fs.unlinkSync(contextPath);
-			// 项目暂无 recipes
-		}
-		const { byCategory, index } = buildCategorySlices(projectRoot);
-		if (Object.keys(byCategory).length > 0) {
-			const catDir = path.join(refDir, 'by-category');
-			if (!fs.existsSync(catDir)) fs.mkdirSync(catDir, { recursive: true });
-			for (const [cat, items] of Object.entries(byCategory)) {
-				const parts = [`# ${cat}\n\n`, `Category: ${cat}. ${items.length} recipes.\n\n`];
-				for (const { rel, content } of items) {
-					parts.push('\n---\n\n## ' + rel + '\n\n');
-					parts.push(content);
-					parts.push('\n');
-				}
-				fs.writeFileSync(path.join(catDir, `${cat}.md`), parts.join(''), 'utf8');
-			}
-			fs.writeFileSync(path.join(refDir, 'index.json'), JSON.stringify(index, null, 2), 'utf8');
-			// by-category 切片已生成
-		}
-	}
-	if (name === 'autosnippet-dep-graph') {
-		const summary = buildSpmmapSummary(projectRoot);
-		const refDir = path.join(dest, 'references');
-		if (!fs.existsSync(refDir)) fs.mkdirSync(refDir, { recursive: true });
-		const summaryPath = path.join(refDir, 'spmmap-summary.md');
-		if (summary) {
-			fs.writeFileSync(summaryPath, summary, 'utf8');
-			// spmmap 摘要已生成
-		} else {
-			if (fs.existsSync(summaryPath)) fs.unlinkSync(summaryPath);
-		}
-	}
-	if (name === 'autosnippet-guard') {
-		const context = buildProjectRecipesContext(projectRoot);
-		const refDir = path.join(dest, 'references');
-		if (!fs.existsSync(refDir)) fs.mkdirSync(refDir, { recursive: true });
-		const guardPath = path.join(refDir, 'guard-context.md');
-		if (context) {
-			const excerpt = context.length > defaults.GUARD_CONTEXT_EXCERPT_LIMIT ? context.slice(0, defaults.GUARD_CONTEXT_EXCERPT_LIMIT) + '\n\n*(截断，完整内容见 autosnippet-recipes/references/project-recipes-context.md)*' : context;
-			fs.writeFileSync(guardPath, excerpt, 'utf8');
-			// guard-context.md 已生成
-		} else {
-			if (fs.existsSync(guardPath)) fs.unlinkSync(guardPath);
-		}
-	}
+  if (name === 'autosnippet-recipes') {
+  const context = buildProjectRecipesContext(projectRoot);
+  const refDir = path.join(dest, 'references');
+  if (!fs.existsSync(refDir)) fs.mkdirSync(refDir, { recursive: true });
+  const contextPath = path.join(refDir, 'project-recipes-context.md');
+  if (context) {
+    fs.writeFileSync(contextPath, context, 'utf8');
+    // 项目 Recipe 上下文已生成
+  } else {
+    if (fs.existsSync(contextPath)) fs.unlinkSync(contextPath);
+    // 项目暂无 recipes
+  }
+  const { byCategory, index } = buildCategorySlices(projectRoot);
+  if (Object.keys(byCategory).length > 0) {
+    const catDir = path.join(refDir, 'by-category');
+    if (!fs.existsSync(catDir)) fs.mkdirSync(catDir, { recursive: true });
+    for (const [cat, items] of Object.entries(byCategory)) {
+    const parts = [`# ${cat}\n\n`, `Category: ${cat}. ${items.length} recipes.\n\n`];
+    for (const { rel, content } of items) {
+      parts.push('\n---\n\n## ' + rel + '\n\n');
+      parts.push(content);
+      parts.push('\n');
+    }
+    fs.writeFileSync(path.join(catDir, `${cat}.md`), parts.join(''), 'utf8');
+    }
+    fs.writeFileSync(path.join(refDir, 'index.json'), JSON.stringify(index, null, 2), 'utf8');
+    // by-category 切片已生成
+  }
+  }
+  if (name === 'autosnippet-dep-graph') {
+  const summary = buildSpmmapSummary(projectRoot);
+  const refDir = path.join(dest, 'references');
+  if (!fs.existsSync(refDir)) fs.mkdirSync(refDir, { recursive: true });
+  const summaryPath = path.join(refDir, 'spmmap-summary.md');
+  if (summary) {
+    fs.writeFileSync(summaryPath, summary, 'utf8');
+    // spmmap 摘要已生成
+  } else {
+    if (fs.existsSync(summaryPath)) fs.unlinkSync(summaryPath);
+  }
+  }
+  if (name === 'autosnippet-guard') {
+  const context = buildProjectRecipesContext(projectRoot);
+  const refDir = path.join(dest, 'references');
+  if (!fs.existsSync(refDir)) fs.mkdirSync(refDir, { recursive: true });
+  const guardPath = path.join(refDir, 'guard-context.md');
+  if (context) {
+    const excerpt = context.length > defaults.GUARD_CONTEXT_EXCERPT_LIMIT ? context.slice(0, defaults.GUARD_CONTEXT_EXCERPT_LIMIT) + '\n\n*(截断，完整内容见 autosnippet-recipes/references/project-recipes-context.md)*' : context;
+    fs.writeFileSync(guardPath, excerpt, 'utf8');
+    // guard-context.md 已生成
+  } else {
+    if (fs.existsSync(guardPath)) fs.unlinkSync(guardPath);
+  }
+  }
 }
 
 // 可选：写入 Cursor 规则（.cursor/rules/*.mdc），使会话中持久遵循 AutoSnippet 约定
 const cursorRulesSource = path.join(autoSnippetRoot, 'scripts', 'cursor-rules');
 const cursorRulesTarget = path.join(projectRoot, '.cursor', 'rules');
 if (fs.existsSync(cursorRulesSource)) {
-	const ruleFiles = fs.readdirSync(cursorRulesSource, { withFileTypes: true })
-		.filter(d => d.isFile() && d.name.toLowerCase().endsWith('.mdc'))
-		.map(d => d.name);
-	if (ruleFiles.length > 0) {
-		if (!fs.existsSync(cursorRulesTarget)) fs.mkdirSync(cursorRulesTarget, { recursive: true });
-		for (const name of ruleFiles) {
-			const src = path.join(cursorRulesSource, name);
-			const dest = path.join(cursorRulesTarget, name);
-			fs.copyFileSync(src, dest);
-			console.log(`  ✅ ${name}`);
-		}
-	}
+  const ruleFiles = fs.readdirSync(cursorRulesSource, { withFileTypes: true })
+  .filter(d => d.isFile() && d.name.toLowerCase().endsWith('.mdc'))
+  .map(d => d.name);
+  if (ruleFiles.length > 0) {
+  if (!fs.existsSync(cursorRulesTarget)) fs.mkdirSync(cursorRulesTarget, { recursive: true });
+  for (const name of ruleFiles) {
+    const src = path.join(cursorRulesSource, name);
+    const dest = path.join(cursorRulesTarget, name);
+    fs.copyFileSync(src, dest);
+    console.log(`  ✅ ${name}`);
+  }
+  }
 }
 
 
@@ -269,24 +269,24 @@ const mcpPath = path.join(projectRoot, '.cursor', 'mcp.json');
 const mcpServerScript = path.join(autoSnippetRoot, 'scripts', 'mcp-server.js');
 const addMcp = process.argv.includes('--mcp');
 if (addMcp && fs.existsSync(mcpServerScript)) {
-	let mcp = { mcpServers: {} };
-	if (fs.existsSync(mcpPath)) {
-		try {
-			mcp = JSON.parse(fs.readFileSync(mcpPath, 'utf8'));
-			if (!mcp.mcpServers) mcp.mcpServers = {};
-		} catch (_) {}
-	}
-	mcp.mcpServers.autosnippet = {
-		type: 'stdio',
-		command: 'node',
-		args: [mcpServerScript],
-		env: { ASD_UI_URL: process.env.ASD_UI_URL || defaults.DEFAULT_ASD_UI_URL }
-	};
-	fs.mkdirSync(path.dirname(mcpPath), { recursive: true });
-	fs.writeFileSync(mcpPath, JSON.stringify(mcp, null, 2), 'utf8');
-	console.log('  ✅ MCP 配置');
+  let mcp = { mcpServers: {} };
+  if (fs.existsSync(mcpPath)) {
+  try {
+    mcp = JSON.parse(fs.readFileSync(mcpPath, 'utf8'));
+    if (!mcp.mcpServers) mcp.mcpServers = {};
+  } catch (_) {}
+  }
+  mcp.mcpServers.autosnippet = {
+  type: 'stdio',
+  command: 'node',
+  args: [mcpServerScript],
+  env: { ASD_UI_URL: process.env.ASD_UI_URL || defaults.DEFAULT_ASD_UI_URL }
+  };
+  fs.mkdirSync(path.dirname(mcpPath), { recursive: true });
+  fs.writeFileSync(mcpPath, JSON.stringify(mcp, null, 2), 'utf8');
+  console.log('  ✅ MCP 配置');
 } else if (addMcp) {
-	// mcp-server.js 不存在，已跳过
+  // mcp-server.js 不存在，已跳过
 }
 
 console.log('🎯 Cursor skills 已就绪，安装到项目:', projectRoot);
@@ -294,13 +294,13 @@ console.log(`\n📌 下一步：重启 Cursor 后生效`);
 
 const runEmbed = process.argv.includes('--embed');
 if (runEmbed) {
-	(async () => {
-		try {
-			const IndexingPipeline = require(path.join(autoSnippetRoot, 'lib', 'context', 'IndexingPipeline'));
-			const result = await IndexingPipeline.run(projectRoot, { clear: false });
-			// 语义索引已更新
-		} catch (e) {
-			console.warn('⚠️  语义索引更新失败:', e.message);
-		}
-	})().catch(() => process.exit(1));
+  (async () => {
+  try {
+    const IndexingPipeline = require(path.join(autoSnippetRoot, 'lib', 'context', 'IndexingPipeline'));
+    const result = await IndexingPipeline.run(projectRoot, { clear: false });
+    // 语义索引已更新
+  } catch (e) {
+    console.warn('⚠️  语义索引更新失败:', e.message);
+  }
+  })().catch(() => process.exit(1));
 }

@@ -5,82 +5,8 @@ import Darwin
 /**
  * AutoSnippet Native UI Helper (macOS)
  * 提供高级原生列表和预览窗口，支持代码高亮。
+ * 注意：SyntaxHighlighter 和 SearchItem 定义在 combined-window.swift 中，避免重复定义
  */
-
-// MARK: - 语法高亮
-
-struct SyntaxHighlighter {
-    static let keywords = ["func", "var", "let", "if", "else", "guard", "return", "import", "class", "struct", "enum", "protocol", "extension", "private", "public", "internal", "fileprivate", "static", "override", "init", "deinit", "self", "super", "nil", "true", "false", "for", "while", "repeat", "switch", "case", "default", "break", "continue", "fallthrough", "where", "in", "throws", "throw", "try", "catch", "async", "await", "typealias", "associatedtype", "weak", "unowned", "lazy", "final", "required", "convenience", "mutating", "nonmutating", "open", "inout", "some", "any",
-        // Objective-C
-        "@interface", "@implementation", "@end", "@property", "@synthesize", "@dynamic", "@class", "@protocol", "@optional", "@required", "@public", "@private", "@protected", "@package", "@selector", "@encode", "@synchronized", "@autoreleasepool", "@try", "@catch", "@finally", "@throw", "YES", "NO", "NULL", "nil", "self", "super", "id", "Class", "SEL", "IMP", "BOOL", "instancetype", "void", "char", "short", "int", "long", "float", "double", "signed", "unsigned", "const", "static", "extern", "auto", "register", "volatile", "inline", "restrict", "typedef", "sizeof", "typeof", "return", "if", "else", "for", "while", "do", "switch", "case", "default", "break", "continue", "goto", "struct", "union", "enum",
-        // TypeScript/JavaScript
-        "function", "const", "async", "await", "new", "this", "typeof", "instanceof", "export", "import", "from", "as", "default", "extends", "implements", "interface", "type", "namespace", "module", "declare", "abstract", "readonly", "keyof", "infer", "never", "unknown", "any", "void", "null", "undefined", "number", "string", "boolean", "symbol", "bigint", "object"
-    ]
-    
-    static let typeKeywords = ["String", "Int", "Double", "Float", "Bool", "Array", "Dictionary", "Set", "Optional", "Any", "AnyObject", "Void", "Never", "Error", "Result", "URL", "Data", "Date", "UUID", "NSObject", "NSString", "NSNumber", "NSArray", "NSDictionary", "NSSet", "NSData", "NSDate", "NSURL", "CGFloat", "CGPoint", "CGSize", "CGRect", "UIView", "UIViewController", "UIButton", "UILabel", "UIImage", "UIColor", "NSView", "NSViewController", "NSButton", "NSTextField", "NSImage", "NSColor", "Promise", "Observable", "Subject"]
-    
-    static func highlight(_ code: String) -> NSAttributedString {
-        let attributed = NSMutableAttributedString(string: code)
-        let fullRange = NSRange(location: 0, length: code.utf16.count)
-        
-        // 基础样式 - SF Mono 字体 (Xcode 默认) - 增大到 14
-        let baseFont = NSFont(name: "SFMono-Regular", size: 14) ?? NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
-        // 普通文本 - Xcode 默认浅灰白色
-        let baseColor = NSColor(calibratedRed: 0.83, green: 0.84, blue: 0.85, alpha: 1.0) // #D4D4D6
-        attributed.addAttribute(.font, value: baseFont, range: fullRange)
-        attributed.addAttribute(.foregroundColor, value: baseColor, range: fullRange)
-        
-        // 高亮注释 - Xcode 默认绿色 (系统 Green)
-        let commentColor = NSColor(calibratedRed: 0.42, green: 0.75, blue: 0.31, alpha: 1.0) // #6BBF4F
-        highlightPattern(attributed, pattern: "//.*$", color: commentColor, options: .anchorsMatchLines)
-        highlightPattern(attributed, pattern: "/\\*[\\s\\S]*?\\*/", color: commentColor)
-        
-        // 高亮字符串 - Xcode 默认橙红色 (系统 Red/Orange 混合)
-        let stringColor = NSColor(calibratedRed: 0.98, green: 0.42, blue: 0.33, alpha: 1.0) // #FA6B54
-        highlightPattern(attributed, pattern: "\"(?:[^\"\\\\]|\\\\.)*\"", color: stringColor)
-        highlightPattern(attributed, pattern: "'(?:[^'\\\\]|\\\\.)*'", color: stringColor)
-        highlightPattern(attributed, pattern: "@\"(?:[^\"\\\\]|\\\\.)*\"", color: stringColor) // ObjC string
-        
-        // 高亮数字 - Xcode 默认紫色 (Light Purple)
-        let numberColor = NSColor(calibratedRed: 0.69, green: 0.54, blue: 0.89, alpha: 1.0) // #B08AE3
-        highlightPattern(attributed, pattern: "\\b\\d+\\.?\\d*\\b", color: numberColor)
-        
-        // 高亮类型关键字 - Xcode 默认青绿色 (Teal/Cyan)
-        let typeColor = NSColor(calibratedRed: 0.40, green: 0.84, blue: 0.89, alpha: 1.0) // #66D7E3
-        for keyword in typeKeywords {
-            highlightWord(attributed, word: keyword, color: typeColor)
-        }
-        
-        // 高亮关键字 - Xcode 默认粉紫色 (Magenta/Pink)
-        let keywordColor = NSColor(calibratedRed: 0.98, green: 0.42, blue: 0.69, alpha: 1.0) // #FA6BB0
-        // Objective-C @ 前缀关键字 - 使用浅棕色
-        let atKeywordColor = NSColor(calibratedRed: 0.83, green: 0.60, blue: 0.45, alpha: 1.0) // #D49973
-        for keyword in keywords {
-            if keyword.hasPrefix("@") {
-                highlightPattern(attributed, pattern: "\(keyword)\\b", color: atKeywordColor)
-            } else {
-                highlightWord(attributed, word: keyword, color: keywordColor)
-            }
-        }
-        
-        return attributed
-    }
-    
-    private static func highlightPattern(_ attributed: NSMutableAttributedString, pattern: String, color: NSColor, options: NSRegularExpression.Options = []) {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else { return }
-        let string = attributed.string
-        let range = NSRange(location: 0, length: string.utf16.count)
-        
-        for match in regex.matches(in: string, options: [], range: range) {
-            attributed.addAttribute(.foregroundColor, value: color, range: match.range)
-        }
-    }
-    
-    private static func highlightWord(_ attributed: NSMutableAttributedString, word: String, color: NSColor) {
-        let pattern = "\\b\(NSRegularExpression.escapedPattern(for: word))\\b"
-        highlightPattern(attributed, pattern: pattern, color: color)
-    }
-}
 
 // MARK: - List Selection Window
 
@@ -158,7 +84,7 @@ class ListSelectionWindowController: NSObject, NSTableViewDataSource, NSTableVie
         
         tableView = NSTableView()
         tableView.headerView = nil
-        tableView.rowHeight = 36
+        tableView.rowHeight = 52  // 增加行高以容纳两行标题
         tableView.intercellSpacing = NSSize(width: 0, height: 1)
         // Xcode 深色背景：#1F1F24
         tableView.backgroundColor = NSColor(calibratedRed: 0.12, green: 0.12, blue: 0.14, alpha: 1.0)
@@ -252,7 +178,8 @@ class ListSelectionWindowController: NSObject, NSTableViewDataSource, NSTableVie
             
             let textField = NSTextField(labelWithString: "")
             textField.font = NSFont.systemFont(ofSize: 13)
-            textField.lineBreakMode = .byTruncatingMiddle
+            textField.lineBreakMode = .byWordWrapping  // 改为自动换行
+            textField.maximumNumberOfLines = 2  // 最多显示两行
             textField.translatesAutoresizingMaskIntoConstraints = false
             cellView?.addSubview(textField)
             cellView?.textField = textField
@@ -260,7 +187,8 @@ class ListSelectionWindowController: NSObject, NSTableViewDataSource, NSTableVie
             NSLayoutConstraint.activate([
                 textField.leadingAnchor.constraint(equalTo: cellView!.leadingAnchor, constant: 12),
                 textField.trailingAnchor.constraint(equalTo: cellView!.trailingAnchor, constant: -12),
-                textField.centerYAnchor.constraint(equalTo: cellView!.centerYAnchor)
+                textField.topAnchor.constraint(equalTo: cellView!.topAnchor, constant: 8),
+                textField.bottomAnchor.constraint(lessThanOrEqualTo: cellView!.bottomAnchor, constant: -8)
             ])
         }
         
@@ -348,9 +276,10 @@ class CodePreviewWindowController {
         let titleLabel = NSTextField(labelWithString: titleText)
         titleLabel.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
         titleLabel.textColor = .labelColor
-        titleLabel.frame = NSRect(x: 20, y: panelHeight - 55, width: panelWidth - 40, height: 20)
+        titleLabel.frame = NSRect(x: 20, y: panelHeight - 65, width: panelWidth - 40, height: 40)  // 增加高度到40，调整y位置
         titleLabel.autoresizingMask = [.width, .minYMargin]
-        titleLabel.lineBreakMode = .byTruncatingMiddle
+        titleLabel.lineBreakMode = .byWordWrapping  // 改为自动换行
+        titleLabel.maximumNumberOfLines = 2  // 最多显示两行
         contentView.addSubview(titleLabel)
         
         // 代码区域（带语法高亮）
@@ -540,16 +469,8 @@ func printUsage() {
     fflush(stdout)
 }
 
-// MARK: - Data Models
-
-struct SearchItem {
-    let title: String
-    let code: String
-    let explanation: String
-    let groupSize: Int
-}
-
 // MARK: - Combined Handler
+// 注意：SearchItem 结构体定义在 combined-window.swift 中
 
 func handleCombined(_ args: [String]) {
     guard args.count >= 2 else {

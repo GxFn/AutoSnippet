@@ -65,3 +65,5 @@ Use MCP tool `autosnippet_context_search` for on-demand semantic search; pass `q
 
 - **autosnippet-recipes**: Recipes live under `AutoSnippet/recipes/`; dep graph lives under `AutoSnippet/AutoSnippet.spmmap.json`. Both are under the same project root.
 - Use **autosnippet-dep-graph** for dependency/structure questions; use **autosnippet-recipes** for code standards and Guard/Recipe content.
+
+```

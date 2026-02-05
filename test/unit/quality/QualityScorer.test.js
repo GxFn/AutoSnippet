@@ -6,12 +6,12 @@ const { QualityScorer } = require('../../../lib/quality');
 function testQualityScorer() {
   const scorer = new QualityScorer();
   const candidate = {
-    title: 'Test',
-    trigger: 'as-test',
-    code: 'const a = 1;',
-    usageGuide: 'Use it',
-    category: 'general',
-    summary: 'summary here'
+  title: 'Test',
+  trigger: 'as-test',
+  code: 'const a = 1;',
+  usageGuide: 'Use it',
+  category: 'general',
+  summary: 'summary here'
   };
 
   const result = scorer.score(candidate);

@@ -32,19 +32,19 @@ bin/
 ```javascript
 class MyCommand extends BaseCommand {
   constructor(options) {
-    super(options);
-    this.name = 'my-command';
-    this.description = '我的命令描述';
+  super(options);
+  this.name = 'my-command';
+  this.description = '我的命令描述';
   }
 
   async validate() {
-    // 预检查逻辑
-    return true;
+  // 预检查逻辑
+  return true;
   }
 
   async execute() {
-    // 命令实现
-    this.logSuccess('命令执行成功');
+  // 命令实现
+  this.logSuccess('命令执行成功');
   }
 }
 ```
@@ -78,26 +78,26 @@ const BaseCommand = require('./BaseCommand');
 
 class MyCommand extends BaseCommand {
   constructor(options) {
-    super(options);
-    this.name = 'my-command';
-    this.description = '执行我的自定义操作';
+  super(options);
+  this.name = 'my-command';
+  this.description = '执行我的自定义操作';
   }
 
   async validate() {
-    // 验证前置条件
-    return true;
+  // 验证前置条件
+  return true;
   }
 
   async execute() {
-    this.logInfo('命令开始执行...');
-    
-    try {
-      // 执行实际操作
-      this.logSuccess('操作完成!');
-    } catch (error) {
-      this.logError(error.message);
-      throw error;
-    }
+  this.logInfo('命令开始执行...');
+  
+  try {
+    // 执行实际操作
+    this.logSuccess('操作完成!');
+  } catch (error) {
+    this.logError(error.message);
+    throw error;
+  }
   }
 }
 
@@ -112,10 +112,10 @@ program
   .command('my-command')
   .description('执行我的自定义操作')
   .action(async (options) => {
-    const cmd = new MyCommand(options);
-    if (await cmd.validate()) {
-      await cmd.execute();
-    }
+  const cmd = new MyCommand(options);
+  if (await cmd.validate()) {
+    await cmd.execute();
+  }
   });
 ```
 
@@ -128,7 +128,7 @@ program
 program
   .command('my-command')
   .action(async () => {
-    // 100 行的命令实现代码...
+  // 100 行的命令实现代码...
   });
 ```
 
@@ -139,10 +139,10 @@ const MyCommand = require('../lib/cli/commands/MyCommand');
 program
   .command('my-command')
   .action(async (options) => {
-    const cmd = new MyCommand(options);
-    if (await cmd.validate()) {
-      await cmd.execute();
-    }
+  const cmd = new MyCommand(options);
+  if (await cmd.validate()) {
+    await cmd.execute();
+  }
   });
 ```
 
@@ -156,14 +156,14 @@ const MyCommand = require('../../../lib/cli/commands/MyCommand');
 
 describe('MyCommand', () => {
   it('should execute successfully', async () => {
-    const cmd = new MyCommand({});
-    expect(await cmd.validate()).toBe(true);
-    await expect(cmd.execute()).resolves.not.toThrow();
+  const cmd = new MyCommand({});
+  expect(await cmd.validate()).toBe(true);
+  await expect(cmd.execute()).resolves.not.toThrow();
   });
 
   it('should handle errors gracefully', async () => {
-    const cmd = new MyCommand({});
-    // 测试错误处理...
+  const cmd = new MyCommand({});
+  // 测试错误处理...
   });
 });
 ```
@@ -176,8 +176,8 @@ const { execSync } = require('child_process');
 
 describe('CLI Integration', () => {
   it('should run my-command successfully', () => {
-    const output = execSync('node bin/asd-cli.js my-command').toString();
-    expect(output).toContain('✅');
+  const output = execSync('node bin/asd-cli.js my-command').toString();
+  expect(output).toContain('✅');
   });
 });
 ```
@@ -192,10 +192,10 @@ describe('CLI Integration', () => {
 program
   .command('heavy-command')
   .action(async (options) => {
-    // 仅在需要时加载重命令类
-    const HeavyCommand = require('../lib/cli/commands/HeavyCommand');
-    const cmd = new HeavyCommand(options);
-    await cmd.execute();
+  // 仅在需要时加载重命令类
+  const HeavyCommand = require('../lib/cli/commands/HeavyCommand');
+  const cmd = new HeavyCommand(options);
+  await cmd.execute();
   });
 ```
 

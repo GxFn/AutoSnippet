@@ -2,9 +2,9 @@
 
 /* 保留原有自定义样式 */
 .no-scrollbar::-webkit-scrollbar {
-	display: none;
+  display: none;
 }
 .no-scrollbar {
-	-ms-overflow-style: none;
-	scrollbar-width: none;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

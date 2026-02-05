@@ -23,8 +23,8 @@ test/integration/
 ├── run-tests.js                    # 主测试运行器
 ├── README.md                        # 本文件
 └── reports/                        # 测试报告输出目录
-    ├── report-*.json               # JSON 格式报告
-    └── report-*.html               # HTML 格式报告
+  ├── report-*.json               # JSON 格式报告
+  └── report-*.html               # HTML 格式报告
 ```
 
 ## 快速开始
@@ -167,7 +167,7 @@ runner.test('测试名称', async (ctx) => {
   
   // 注册清理函数
   ctx.onCleanup(async () => {
-    // 清理代码
+  // 清理代码
   });
   
   // 计时
@@ -311,7 +311,7 @@ runner.test('测试', async (ctx) => {
   
   // 注册清理
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name });
+  await client.post('/api/recipes/delete', { name });
   });
 });
 ```

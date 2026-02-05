@@ -35,3 +35,5 @@ Use MCP tool `autosnippet_context_search` for on-demand semantic search; pass `q
 
 - **autosnippet-intent**: General "when to recommend what"; may point here for Guard.
 - **autosnippet-recipes**: Recipe content and context; Guard reads the same content.
+
+```

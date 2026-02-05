@@ -1,9 +1,6 @@
 ---
 name: autosnippet-candidates
-description: >
-  生成 Recipe 候选：单文件扫描或批量 Target 扫描。
-  理解候选质量评分、相似度标记、元数据意义。
-  Merge of old autosnippet-recipe-candidates + autosnippet-batch-scan.
+description: 生成 Recipe 候选：单文件扫描或批量 Target 扫描。理解候选质量评分、相似度标记、元数据意义。Merge of old autosnippet-recipe-candidates + autosnippet-batch-scan.
 ---
 
 # AutoSnippet — Generate Candidates with Rich Information
@@ -42,33 +39,33 @@ description: >
 
   // 📊 元数据与评分（NEW - 高价值）
   "quality": {
-    "codeQuality": 0.85,
-    "documentationQuality": 0.90,
-    "projectAdaptability": 0.80,
-    "overallScore": 0.85
+  "codeQuality": 0.85,
+  "documentationQuality": 0.90,
+  "projectAdaptability": 0.80,
+  "overallScore": 0.85
   },
 
   "metadata": {
-    "sourceFile": "Sources/Network/RequestManager.swift",
-    "confidence": 0.92,
-    "coverageScore": 0.80
+  "sourceFile": "Sources/Network/RequestManager.swift",
+  "confidence": 0.92,
+  "coverageScore": 0.80
   },
 
   // 🔗 关系标记（NEW - 减少重复）
   "relatedRecipes": [
-    {
-      "id": "recipe_network_001",
-      "title": "Basic Network Request",
-      "similarity": 0.75,
-      "relationship": "extends"
-    }
+  {
+    "id": "recipe_network_001",
+    "title": "Basic Network Request",
+    "similarity": 0.75,
+    "relationship": "extends"
+  }
   ],
 
   "reviewNotes": {
-    "priority": "high",
-    "suggestions": [
-      "Consider merging with recipe_network_001 (75% similarity)"
-    ]
+  "priority": "high",
+  "suggestions": [
+    "Consider merging with recipe_network_001 (75% similarity)"
+  ]
   }
 }
 ```
@@ -100,7 +97,20 @@ title, summary_cn, summary_en, trigger, code, usageGuide_cn, usageGuide_en
 从这个文件提取公开 API 和使用示例。
 为每个主要类/函数生成一个候选。
 代码必须是"使用者角度"的示例，不是内部实现。
+推荐使用 Xcode 占位符（如 <#URL#> / <#Token#> / <#Config#>），并在 Usage Guide 解释含义。
 ```
+
+### Usage Guide Template（建议结构）
+确保不只包含“何时用/关键点”，建议覆盖：
+- 何时用（适用场景）
+- 何时不用/替代方案
+- 依赖与前置条件（模块、权限、最低版本）
+- 核心步骤与关键配置（参数、默认值、边界条件）
+- 错误处理与异常分支（重试、超时、降级）
+- 性能与资源考量（缓存、线程、内存）
+- 安全与合规提示（敏感数据、鉴权、日志）
+- 常见误用与踩坑
+- 相关 Recipe/扩展读物
 
 ---
 
@@ -190,17 +200,17 @@ async scanSingleFile(filePath) {
   
   // Step 3: 提取三层信息
   const layers = await Promise.all(
-    structure.classes.concat(structure.functions).map(item =>
-      this.extractThreeLayers(item, content)
-    )
+  structure.classes.concat(structure.functions).map(item =>
+    this.extractThreeLayers(item, content)
+  )
   );
   
   // Step 4: 并行评分 + 上下文查询
   const enriched = await Promise.all(
-    layers.map(candidate => Promise.all([
-      this.scoreCandidate(candidate),       // 评分
-      this.enrichWithContext(candidate)     // 查询相似 Recipe
-    ]).then(([scored, contexted]) => ({ ...scored, ...contexted }))
+  layers.map(candidate => Promise.all([
+    this.scoreCandidate(candidate),       // 评分
+    this.enrichWithContext(candidate)     // 查询相似 Recipe
+  ]).then(([scored, contexted]) => ({ ...scored, ...contexted }))
   );
   
   // Step 5: 聚合 & 排序
@@ -212,21 +222,21 @@ async scanSingleFile(filePath) {
 
 async extractThreeLayers(item, content) {
   const layer1 = {
-    title: item.name || item.signature,
-    summary_cn: this.extractDocstring(item, 'cn'),
-    summary_en: this.extractDocstring(item, 'en'),
-    code: this.extractUsageExample(item, content),
-    usageGuide_cn: this.buildUsageGuide(item, content, 'cn'),
+  title: item.name || item.signature,
+  summary_cn: this.extractDocstring(item, 'cn'),
+  summary_en: this.extractDocstring(item, 'en'),
+  code: this.extractUsageExample(item, content),
+  usageGuide_cn: this.buildUsageGuide(item, content, 'cn'),
   };
   
   const layer2 = {
-    headers: this.extractImports(content),
-    keywords: this.extractKeywords(item.name, content),
-    technicalProfile: {
-      performance: this.analyzePerformance(item),
-      security: this.analyzeSecurityConcerns(item),
-      compatibility: this.inferCompatibility(content),
-    }
+  headers: this.extractImports(content),
+  keywords: this.extractKeywords(item.name, content),
+  technicalProfile: {
+    performance: this.analyzePerformance(item),
+    security: this.analyzeSecurityConcerns(item),
+    compatibility: this.inferCompatibility(content),
+  }
   };
   
   // Layer 3 由系统自动生成
@@ -240,13 +250,13 @@ async scoreCandidate(candidate) {
   const projectFit = this.computeProjectAdaptability(candidate);
   
   return {
-    ...candidate,
-    quality: {
-      codeQuality,
-      documentationQuality: docQuality,
-      projectAdaptability: projectFit,
-      overallScore: (codeQuality + docQuality + projectFit) / 3
-    }
+  ...candidate,
+  quality: {
+    codeQuality,
+    documentationQuality: docQuality,
+    projectAdaptability: projectFit,
+    overallScore: (codeQuality + docQuality + projectFit) / 3
+  }
   };
 }
 
@@ -257,29 +267,29 @@ async enrichWithContext(candidate) {
   
   // 计算相似度并标记关系
   const relatedRecipes = similarRecipes
-    .map(recipe => ({
-      id: recipe.id,
-      title: recipe.title,
-      similarity: this.computeSimilarity(candidate, recipe),
-      relationship: this.inferRelationship(candidate, recipe)
-    }))
-    .filter(r => r.similarity > 0.5);
+  .map(recipe => ({
+    id: recipe.id,
+    title: recipe.title,
+    similarity: this.computeSimilarity(candidate, recipe),
+    relationship: this.inferRelationship(candidate, recipe)
+  }))
+  .filter(r => r.similarity > 0.5);
   
   // 生成审核建议
   const reviewNotes = {
-    priority: this.inferPriority(candidate, relatedRecipes),
-    suggestions: [],
-    warnings: []
+  priority: this.inferPriority(candidate, relatedRecipes),
+  suggestions: [],
+  warnings: []
   };
   
   if (relatedRecipes.length > 0) {
-    const highest = relatedRecipes[0];
-    if (highest.similarity > 0.75) {
-      reviewNotes.suggestions.push(
-        `Consider merging with "${highest.title}" (${Math.round(highest.similarity * 100)}% match)`
-      );
-      reviewNotes.priority = 'low';  // 相似度高的候选优先级降低
-    }
+  const highest = relatedRecipes[0];
+  if (highest.similarity > 0.75) {
+    reviewNotes.suggestions.push(
+    `Consider merging with "${highest.title}" (${Math.round(highest.similarity * 100)}% match)`
+    );
+    reviewNotes.priority = 'low';  // 相似度高的候选优先级降低
+  }
   }
   
   return { ...candidate, relatedRecipes, reviewNotes };
@@ -320,28 +330,28 @@ async enrichWithContext(candidate) {
 │ 获取 Target 文件列表 │
 │ (README > .h > src)  │
 └──────────┬──────────┘
-           ↓
-      ┌────────────┐
-      │ 并行扫描   │
-      │ 所有文件   │
-      └────────────┘
-           ↓
+       ↓
+    ┌────────────┐
+    │ 并行扫描   │
+    │ 所有文件   │
+    └────────────┘
+       ↓
    ┌───────────────────┐
    │ 文件级去重 (0.9)   │ ← 超高相似度合并
    └─────────┬─────────┘
-             ↓
+       ↓
    ┌───────────────────┐
    │ 全局去重 (现有库)  │ ← 与 Recipe 库对比
    └─────────┬─────────┘
-             ↓
+       ↓
    ┌───────────────────┐
    │ 聚类 (0.6-0.9)    │ ← 中等相似度标记关联
    └─────────┬─────────┘
-             ↓
+       ↓
    ┌───────────────────┐
    │ 评分 & 排序       │ ← 按综合评分 + 优先级
    └─────────┬─────────┘
-             ↓
+       ↓
    ┌───────────────────┐
    │ 提交到 Candidates │
    └───────────────────┘
@@ -356,7 +366,7 @@ async batchScanTarget(targetName) {
   
   // Step 2: 并行扫描
   const allCandidates = (await Promise.all(
-    files.map(f => this.scanSingleFile(f))
+  files.map(f => this.scanSingleFile(f))
   )).flat();
   
   // Step 3: 文件级去重（相似度 > 0.9）
@@ -364,7 +374,7 @@ async batchScanTarget(targetName) {
   
   // Step 4: 全局去重（与现有 Recipe 对比）
   const contextuallyEnhanced = await Promise.all(
-    deduplicated.map(c => this.enrichWithGlobalContext(c))
+  deduplicated.map(c => this.enrichWithGlobalContext(c))
   );
   
   // Step 5: 聚类（相似度 0.6-0.9）
@@ -372,7 +382,7 @@ async batchScanTarget(targetName) {
   
   // Step 6: 排序
   const sorted = clustered.sort((a, b) => 
-    (b.quality?.overallScore || 0) - (a.quality?.overallScore || 0)
+  (b.quality?.overallScore || 0) - (a.quality?.overallScore || 0)
   );
   
   // Step 7: 提交
@@ -386,12 +396,12 @@ async enrichWithGlobalContext(candidate) {
   
   // 标记冲突与关系
   const relatedRecipes = similarRecipes.map(recipe => ({
-    id: recipe.id,
-    title: recipe.title,
-    similarity: this.computeSimilarity(candidate, recipe),
-    relationship: this.inferRelationship(candidate, recipe),
-    action: this.suggestAction(candidate, recipe)
-      // 'merge' / 'skip' / 'variant' / 'complement'
+  id: recipe.id,
+  title: recipe.title,
+  similarity: this.computeSimilarity(candidate, recipe),
+  relationship: this.inferRelationship(candidate, recipe),
+  action: this.suggestAction(candidate, recipe)
+    // 'merge' / 'skip' / 'variant' / 'complement'
   }));
   
   return { ...candidate, relatedRecipes };
@@ -399,33 +409,33 @@ async enrichWithGlobalContext(candidate) {
 
 async deduplicateByEmbedding(candidates, threshold = 0.9) {
   const embeddings = await Promise.all(
-    candidates.map(c => this.embed(`${c.title} ${c.code}`))
+  candidates.map(c => this.embed(`${c.title} ${c.code}`))
   );
   
   const kept = [];
   const groups = [];
   
   for (let i = 0; i < candidates.length; i++) {
-    let found = false;
-    for (const group of groups) {
-      const similarity = this.cosineSimilarity(embeddings[i], embeddings[group[0]]);
-      if (similarity > threshold) {
-        group.push(i);
-        found = true;
-        break;
-      }
+  let found = false;
+  for (const group of groups) {
+    const similarity = this.cosineSimilarity(embeddings[i], embeddings[group[0]]);
+    if (similarity > threshold) {
+    group.push(i);
+    found = true;
+    break;
     }
-    if (!found) {
-      groups.push([i]);
-    }
+  }
+  if (!found) {
+    groups.push([i]);
+  }
   }
   
   // 每组保留最高质量的
   for (const group of groups) {
-    const best = group
-      .map(i => ({ idx: i, score: candidates[i].quality?.overallScore || 0 }))
-      .sort((a, b) => b.score - a.score)[0];
-    kept.push(candidates[best.idx]);
+  const best = group
+    .map(i => ({ idx: i, score: candidates[i].quality?.overallScore || 0 }))
+    .sort((a, b) => b.score - a.score)[0];
+  kept.push(candidates[best.idx]);
   }
   
   return kept;
@@ -448,12 +458,12 @@ async extractRecipesWithOptimizedPrompt(targetName, filesContent) {
   const targetType = this.detectTargetType(targetName, filesContent);
   
   const prompts = {
-    'ui': this.getUIFrameworkPrompt,
-    'network': this.getNetworkLibraryPrompt,
-    'storage': this.getStorageLibraryPrompt,
-    'service': this.getServiceLibraryPrompt,
-    'utility': this.getUtilityLibraryPrompt,
-    'default': this.getGenericPrompt
+  'ui': this.getUIFrameworkPrompt,
+  'network': this.getNetworkLibraryPrompt,
+  'storage': this.getStorageLibraryPrompt,
+  'service': this.getServiceLibraryPrompt,
+  'utility': this.getUtilityLibraryPrompt,
+  'default': this.getGenericPrompt
   };
   
   const promptFn = prompts[targetType] || prompts.default;
@@ -578,14 +588,14 @@ function scoreCandidate(candidate) {
   const overall = (codeQuality + docQuality + projectFit) / 3;
   
   return {
-    ...candidate,
-    quality: {
-      codeQuality: Math.min(codeQuality, 1.0),
-      documentationQuality: Math.min(docQuality, 1.0),
-      projectAdaptability: Math.min(projectFit, 1.0),
-      overallScore: Math.min(overall, 1.0),
-      confidence
-    }
+  ...candidate,
+  quality: {
+    codeQuality: Math.min(codeQuality, 1.0),
+    documentationQuality: Math.min(docQuality, 1.0),
+    projectAdaptability: Math.min(projectFit, 1.0),
+    overallScore: Math.min(overall, 1.0),
+    confidence
+  }
   };
 }
 ```
@@ -598,17 +608,17 @@ function scoreCandidate(candidate) {
 function inferPriority(candidate, relatedRecipes) {
   // 高优先级: 新颖 + 高质量
   if (relatedRecipes.length === 0 && candidate.quality?.overallScore > 0.8) {
-    return 'high';
+  return 'high';
   }
   
   // 中优先级: 有相关但不完全重复
   if (relatedRecipes.some(r => r.similarity > 0.6 && r.similarity < 0.8)) {
-    return 'medium';
+  return 'medium';
   }
   
   // 低优先级: 相似度很高（可能重复）
   if (relatedRecipes.some(r => r.similarity > 0.8)) {
-    return 'low';
+  return 'low';
   }
   
   // 中等质量 + 少量关联

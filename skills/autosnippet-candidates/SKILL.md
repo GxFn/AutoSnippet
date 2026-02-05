@@ -1,9 +1,6 @@
 ---
 name: autosnippet-candidates
-description: >
-  生成 Recipe 候选：单文件扫描或批量 Target 扫描。
-  理解候选质量评分、相似度标记、元数据意义。
-  Merge of old autosnippet-recipe-candidates + autosnippet-batch-scan.
+description: 生成 Recipe 候选：单文件扫描或批量 Target 扫描。理解候选质量评分、相似度标记、元数据意义。Merge of old autosnippet-recipe-candidates + autosnippet-batch-scan.
 ---
 
 # AutoSnippet — Generate Candidates with Rich Information (v2.0)
@@ -27,6 +24,9 @@ description: >
 ## Candidate = 多维信息包
 候选不只是代码块，应包含：
 - 基础字段：title/summary/trigger/code/usageGuide/language/category/headers
+  - **title**: **中文**，简短精准（✅ "颜色工具方法"、"网络请求重试"；❌ 避免 "Use BDUIKit for colors" 等机械格式）
+  - **trigger**: `@` 开头，小写+下划线
+  - **category**: 8 个标准值之一（View/Service/Tool/Model/Network/Storage/UI/Utility）
 - 质量评分：codeQuality/documentationQuality/projectAdaptability/overallScore
 - 元数据：sourceFile/confidence/coverageScore
 - 关系标记：relatedRecipes（similarity/relationship）
@@ -75,5 +75,45 @@ description: >
 2. 优先信息丰富（上下文、关系、评分）
 3. 生成时并行查询现有 Recipe，降低重复
 4. 失败不重试同轮，缩小范围或转静态上下文
+5. 代码示例推荐使用 Xcode 占位符（如 `<#URL#>`、`<#Token#>`），并在 Usage Guide 解释含义
+
+## AI Context / Usage Guide 格式要求（CRITICAL）
+
+**⚠️ MUST use Markdown format:**
+- **MUST use `###` section headings** — 每个主要内容块单独一行（如 `### 何时用`、`### 关键点`）
+- **MUST use `-` bullet lists** — 列表项用 `-` 开头，每项单独一行
+- **NEVER** put all content in one continuous line（禁止连续文本无换行）
+
+**BAD (❌):**
+```
+何时用：场景A；场景B。关键点：要点1；要点2。依赖：模块X。
+```
+
+**GOOD (✅):**
+```
+### 何时用
+- 需要场景A时
+- 需要场景B时
+
+### 关键点
+- 要点1：详细说明
+- 要点2：详细说明
+
+### 依赖
+- 模块X（最低版本Y）
+```
+
+**建议包含的内容**（提升可用性与可检索性）：
+- 何时用 / 何时不用
+- 关键点 / 注意事项
+- 依赖与前置条件（模块、权限、最低版本）
+- 核心步骤/关键配置（参数、默认值、边界条件）
+- 错误处理/异常分支（重试、超时、降级）
+- 性能与资源考量（缓存、线程、内存）
+- 安全与合规提示（敏感数据、鉴权、日志）
+- 常见误用与踩坑
+- 相关 Recipe/扩展读物
 
 > 详细版说明见本目录 [skills/autosnippet-candidates/SKILL_REDESIGNED.md](skills/autosnippet-candidates/SKILL_REDESIGNED.md)。
+
+```

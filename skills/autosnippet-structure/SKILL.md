@@ -32,3 +32,5 @@ For dependency graph visualization or details:
 
 - Keep results concise: show target name, type, path, and key dependencies.
 - If a user requests code generation, switch to **autosnippet-recipes** or **autosnippet-create** after you clarify the structure.
+
+```

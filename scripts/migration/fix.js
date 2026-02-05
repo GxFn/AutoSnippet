@@ -19,14 +19,14 @@ function saveJson(filePath, data) {
 
 function buildEntity(type, record) {
   switch (type) {
-    case 'snippet':
-      return new SnippetV2(record);
-    case 'recipe':
-      return new RecipeV2(record);
-    case 'guard':
-      return new GuardRuleV2(record);
-    default:
-      throw new Error(`Unknown type: ${type}`);
+  case 'snippet':
+    return new SnippetV2(record);
+  case 'recipe':
+    return new RecipeV2(record);
+  case 'guard':
+    return new GuardRuleV2(record);
+  default:
+    throw new Error(`Unknown type: ${type}`);
   }
 }
 
@@ -34,20 +34,20 @@ function applyAutoFix(type, record) {
   const cloned = { ...record };
 
   if (type === 'snippet') {
-    if (!cloned.title && cloned.name) cloned.title = cloned.name;
-    if (!cloned.trigger && cloned.completion) cloned.trigger = cloned.completion;
-    if (!cloned.body && cloned.content) cloned.body = cloned.content;
+  if (!cloned.title && cloned.name) cloned.title = cloned.name;
+  if (!cloned.trigger && cloned.completion) cloned.trigger = cloned.completion;
+  if (!cloned.body && cloned.content) cloned.body = cloned.content;
   }
 
   if (type === 'recipe') {
-    if (!cloned.title && cloned.name) cloned.title = cloned.name;
-    if (!cloned.category) cloned.category = 'uncategorized';
+  if (!cloned.title && cloned.name) cloned.title = cloned.name;
+  if (!cloned.category) cloned.category = 'uncategorized';
   }
 
   if (type === 'guard') {
-    if (!cloned.category) cloned.category = 'general';
-    if (!cloned.severity) cloned.severity = 'warning';
-    if (!cloned.languages && cloned.language) cloned.languages = [cloned.language];
+  if (!cloned.category) cloned.category = 'general';
+  if (!cloned.severity) cloned.severity = 'warning';
+  if (!cloned.languages && cloned.language) cloned.languages = [cloned.language];
   }
 
   return cloned;
@@ -60,17 +60,17 @@ async function main() {
   const output = args.output || args.o;
 
   if (!type || !input || !output) {
-    console.error('Usage: node scripts/migration/fix.js --type <snippet|recipe|guard> --input <file> --output <file>');
-    process.exit(1);
+  console.error('Usage: node scripts/migration/fix.js --type <snippet|recipe|guard> --input <file> --output <file>');
+  process.exit(1);
   }
 
   const source = loadJson(input);
   const records = Array.isArray(source) ? source : source.items || [];
 
   const fixed = records.map((record) => {
-    const adjusted = applyAutoFix(type, record);
-    const entity = buildEntity(type, adjusted);
-    return entity.toJSON();
+  const adjusted = applyAutoFix(type, record);
+  const entity = buildEntity(type, adjusted);
+  return entity.toJSON();
   });
 
   saveJson(output, fixed);

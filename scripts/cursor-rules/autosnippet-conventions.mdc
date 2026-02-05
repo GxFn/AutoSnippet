@@ -20,6 +20,8 @@ These rules are written when installing AutoSnippet Skills (`asd install:cursor-
 - **Knowledge base**: `AutoSnippet/` (read-only for AI).
 - **Recipes**: `AutoSnippet/recipes/*.md` (Markdown + Frontmatter + Snippet/Usage Guide; path is fixed).
   - **Frontmatter required fields (7)**: `title` (English, ≤50 chars, verb-based), `trigger` (MUST start with `@`), `category` (MUST be one of: `View`, `Service`, `Tool`, `Model`, `Network`, `Storage`, `UI`, `Utility`), `language` (`swift` or `objectivec`), `summary_cn` (≤100 chars), `summary_en` (≤100 words), `headers` (complete import statements like `["import Foundation"]` or `["#import <UIKit/UIKit.h>"]`).
+  - **Placeholders**: Prefer Xcode placeholders in snippets (e.g. `<#URL#>`, `<#Token#>`) and explain them in Usage Guide.
+  - **Usage Guide depth**: Go beyond “When/Key Points”; include dependencies, steps/config, error handling, performance, security, pitfalls, and related Recipes when applicable.
 - **Snippets**: `AutoSnippet/snippets/*.json` or root spec `list`.
 - **Candidates**: `AutoSnippet/.autosnippet/candidates.json` (reviewed in Dashboard).
 - **Vector index**: `AutoSnippet/.autosnippet/context/` (`asd embed`).

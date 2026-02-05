@@ -37,17 +37,17 @@ request.httpMethod = "GET"
 request.setValue("application/json", forHTTPHeaderField: "Accept")
 
 URLSession.shared.dataTask(with: request) { data, response, error in
-    if let error = error {
-        print("Request failed: \(error)")
-        return
-    }
-    guard let data = data,
-          let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-        return
-    }
-    if let json = try? JSONSerialization.jsonObject(with: data) {
-        print(json)
-    }
+  if let error = error {
+    print("Request failed: \(error)")
+    return
+  }
+  guard let data = data,
+      let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+    return
+  }
+  if let json = try? JSONSerialization.jsonObject(with: data) {
+    print(json)
+  }
 }.resume()
 ```
 
@@ -76,6 +76,31 @@ URLSession.shared.dataTask(with: request) { data, response, error in
 - 回调在后台线程执行，若需更新 UI 请切回主线程（如 `DispatchQueue.main.async`）。
 - 大响应或流式场景请用 `URLSessionDelegate` 或流式 API，不要仅靠一次性 `dataTask`。
 
+### 依赖与前置条件
+
+- 需导入 `Foundation`。
+- 如需网络权限，确保 App Transport Security 配置正确。
+
+### 错误处理
+
+- 对 `error` 做分支处理，必要时做重试或降级。
+- 对超时/无网络场景给出用户提示。
+
+### 性能与资源
+
+- 大响应建议启用缓存或分块处理。
+- 频繁请求应做节流或合并。
+
+### 安全与合规
+
+- 不要在日志中输出敏感信息或完整 token。
+- 必要时启用证书校验或签名。
+
+### 常见误用
+
+- 直接在回调线程更新 UI。
+- 忽略状态码只判断 `error`。
+
 ### 最佳实践
 
 - 将 URL、超时、重试等配置集中管理，避免散落各处。
@@ -87,3 +112,8 @@ URLSession.shared.dataTask(with: request) { data, response, error in
 - **URLSession.data(for:)**：iOS 15+ 原生 async/await，无需回调。
 - **Alamofire / 自研 Client**：需要统一重试、日志、拦截器时使用。
 - **WebSocket / 流式**：实时或流式场景选用对应 API。
+
+### 相关 Recipe
+
+- `@error_handling`
+- `@async_await`

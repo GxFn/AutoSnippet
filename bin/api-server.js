@@ -22,16 +22,16 @@ const { MetricsHub } = require('../lib/business/metrics/MetricsHub');
 function parseArgs() {
   const args = process.argv.slice(2);
   const options = {
-    port: 8080,
-    host: 'localhost',
+  port: 8080,
+  host: 'localhost',
   };
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--port') {
-      options.port = parseInt(args[++i], 10);
-    } else if (args[i] === '--host') {
-      options.host = args[++i];
-    }
+  if (args[i] === '--port') {
+    options.port = parseInt(args[++i], 10);
+  } else if (args[i] === '--host') {
+    options.host = args[++i];
+  }
   }
 
   return options;
@@ -53,28 +53,28 @@ async function startServer() {
 
   // 创建 API Gateway
   const gateway = new APIGateway(agent, {
-    port: options.port,
-    host: options.host,
+  port: options.port,
+  host: options.host,
   });
 
   // 启动服务器
   try {
-    await gateway.start();
-    console.log(`✨ API 服务器运行中...`);
-    console.log(`📝 API 文档: http://${options.host}:${options.port}/api/docs`);
-    console.log(`🏥 健康检查: http://${options.host}:${options.port}/api/health`);
-    console.log(`\n按 Ctrl+C 停止服务器`);
+  await gateway.start();
+  console.log(`✨ API 服务器运行中...`);
+  console.log(`📝 API 文档: http://${options.host}:${options.port}/api/docs`);
+  console.log(`🏥 健康检查: http://${options.host}:${options.port}/api/health`);
+  console.log(`\n按 Ctrl+C 停止服务器`);
   } catch (error) {
-    console.error('❌ 启动服务器失败:', error);
-    process.exit(1);
+  console.error('❌ 启动服务器失败:', error);
+  process.exit(1);
   }
 
   // 处理信号
   process.on('SIGINT', async () => {
-    console.log('\n🛑 停止服务器...');
-    await gateway.stop();
-    console.log('✅ 服务器已停止');
-    process.exit(0);
+  console.log('\n🛑 停止服务器...');
+  await gateway.stop();
+  console.log('✅ 服务器已停止');
+  process.exit(0);
   });
 }
 

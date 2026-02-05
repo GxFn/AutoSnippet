@@ -63,3 +63,5 @@ Both feed the same **Candidates** pool; review and save flow in Dashboard is ide
 - **autosnippet-when**: Use this skill when the user’s intent is "batch scan a Target with Cursor"; when routes here.
 - **autosnippet-concepts**: Candidates and knowledge base concepts; Skills = semantics, MCP = capability.
 - **autosnippet-create**: Single Recipe submit (open create page, paste); batch scan is multi-file → multi-candidate → submit in one go.
+
+```

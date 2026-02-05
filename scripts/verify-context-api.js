@@ -16,45 +16,45 @@ const body = JSON.stringify({ query: '网络请求', limit: 3 });
 
 const client = url.protocol === 'https:' ? https : http;
 const opts = {
-	hostname: url.hostname,
-	port: url.port || (url.protocol === 'https:' ? 443 : 80),
-	path: url.pathname,
-	method: 'POST',
-	headers: {
-		'Content-Type': 'application/json',
-		'Content-Length': Buffer.byteLength(body)
-	}
+  hostname: url.hostname,
+  port: url.port || (url.protocol === 'https:' ? 443 : 80),
+  path: url.pathname,
+  method: 'POST',
+  headers: {
+  'Content-Type': 'application/json',
+  'Content-Length': Buffer.byteLength(body)
+  }
 };
 
 const req = client.request(opts, (res) => {
-	let data = '';
-	res.on('data', (ch) => { data += ch; });
-	res.on('end', () => {
-		if (res.statusCode !== 200) {
-			console.error(`❌ API 返回 ${res.statusCode}`);
-			process.exit(1);
-		}
-		try {
-			const json = JSON.parse(data);
-			if (!json.items || !Array.isArray(json.items)) {
-				console.error('❌ 返回结构异常，缺少 items 数组');
-				process.exit(1);
-			}
-			console.log(`✅ /api/context/search 可用，返回 ${json.items.length} 条`);
-			if (json.items.length > 0) {
-				console.log('   示例:', json.items[0].metadata?.sourcePath || json.items[0].id);
-			}
-		} catch (e) {
-			console.error('❌ 解析响应失败:', e.message);
-			process.exit(1);
-		}
-	});
+  let data = '';
+  res.on('data', (ch) => { data += ch; });
+  res.on('end', () => {
+  if (res.statusCode !== 200) {
+    console.error(`❌ API 返回 ${res.statusCode}`);
+    process.exit(1);
+  }
+  try {
+    const json = JSON.parse(data);
+    if (!json.items || !Array.isArray(json.items)) {
+    console.error('❌ 返回结构异常，缺少 items 数组');
+    process.exit(1);
+    }
+    console.log(`✅ /api/context/search 可用，返回 ${json.items.length} 条`);
+    if (json.items.length > 0) {
+    console.log('   示例:', json.items[0].metadata?.sourcePath || json.items[0].id);
+    }
+  } catch (e) {
+    console.error('❌ 解析响应失败:', e.message);
+    process.exit(1);
+  }
+  });
 });
 
 req.on('error', (e) => {
-	console.error('❌ 请求失败:', e.message);
-	console.error('   请确保 asd ui 已启动，或设置 ASD_UI_URL');
-	process.exit(1);
+  console.error('❌ 请求失败:', e.message);
+  console.error('   请确保 asd ui 已启动，或设置 ASD_UI_URL');
+  process.exit(1);
 });
 
 req.write(body);

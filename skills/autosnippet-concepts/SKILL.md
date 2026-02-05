@@ -148,7 +148,7 @@ This is a conceptual map. Skills stay semantic; MCP provides capability.
 
 | 字段 | 含义 | 来源 | 规则 |
 | :--- | :--- | :--- | :--- |
-| `title` | 标准用法的名称 | 人工命名 | **必填**；英文/简短；≤50 字符 |
+| `title` | 标准用法的名称 | 人工命名 | **必填**；**中文**；简短精准（✅ "颜色工具方法"、"异步请求处理"；❌ 避免 "Use xxx"）；≤20 字 |
 | `trigger` | 触发词（Snippet/检索） | 人工命名 | **必填**；`@` 开头，小写/下划线/无空格；唯一 |
 | `category` | 8 类标准分类 | 人工判断 | **必填**；必须为 8 类之一 |
 | `language` | 代码语言 | 从代码确定 | **必填**；`swift` / `objectivec` |
@@ -210,12 +210,12 @@ request.url = @"https://api.example.com/endpoint";
 request.method = BDRequestMethodGET;
 
 [request startWithCompletionBlock:^(BDBaseRequest *req) {
-    // Handle success
-    id responseData = req.responseJson;
-    NSLog(@"Success: %@", responseData);
+  // Handle success
+  id responseData = req.responseJson;
+  NSLog(@"Success: %@", responseData);
 } failure:^(BDBaseRequest *req, NSError *error) {
-    // Handle error
-    NSLog(@"Error: %@", error.localizedDescription);
+  // Handle error
+  NSLog(@"Error: %@", error.localizedDescription);
 }];
 ```
 
@@ -234,6 +234,21 @@ request.method = BDRequestMethodGET;
 - Explain what developers need to customize
 - Document placeholder values and their meanings
 
+### Dependencies & Preconditions
+- Required modules, permissions, and minimum OS version
+
+### Error Handling & Edge Cases
+- Common failure modes, retry/timeout, and fallback behavior
+
+### Performance & Resources
+- Cache, threading, and memory considerations
+
+### Security & Compliance
+- Sensitive data handling, auth, and logging guidance
+
+### Common Pitfalls
+- Typical misuse and how to avoid it
+
 ### Related Patterns
 - Link to related Recipes (use @trigger format)
 - Note alternative approaches if applicable
@@ -243,9 +258,9 @@ request.method = BDRequestMethodGET;
 1. **NEVER skip any section** - include all three: Frontmatter, Snippet, Usage Guide
 2. **RECOMMEND providing English version** (beneficial for search, Cursor AI understanding, and knowledge reuse):
    - **Why**: 
-     - 🔍 **Search**: English users and English keyword searches benefit from EN version
-     - 🧠 **Cursor AI**: English LLM processes English text naturally, improving pattern comprehension
-     - 📚 **Knowledge reuse**: Global team can access knowledge more effectively
+   - 🔍 **Search**: English users and English keyword searches benefit from EN version
+   - 🧠 **Cursor AI**: English LLM processes English text naturally, improving pattern comprehension
+   - 📚 **Knowledge reuse**: Global team can access knowledge more effectively
    - **Token cost**: Only ~20-30% increase (minimal impact)
    - **Optional approach**: Chinese-only is acceptable; English improves discoverability
   - **How** (if providing): Generate both `summary_cn` and `summary_en` in frontmatter + both Chinese and English usage guide sections
@@ -255,9 +270,10 @@ request.method = BDRequestMethodGET;
 5. **Required frontmatter fields (必须齐全)**:
   - `title`, `trigger`, `category`, `language`, `summary_cn`, `summary_en`, `headers`
 6. **Snippet section** - runnable code example with context and comments
-7. **Usage Guide section** - explain When/How/Why with related patterns
-8. **Make trigger unique**: Format `@featureName`, all lowercase, no spaces
-9. **Be specific in summary**: Describe the exact use case, not general concepts
+7. **Usage Guide section** - explain When/How/Why, dependencies, error handling, performance, security, pitfalls, and related patterns
+8. **Use placeholders** - use Xcode placeholders like `<#URL#>` and explain them in Usage Guide
+9. **Make trigger unique**: Format `@featureName`, all lowercase, no spaces
+10. **Be specific in summary**: Describe the exact use case, not general concepts
 
 ---
 
@@ -433,13 +449,13 @@ authority: 3
 
 ```objc
 [req startWithCompletionBlock:^(BDBaseRequest *r) {
-    id json = r.responseJson;
-    NSString *raw = r.responseString;
-    NSData *data = r.responseData;
-    NSInteger code = r.responseStatusCode;
-    NSDictionary *headers = r.responseHeaders;
+  id json = r.responseJson;
+  NSString *raw = r.responseString;
+  NSData *data = r.responseData;
+  NSInteger code = r.responseStatusCode;
+  NSDictionary *headers = r.responseHeaders;
 } failure:^(BDBaseRequest *r, NSError *error) {
-    NSLog(@"Error domain: %@, code: %ld", error.domain, (long)error.code);
+  NSLog(@"Error domain: %@, code: %ld", error.domain, (long)error.code);
 }];
 ```
 
@@ -483,19 +499,19 @@ ModuleDefine(MyCustomModule);
 
 @implementation MyCustomModule
 + (NSInteger)modulePriority {
-    return BDPModulePriorityHigh;  // Priority: higher = earlier execution
+  return BDPModulePriorityHigh;  // Priority: higher = earlier execution
 }
 
 - (void)moduleRegister:(BDPContext *)context {
-    // Register module with framework, setup initial state
+  // Register module with framework, setup initial state
 }
 
 - (void)moduleInit:(BDPContext *)context {
-    // Initialize module after all modules registered
+  // Initialize module after all modules registered
 }
 
 - (void)applicationEnvironmentDidSetup:(BDPContext *)context {
-    // Called when app environment ready (window visible, etc.)
+  // Called when app environment ready (window visible, etc.)
 }
 @end
 ```
@@ -534,24 +550,24 @@ authority: 3
 ```objc
 // Add observer (in init or setup)
 [self.targetObject addObserver:self 
-                     forKeyPath:@"property" 
-                        options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld
-                        context:NULL];
+           forKeyPath:@"property" 
+            options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld
+            context:NULL];
 
 // Observe changes
 - (void)observeValueForKeyPath:(NSString *)keyPath 
-                      ofObject:(id)object 
-                        change:(NSDictionary *)change 
-                       context:(void *)context {
-    if ([keyPath isEqualToString:@"property"]) {
-        id newValue = change[NSKeyValueChangeNewKey];
-        // Handle change
-    }
+            ofObject:(id)object 
+            change:(NSDictionary *)change 
+             context:(void *)context {
+  if ([keyPath isEqualToString:@"property"]) {
+    id newValue = change[NSKeyValueChangeNewKey];
+    // Handle change
+  }
 }
 
 // Remove observer (in dealloc, CRITICAL)
 - (void)dealloc {
-    [self.targetObject removeObserver:self forKeyPath:@"property"];
+  [self.targetObject removeObserver:self forKeyPath:@"property"];
 }
 ```
 
@@ -585,3 +601,5 @@ authority: 3
 - **autosnippet-recipes**: Read project context, search recipes, find code on demand.
 - **autosnippet-create**: Creation flow (Dashboard, CLI, `// as:create`).
 - **autosnippet-dep-graph**: SPM dependency structure (`AutoSnippet/AutoSnippet.spmmap.json`).
+
+```

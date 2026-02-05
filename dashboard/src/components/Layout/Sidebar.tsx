@@ -5,36 +5,36 @@ import { ICON_SIZES } from '../../constants/icons';
 import { ProjectData } from '../../types';
 
 interface SidebarProps {
-	activeTab: TabType;
-	navigateToTab: (tab: TabType, options?: { preserveSearch?: boolean }) => void;
-	handleRefreshProject: () => void;
-	candidateCount: number;
+  activeTab: TabType;
+  navigateToTab: (tab: TabType, options?: { preserveSearch?: boolean }) => void;
+  handleRefreshProject: () => void;
+  candidateCount: number;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, navigateToTab, handleRefreshProject, candidateCount }) => {
-	return (
-		<aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0">
-			<div className="p-6 border-b border-slate-100 flex items-center gap-3">
-				<div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white"><Code size={ICON_SIZES.lg} /></div>
-				<h1 className="font-bold text-lg">AutoSnippet</h1>
-			</div>
-			<nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-				<button type="button" onClick={() => navigateToTab('recipes')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'recipes' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><Bookmark size={ICON_SIZES.lg} /><span>Recipes</span></button>
-				<button type="button" onClick={() => navigateToTab('snippets')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'snippets' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><Copy size={ICON_SIZES.lg} /><span>Snippets</span></button>
-				<button type="button" onClick={() => navigateToTab('spm')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'spm' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><FolderOpen size={ICON_SIZES.lg} /><span>SPM Explorer</span></button>
-				<button type="button" onClick={() => navigateToTab('candidates')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'candidates' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><Clock size={ICON_SIZES.lg} /><span>Candidates ({candidateCount})</span></button>
-				<button type="button" onClick={() => navigateToTab('depgraph')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'depgraph' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><GitBranch size={ICON_SIZES.lg} /><span>依赖关系图</span></button>
-				<button type="button" onClick={() => navigateToTab('guard')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'guard' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><Shield size={ICON_SIZES.lg} /><span>Guard</span></button>
-				<button type="button" onClick={() => navigateToTab('ai')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'ai' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><MessageSquare size={ICON_SIZES.lg} /><span>AI Assistant</span></button>
-				<button type="button" onClick={() => navigateToTab('help')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'help' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><HelpCircle size={ICON_SIZES.lg} /><span>使用说明</span></button>
-			</nav>
-			<div className="p-4 border-t border-slate-100">
-				 <button onClick={handleRefreshProject} className="w-full flex items-center justify-center gap-2 text-[10px] font-bold text-slate-400 uppercase hover:text-blue-600 transition-colors">
-					<RefreshCw size={ICON_SIZES.xs} /> Refresh Project
-				 </button>
-			</div>
-		</aside>
-	);
+  return (
+  <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0">
+    <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white"><Code size={ICON_SIZES.lg} /></div>
+    <h1 className="font-bold text-lg">AutoSnippet</h1>
+    </div>
+    <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+    <button type="button" onClick={() => navigateToTab('recipes')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'recipes' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><Bookmark size={ICON_SIZES.lg} /><span>Recipes</span></button>
+    <button type="button" onClick={() => navigateToTab('snippets')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'snippets' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><Copy size={ICON_SIZES.lg} /><span>Snippets</span></button>
+    <button type="button" onClick={() => navigateToTab('spm')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'spm' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><FolderOpen size={ICON_SIZES.lg} /><span>SPM Explorer</span></button>
+    <button type="button" onClick={() => navigateToTab('candidates')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'candidates' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><Clock size={ICON_SIZES.lg} /><span>Candidates ({candidateCount})</span></button>
+    <button type="button" onClick={() => navigateToTab('depgraph')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'depgraph' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><GitBranch size={ICON_SIZES.lg} /><span>依赖关系图</span></button>
+    <button type="button" onClick={() => navigateToTab('guard')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'guard' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><Shield size={ICON_SIZES.lg} /><span>Guard</span></button>
+    <button type="button" onClick={() => navigateToTab('ai')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'ai' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><MessageSquare size={ICON_SIZES.lg} /><span>AI Assistant</span></button>
+    <button type="button" onClick={() => navigateToTab('help')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'help' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}><HelpCircle size={ICON_SIZES.lg} /><span>使用说明</span></button>
+    </nav>
+    <div className="p-4 border-t border-slate-100">
+     <button onClick={handleRefreshProject} className="w-full flex items-center justify-center gap-2 text-[10px] font-bold text-slate-400 uppercase hover:text-blue-600 transition-colors">
+      <RefreshCw size={ICON_SIZES.xs} /> Refresh Project
+     </button>
+    </div>
+  </aside>
+  );
 };
 
 export default Sidebar;

@@ -67,7 +67,23 @@ When scanning code (e.g. `BDSchemeDispatcher`):
    ├── BDSchemeDispatcher-插件注册.md
    └── BDSchemeDispatcher-错误处理.md
    ```
-3. **Format**: Full Recipe MD (frontmatter with `title`, `trigger`, then `## Snippet / Code Reference` + code block + `## AI Context / Usage Guide`). Intro-only docs may have no code block (frontmatter + Usage Guide only); those do not generate a Snippet after approval.
+3. **Format**: Full Recipe MD (frontmatter with `title`, `trigger`, then `## Snippet / Code Reference` + code block + `## AI Context / Usage Guide`). 
+   - **⚠️ USAGE GUIDE FORMAT (CRITICAL)**:
+   * **MUST use `###` section headings** — each major section on its own line (e.g. `### 何时用`, `### 关键点`)
+   * **MUST use `-` bullet lists and newlines** — never put all content in one continuous line
+   * **BAD** (❌): `何时用：场景A；场景B。关键点：要点1；要点2。依赖：…。`
+   * **GOOD** (✅):
+     ```
+     ### 何时用
+     - 需要…时
+     - 场景…时
+     
+     ### 关键点
+     - 要点1：说明
+     - 要点2：说明
+     ```
+   * See [templates/recipes-setup/README.md](../../templates/recipes-setup/README.md) for detailed format guide & BAD vs GOOD examples
+   - Intro-only docs may have no code block (frontmatter + Usage Guide only); those do not generate a Snippet after approval.
 4. **One pattern per file**: Each file = ONE specific usage scenario or one intro doc.
 
 ### Step 3: Submit via MCP
@@ -86,20 +102,20 @@ Call MCP **`autosnippet_submit_draft_recipes`** with the list of file paths:
 
 ```
 User Request: "扫描 BDSchemeDispatcher 生成候选"
-    ↓
+  ↓
 Create .autosnippet-drafts/ (outside AutoSnippet/)
-    ↓
+  ↓
 Analyze code → Generate one .md per pattern (not one big file)
-    ↓
+  ↓
 .autosnippet-drafts/
 ├── Pattern1.md
 ├── Pattern2.md
 └── Pattern3.md
-    ↓
+  ↓
 Call MCP: autosnippet_submit_draft_recipes(filePaths, targetName, ...)
-    ↓
+  ↓
 Candidates appear in Dashboard → User reviews
-    ↓
+  ↓
 Approved → AutoSnippet/recipes/ (via Dashboard). Intro-only candidates do not generate Snippet. **Then delete draft folder.**
 ```
 
@@ -135,7 +151,23 @@ Approved → AutoSnippet/recipes/ (via Dashboard). Intro-only candidates do not 
 2. **STEP 2: Generate Markdown files**
    - Analyze the code (or doc need) and identify patterns
    - Create **ONE .md file per pattern** in the draft folder (e.g. `.autosnippet-drafts/ModuleName-Pattern.md`)
-   - Full Recipe format: frontmatter + `## Snippet / Code Reference` + `## AI Context / Usage Guide`. Intro-only docs (no code block) do not generate Snippet after approval.
+   - Full Recipe format: frontmatter + `## Snippet / Code Reference` + `## AI Context / Usage Guide`
+   - **⚠️ USAGE GUIDE MUST use structured format (CRITICAL)**:
+   * **Use `### Section Heading` for each major section** (not one continuous line)
+   * **Use `-` bullet lists** for multi-item sections
+   * **Use newlines (`\n`) to separate sections and items** — at least 2 blank lines between major sections
+   * **Pattern to follow**:
+     ```
+     ### 何时用
+     - Scenario 1
+     - Scenario 2
+     
+     ### 关键点
+     - Key point 1
+     - Key point 2
+     ```
+   * **See templates/recipes-setup/README.md** for detailed examples and BAD vs GOOD comparison
+   - Intro-only docs (no code block) do not generate Snippet after approval.
 
 3. **STEP 3: Call MCP**
    - **`autosnippet_submit_draft_recipes`** with `filePaths`, `targetName`, optional `source`, `expiresInHours`, **`deleteAfterSubmit: true`** (or delete folder manually after).
@@ -168,3 +200,5 @@ Approved → AutoSnippet/recipes/ (via Dashboard). Intro-only candidates do not 
 
 **Agent Response**:
 "AutoSnippet/recipes/ is for final, reviewed content. Use the candidate flow: create a draft folder, generate one .md per scenario, call autosnippet_submit_draft_recipes, then delete the draft folder after submit."
+
+```

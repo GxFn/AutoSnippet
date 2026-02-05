@@ -19,14 +19,14 @@ function saveJson(filePath, data) {
 
 function buildEntity(type, record) {
   switch (type) {
-    case 'snippet':
-      return new SnippetV2(record);
-    case 'recipe':
-      return new RecipeV2(record);
-    case 'guard':
-      return new GuardRuleV2(record);
-    default:
-      throw new Error(`Unknown type: ${type}`);
+  case 'snippet':
+    return new SnippetV2(record);
+  case 'recipe':
+    return new RecipeV2(record);
+  case 'guard':
+    return new GuardRuleV2(record);
+  default:
+    throw new Error(`Unknown type: ${type}`);
   }
 }
 
@@ -34,15 +34,15 @@ function validateRecords(type, records) {
   const errors = [];
 
   records.forEach((record, index) => {
-    try {
-      const entity = buildEntity(type, record);
-      const error = entity.validate();
-      if (error) {
-        errors.push({ index, error, record });
-      }
-    } catch (err) {
-      errors.push({ index, error: err.message || String(err), record });
+  try {
+    const entity = buildEntity(type, record);
+    const error = entity.validate();
+    if (error) {
+    errors.push({ index, error, record });
     }
+  } catch (err) {
+    errors.push({ index, error: err.message || String(err), record });
+  }
   });
 
   return errors;
@@ -55,8 +55,8 @@ async function main() {
   const output = args.output || args.o;
 
   if (!type || !input) {
-    console.error('Usage: node scripts/migration/validate.js --type <snippet|recipe|guard> --input <file> [--output <file>]');
-    process.exit(1);
+  console.error('Usage: node scripts/migration/validate.js --type <snippet|recipe|guard> --input <file> [--output <file>]');
+  process.exit(1);
   }
 
   const source = loadJson(input);
@@ -65,20 +65,20 @@ async function main() {
   const errors = validateRecords(type, records);
 
   const report = {
-    total: records.length,
-    invalid: errors.length,
-    valid: records.length - errors.length,
-    successRate: records.length === 0 ? '0.00%' : `${(((records.length - errors.length) / records.length) * 100).toFixed(2)}%`,
-    timestamp: new Date().toISOString()
+  total: records.length,
+  invalid: errors.length,
+  valid: records.length - errors.length,
+  successRate: records.length === 0 ? '0.00%' : `${(((records.length - errors.length) / records.length) * 100).toFixed(2)}%`,
+  timestamp: new Date().toISOString()
   };
 
   if (output) {
-    saveJson(output, { report, errors });
+  saveJson(output, { report, errors });
   }
 
   console.log('Validation report:', report);
   if (errors.length > 0) {
-    console.warn(`Found ${errors.length} invalid records`);
+  console.warn(`Found ${errors.length} invalid records`);
   }
 }
 

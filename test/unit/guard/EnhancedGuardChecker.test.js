@@ -58,24 +58,24 @@ async function testEnhancedGuardChecker() {
   
   // 模拟基础 Guard 模块
   const mockGuardModule = {
-    runStaticCheck: (projectRoot, code, language, scope) => [
-      {
-        ruleId: 'test-rule-1',
-        severity: 'error',
-        message: 'Test violation',
-        line: 10
-      }
-    ]
+  runStaticCheck: (projectRoot, code, language, scope) => [
+    {
+    ruleId: 'test-rule-1',
+    severity: 'error',
+    message: 'Test violation',
+    line: 10
+    }
+  ]
   };
 
   const checker = new EnhancedGuardChecker(tempDir, mockGuardModule);
 
   // 运行增强检查
   const result = await checker.runEnhancedStaticCheck(
-    'some code',
-    'objc',
-    'Main.m',
-    'file'
+  'some code',
+  'objc',
+  'Main.m',
+  'file'
   );
 
   console.assert(result.length > 0, '✓ 增强检查返回违反');
@@ -94,16 +94,16 @@ async function runTests() {
   console.log('运行 Guard 系统测试...\n');
   
   try {
-    await testGuardRuleLearner();
-    await testGuardExclusionManager();
-    await testEnhancedGuardChecker();
-    console.log('\n✓ 所有 Guard 测试通过\n');
+  await testGuardRuleLearner();
+  await testGuardExclusionManager();
+  await testEnhancedGuardChecker();
+  console.log('\n✓ 所有 Guard 测试通过\n');
   } catch (e) {
-    console.error('✗ Guard 测试失败:', e.message);
-    process.exit(1);
+  console.error('✗ Guard 测试失败:', e.message);
+  process.exit(1);
   } finally {
-    // 清理临时目录
-    fs.rmSync(tempDir, { recursive: true, force: true });
+  // 清理临时目录
+  fs.rmSync(tempDir, { recursive: true, force: true });
   }
 }
 
@@ -112,7 +112,7 @@ module.exports = { runTests };
 // 如果直接运行此文件
 if (require.main === module) {
   runTests().catch(e => {
-    console.error(e);
-    process.exit(1);
+  console.error(e);
+  process.exit(1);
   });
 }

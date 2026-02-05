@@ -38,3 +38,5 @@ Use this skill when the user's intent is unclear or overlaps multiple capabiliti
 - Structure: `autosnippet_get_targets`, `autosnippet_get_target_files`, `autosnippet_get_target_metadata`
 
 This skill is a router only; it does not perform actions itself.
+
+```

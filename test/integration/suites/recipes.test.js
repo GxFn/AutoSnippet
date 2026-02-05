@@ -42,7 +42,7 @@ runner.test('应该能获取已保存的 Recipe', async (ctx) => {
   TestAssert.assertTrue(response.body.content.includes(testRecipes.basicRecipe.title));
   
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name: testRecipes.basicRecipe.name });
+  await client.post('/api/recipes/delete', { name: testRecipes.basicRecipe.name });
   });
 });
 
@@ -58,15 +58,15 @@ runner.test('应该能设置 Recipe 权威度评分', async (ctx) => {
   // 先保存
   const recipeName = 'test-authority-recipe';
   await client.post('/api/recipes/save', {
-    name: recipeName,
-    title: 'Authority Test',
-    content: '# Test\nContent for testing authority.'
+  name: recipeName,
+  title: 'Authority Test',
+  content: '# Test\nContent for testing authority.'
   });
   
   // 设置权威度
   const response = await client.post('/api/recipes/set-authority', {
-    name: recipeName,
-    authority: 5
+  name: recipeName,
+  authority: 5
   });
   
   TestAssert.assertStatusCode(response, 200);
@@ -74,7 +74,7 @@ runner.test('应该能设置 Recipe 权威度评分', async (ctx) => {
   TestAssert.assertEquals(response.body.authority, 5);
   
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name: recipeName });
+  await client.post('/api/recipes/delete', { name: recipeName });
   });
 });
 
@@ -82,22 +82,22 @@ runner.test('应该能设置 Recipe 权威度评分', async (ctx) => {
 runner.test('权威度应在有效范围内 (0-5)', async (ctx) => {
   const recipeName = 'test-authority-range';
   await client.post('/api/recipes/save', {
-    name: recipeName,
-    title: 'Range Test',
-    content: '# Test'
+  name: recipeName,
+  title: 'Range Test',
+  content: '# Test'
   });
   
   // 测试有效范围
   for (let i = 0; i <= 5; i++) {
-    const response = await client.post('/api/recipes/set-authority', {
-      name: recipeName,
-      authority: i
-    });
-    TestAssert.assertTrue(response.body.success || response.body.authority === i);
+  const response = await client.post('/api/recipes/set-authority', {
+    name: recipeName,
+    authority: i
+  });
+  TestAssert.assertTrue(response.body.success || response.body.authority === i);
   }
   
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name: recipeName });
+  await client.post('/api/recipes/delete', { name: recipeName });
   });
 });
 
@@ -105,21 +105,21 @@ runner.test('权威度应在有效范围内 (0-5)', async (ctx) => {
 runner.test('应该能记录 Recipe 使用次数', async (ctx) => {
   const recipeName = 'test-usage-record';
   await client.post('/api/recipes/save', {
-    name: recipeName,
-    title: 'Usage Test',
-    content: '# Test'
+  name: recipeName,
+  title: 'Usage Test',
+  content: '# Test'
   });
   
   const response = await client.post('/api/recipes/record-usage', {
-    name: recipeName,
-    source: 'human'
+  name: recipeName,
+  source: 'human'
   });
   
   TestAssert.assertStatusCode(response, 200);
   TestAssert.assertTrue(response.body.success || response.body.count >= 1);
   
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name: recipeName });
+  await client.post('/api/recipes/delete', { name: recipeName });
   });
 });
 
@@ -129,9 +129,9 @@ runner.test('应该能删除 Recipe', async (ctx) => {
   
   // 先保存
   await client.post('/api/recipes/save', {
-    name: recipeName,
-    title: 'Delete Test',
-    content: '# Test'
+  name: recipeName,
+  title: 'Delete Test',
+  content: '# Test'
   });
   
   // 验证存在
@@ -151,7 +151,7 @@ runner.test('应该能删除 Recipe', async (ctx) => {
 // 测试 9: 删除不存在的 Recipe
 runner.test('删除不存在的 Recipe 应返回错误', async (ctx) => {
   const response = await client.post('/api/recipes/delete', {
-    name: 'non-existent-recipe-to-delete'
+  name: 'non-existent-recipe-to-delete'
   });
   
   TestAssert.assertTrue(response.status !== 200 || response.body.error);
@@ -160,14 +160,14 @@ runner.test('删除不存在的 Recipe 应返回错误', async (ctx) => {
 // 测试 10: Recipe 名称验证 (安全性)
 runner.test('应该拒绝不安全的 Recipe 名称 (路径遍历)', async (ctx) => {
   const response = await client.post('/api/recipes/save', {
-    name: '../../../etc/passwd',
-    title: 'Malicious',
-    content: 'Bad content'
+  name: '../../../etc/passwd',
+  title: 'Malicious',
+  content: 'Bad content'
   });
   
   TestAssert.assertTrue(
-    response.status !== 200 || response.body.error,
-    'Should reject path traversal attempts'
+  response.status !== 200 || response.body.error,
+  'Should reject path traversal attempts'
   );
 });
 
@@ -177,17 +177,17 @@ runner.test('应该能处理多个 Recipe 的连续保存', async (ctx) => {
   const savedNames = [];
   
   for (const recipe of recipes) {
-    const response = await client.post('/api/recipes/save', recipe.recipe);
-    TestAssert.assertTrue(response.body.success);
-    savedNames.push(recipe.recipe.name);
+  const response = await client.post('/api/recipes/save', recipe.recipe);
+  TestAssert.assertTrue(response.body.success);
+  savedNames.push(recipe.recipe.name);
   }
   
   ctx.set('batchSaved', savedNames);
   
   ctx.onCleanup(async () => {
-    for (const name of savedNames) {
-      await client.post('/api/recipes/delete', { name });
-    }
+  for (const name of savedNames) {
+    await client.post('/api/recipes/delete', { name });
+  }
   });
 });
 
@@ -197,9 +197,9 @@ runner.test('应该能搜索 Recipe', async (ctx) => {
   
   // 保存
   await client.post('/api/recipes/save', {
-    name: recipeName,
-    title: 'Search Test Recipe',
-    content: '# Test Content'
+  name: recipeName,
+  title: 'Search Test Recipe',
+  content: '# Test Content'
   });
   
   // 搜索
@@ -209,7 +209,7 @@ runner.test('应该能搜索 Recipe', async (ctx) => {
   TestAssert.assertTrue(response.body.total >= 1 || response.body.items);
   
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name: recipeName });
+  await client.post('/api/recipes/delete', { name: recipeName });
   });
 });
 
@@ -238,9 +238,9 @@ runner.test('Recipe 应被长期持久化到磁盘', async (ctx) => {
   
   // 保存
   const saveResponse = await client.post('/api/recipes/save', {
-    name: recipeName,
-    title: 'Persistence Test',
-    content
+  name: recipeName,
+  title: 'Persistence Test',
+  content
   });
   
   TestAssert.assertTrue(saveResponse.body.success);
@@ -254,7 +254,7 @@ runner.test('Recipe 应被长期持久化到磁盘', async (ctx) => {
   TestAssert.assertTrue(getResponse.body.content.includes(content));
   
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name: recipeName });
+  await client.post('/api/recipes/delete', { name: recipeName });
   });
 });
 

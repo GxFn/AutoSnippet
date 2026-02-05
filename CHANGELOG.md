@@ -22,10 +22,6 @@
   - 限流保护（提交频率控制）
   - OpenAI Provider 支持 Target 类型检测与专用提示
 
-- **Dashboard 批量操作**：
-  - Recipe 一键删除所有功能
-  - Snippet 一键删除所有功能
-  - 改进删除 API 实现（修复 SpecRepositoryV2 方法调用）
 
 ### 新增
 

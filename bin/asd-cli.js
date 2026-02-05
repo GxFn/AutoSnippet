@@ -27,14 +27,14 @@ const path = require('path');
 const pkgRoot = path.join(__dirname, '..');
 const checksumsPath = path.join(pkgRoot, 'checksums.json');
 if (fs.existsSync(checksumsPath) && process.env.ASD_VERIFIED !== '1' && process.env.ASD_SKIP_CHECKSUMS !== '1') {
-	const msg = 'asd: 未经过完整性校验入口（请使用 asd 命令，勿直接运行 node bin/asd-cli.js）。开发/调试可设 ASD_SKIP_CHECKSUMS=1 或 ASD_SKIP_ENTRY_CHECK=1 跳过。';
-	if (process.env.ASD_STRICT_ENTRY === '1') {
-		console.error(msg);
-		process.exit(1);
-	}
-	if (process.env.ASD_SKIP_ENTRY_CHECK !== '1') {
-		console.warn('⚠️  ' + msg);
-	}
+  const msg = 'asd: 未经过完整性校验入口（请使用 asd 命令，勿直接运行 node bin/asd-cli.js）。开发/调试可设 ASD_SKIP_CHECKSUMS=1 或 ASD_SKIP_ENTRY_CHECK=1 跳过。';
+  if (process.env.ASD_STRICT_ENTRY === '1') {
+  console.error(msg);
+  process.exit(1);
+  }
+  if (process.env.ASD_SKIP_ENTRY_CHECK !== '1') {
+  console.warn('⚠️  ' + msg);
+  }
 }
 
 // 读取输入命令
@@ -56,31 +56,31 @@ const { execSync } = require('child_process');
 const { createCliHelpers } = require('./cli-helpers');
 const { registerCommands } = require('./cli-commands');
 const helpers = createCliHelpers({
-	CMD_PATH,
-	findPath,
-	cache,
-	create,
-	inquirer,
-	defaults,
-	commander,
-	execSync,
+  CMD_PATH,
+  findPath,
+  cache,
+  create,
+  inquirer,
+  defaults,
+  commander,
+  execSync,
 });
 
 registerCommands(commander, {
-	pjson,
-	CMD_PATH,
-	findPath,
-	install,
-	create,
-	watch,
-	cache,
-	ui,
-	defaults,
-	spmDepMapUpdater,
-	helpers,
-	inquirer,
-	fs,
-	path,
+  pjson,
+  CMD_PATH,
+  findPath,
+  install,
+  create,
+  watch,
+  cache,
+  ui,
+  defaults,
+  spmDepMapUpdater,
+  helpers,
+  inquirer,
+  fs,
+  path,
 });
 
 commander.parse(process.argv);

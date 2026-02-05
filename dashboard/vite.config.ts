@@ -11,16 +11,22 @@ export default defineConfig({
     }
   },
   build: {
-    chunkSizeWarningLimit: 1100,
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('framer-motion')) return 'framer-motion'
-            // lucide-react 与 React 打在同一 bundle，避免拆包后 React.forwardRef 为 undefined 导致白屏
-            if (id.includes('react-syntax-highlighter') || id.includes('react-markdown')) return 'markdown'
-            return 'vendor'
-          }
+          if (!id.includes('node_modules')) return;
+
+          // 单独分割优先级高的大型库，避免循环依赖
+          if (id.includes('framer-motion')) return 'framer-motion'
+          if (id.includes('react-syntax-highlighter')) return 'syntax-highlighter'
+          if (id.includes('react-markdown')) return 'react-markdown'
+          if (id.includes('axios')) return 'axios'
+          if (id.includes('yaml')) return 'yaml'
+          if (id.includes('undici')) return 'undici'
+
+          // 其他库都打到 vendor，让 Rollup 自己处理分割
+          return 'vendor'
         }
       }
     }

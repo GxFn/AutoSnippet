@@ -46,3 +46,5 @@ Use MCP tool `autosnippet_context_search` for on-demand semantic search; pass `q
 - **autosnippet-candidates**: Unified candidate generation (single file + batch target). MCP provides the tools.
 
 Use **autosnippet-intent** to choose; use the others for the "how".
+
+```

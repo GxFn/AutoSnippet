@@ -18,9 +18,9 @@ runner.test('应该能正确识别当前 projectRoot', async (ctx) => {
   const expectedRoot = process.env.ASD_TEST_PROJECT_ROOT;
   const expectedBasename = process.env.ASD_TEST_PROJECT_BASENAME;
   if (expectedRoot) {
-    TestAssert.assertEquals(response.body.projectRoot, expectedRoot);
+  TestAssert.assertEquals(response.body.projectRoot, expectedRoot);
   } else if (expectedBasename) {
-    TestAssert.assertTrue(response.body.projectRoot.includes(expectedBasename));
+  TestAssert.assertTrue(response.body.projectRoot.includes(expectedBasename));
   }
   
   ctx.set('currentProjectRoot', response.body.projectRoot);
@@ -30,9 +30,9 @@ runner.test('应该能正确识别当前 projectRoot', async (ctx) => {
 runner.test('不同项目应能独立保存各自的 Recipe', async (ctx) => {
   // 在当前项目中保存 Recipe
   const response = await client.post('/api/recipes/save', {
-    name: 'project-specific-recipe-1',
-    title: 'Project Specific 1',
-    content: '# Project Specific Recipe'
+  name: 'project-specific-recipe-1',
+  title: 'Project Specific 1',
+  content: '# Project Specific Recipe'
   });
   
   TestAssert.assertTrue(response.body.success);
@@ -40,7 +40,7 @@ runner.test('不同项目应能独立保存各自的 Recipe', async (ctx) => {
   ctx.set('projectSpecificRecipe', 'project-specific-recipe-1');
   
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name: 'project-specific-recipe-1' });
+  await client.post('/api/recipes/delete', { name: 'project-specific-recipe-1' });
   });
 });
 
@@ -49,9 +49,9 @@ runner.test('一个项目的 Recipe 应该与其他项目隔离', async (ctx) =>
   // 保存一个 Recipe
   const recipe1 = 'isolation-test-' + Date.now();
   await client.post('/api/recipes/save', {
-    name: recipe1,
-    title: 'Isolation Test',
-    content: '# Isolation Test'
+  name: recipe1,
+  title: 'Isolation Test',
+  content: '# Isolation Test'
   });
   
   // 验证可以获取
@@ -63,7 +63,7 @@ runner.test('一个项目的 Recipe 应该与其他项目隔离', async (ctx) =>
   ctx.set('isolationTestRecipe', recipe1);
   
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name: recipe1 });
+  await client.post('/api/recipes/delete', { name: recipe1 });
   });
 });
 
@@ -72,18 +72,18 @@ runner.test('应该能验证跨项目写入权限', async (ctx) => {
   // 使用 -d 参数指定项目（在实际场景中）
   // 这里我们验证当前项目的权限
   const response = await client.post('/api/recipes/save', {
-    name: 'cross-project-perm-test',
-    title: 'Cross Project Permission',
-    content: '# Permission Test'
+  name: 'cross-project-perm-test',
+  title: 'Cross Project Permission',
+  content: '# Permission Test'
   });
   
   TestAssert.assertTrue(
-    response.body.success,
-    'Should have write permission in current project'
+  response.body.success,
+  'Should have write permission in current project'
   );
   
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name: 'cross-project-perm-test' });
+  await client.post('/api/recipes/delete', { name: 'cross-project-perm-test' });
   });
 });
 
@@ -92,9 +92,9 @@ runner.test('应该能创建可共享的 Recipe', async (ctx) => {
   const sharedRecipeName = 'shared-utility-' + Date.now();
   
   const response = await client.post('/api/recipes/save', {
-    name: sharedRecipeName,
-    title: 'Shared Utility Recipe',
-    content: `---
+  name: sharedRecipeName,
+  title: 'Shared Utility Recipe',
+  content: `---
 title: Shared Utility
 trigger: shared
 shareable: true
@@ -115,13 +115,13 @@ export { sharedUtility };
 
 Import in other projects to reuse this utility.
 `,
-    tags: ['shared', 'utility', 'cross-project']
+  tags: ['shared', 'utility', 'cross-project']
   });
   
   TestAssert.assertTrue(response.body.success);
   
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name: sharedRecipeName });
+  await client.post('/api/recipes/delete', { name: sharedRecipeName });
   });
 });
 
@@ -145,9 +145,9 @@ runner.test('Dashboard 应支持为多个项目运行实例', async (ctx) => {
   // 保存一个 Recipe
   const recipeName = 'multi-instance-test-' + Date.now();
   const saveResponse = await client.post('/api/recipes/save', {
-    name: recipeName,
-    title: 'Multi Instance Test',
-    content: '# Multi Instance'
+  name: recipeName,
+  title: 'Multi Instance Test',
+  content: '# Multi Instance'
   });
   
   TestAssert.assertTrue(saveResponse.body.success);
@@ -157,7 +157,7 @@ runner.test('Dashboard 应支持为多个项目运行实例', async (ctx) => {
   TestAssert.assertEquals(health1.body.projectRoot, health2.body.projectRoot);
   
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name: recipeName });
+  await client.post('/api/recipes/delete', { name: recipeName });
   });
 });
 
@@ -179,9 +179,9 @@ runner.test('Recipe 搜索应在当前项目范围内', async (ctx) => {
   // 保存一个测试 Recipe
   const recipeName = 'search-scope-test-' + Date.now();
   await client.post('/api/recipes/save', {
-    name: recipeName,
-    title: 'Search Scope Test',
-    content: 'Unique content for search scope testing'
+  name: recipeName,
+  title: 'Search Scope Test',
+  content: 'Unique content for search scope testing'
   });
   
   // 搜索应该找到它
@@ -189,7 +189,7 @@ runner.test('Recipe 搜索应在当前项目范围内', async (ctx) => {
   TestAssert.assertStatusCode(searchResponse, 200);
   
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name: recipeName });
+  await client.post('/api/recipes/delete', { name: recipeName });
   });
 });
 
@@ -209,9 +209,9 @@ runner.test('权限缓存应按项目隔离', async (ctx) => {
   // 在当前项目保存，触发权限缓存
   const recipe1 = 'cache-isolation-test-1-' + Date.now();
   await client.post('/api/recipes/save', {
-    name: recipe1,
-    title: 'Cache Isolation 1',
-    content: '# Test'
+  name: recipe1,
+  title: 'Cache Isolation 1',
+  content: '# Test'
   });
   
   // 清除缓存不应影响其他项目的缓存
@@ -221,16 +221,16 @@ runner.test('权限缓存应按项目隔离', async (ctx) => {
   // 验证缓存清除后还能继续操作
   const recipe2 = 'cache-isolation-test-2-' + Date.now();
   const response2 = await client.post('/api/recipes/save', {
-    name: recipe2,
-    title: 'Cache Isolation 2',
-    content: '# Test'
+  name: recipe2,
+  title: 'Cache Isolation 2',
+  content: '# Test'
   });
   
   TestAssert.assertTrue(response2.body.success);
   
   ctx.onCleanup(async () => {
-    await client.post('/api/recipes/delete', { name: recipe1 });
-    await client.post('/api/recipes/delete', { name: recipe2 });
+  await client.post('/api/recipes/delete', { name: recipe1 });
+  await client.post('/api/recipes/delete', { name: recipe2 });
   });
 });
 
@@ -246,12 +246,12 @@ runner.test('应该支持通过环境变量切换项目 (ASD_CWD)', async (ctx) 
   const expectedRoot = process.env.ASD_TEST_PROJECT_ROOT;
   const expectedBasename = process.env.ASD_TEST_PROJECT_BASENAME;
   if (expectedRoot) {
-    TestAssert.assertEquals(projectRoot, expectedRoot);
+  TestAssert.assertEquals(projectRoot, expectedRoot);
   } else if (expectedBasename) {
-    TestAssert.assertTrue(
-      projectRoot.includes(expectedBasename),
-      `projectRoot should contain '${expectedBasename}', got: ${projectRoot}`
-    );
+  TestAssert.assertTrue(
+    projectRoot.includes(expectedBasename),
+    `projectRoot should contain '${expectedBasename}', got: ${projectRoot}`
+  );
   }
   
   ctx.set('projectRootEnvironment', projectRoot);

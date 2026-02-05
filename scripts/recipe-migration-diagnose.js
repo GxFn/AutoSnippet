@@ -41,17 +41,17 @@ function check(category, name, condition, message, fixFn = null) {
   checks[category].push(item);
 
   if (condition) {
-    results.passed++;
+  results.passed++;
   } else {
-    results.failed++;
-    if (fixFn && args.fix) {
-      try {
-        fixFn();
-        console.log(`  ⚙️  自动修复: ${name}`);
-      } catch (e) {
-        console.log(`  ⚠️  修复失败: ${e.message}`);
-      }
+  results.failed++;
+  if (fixFn && args.fix) {
+    try {
+    fixFn();
+    console.log(`  ⚙️  自动修复: ${name}`);
+    } catch (e) {
+    console.log(`  ⚠️  修复失败: ${e.message}`);
     }
+  }
   }
 
   console.log(`${status} ${name}`);
@@ -182,7 +182,7 @@ check(
 
 const indexDir = path.join(projectRoot, '.autosnippet', 'context', 'index');
 const hasIndex = fs.existsSync(path.join(indexDir, 'vector_index.json')) ||
-                  fs.existsSync(path.join(indexDir, 'milvus'));
+          fs.existsSync(path.join(indexDir, 'milvus'));
 
 check(
   'data',
@@ -196,19 +196,19 @@ check(
 if (recipeFiles.length > 0 && metadataFiles.length > 0) {
   const ratio = (metadataFiles.length / recipeFiles.length * 100).toFixed(1);
   check(
-    'data',
-    '迁移完整性',
-    metadataFiles.length >= recipeFiles.length * 0.9,
-    `元数据覆盖率: ${ratio}%`,
-    null
+  'data',
+  '迁移完整性',
+  metadataFiles.length >= recipeFiles.length * 0.9,
+  `元数据覆盖率: ${ratio}%`,
+  null
   );
 } else {
   check(
-    'data',
-    '迁移完整性',
-    false,
-    '数据不足，无法评估',
-    null
+  'data',
+  '迁移完整性',
+  false,
+  '数据不足，无法评估',
+  null
   );
 }
 
@@ -233,7 +233,7 @@ check(
   deps.openai !== undefined,
   `${deps.openai ? `版本: ${deps.openai}` : '未安装'}`,
   () => {
-    execSync('npm install openai', { cwd: projectRoot });
+  execSync('npm install openai', { cwd: projectRoot });
   }
 );
 
@@ -270,24 +270,24 @@ check(
 // 检查配置内容
 if (fs.existsSync(configPath)) {
   try {
-    const config = require(configPath);
-    check(
-      'configuration',
-      '向量数据库配置',
-      config.vectorDb !== undefined,
-      `类型: ${config.vectorDb?.type || 'unknown'}`,
-      null
-    );
-    
-    check(
-      'configuration',
-      '嵌入维度',
-      config.indexing?.embeddingDimension === 768,
-      `维度: ${config.indexing?.embeddingDimension || 'unknown'}`,
-      null
-    );
+  const config = require(configPath);
+  check(
+    'configuration',
+    '向量数据库配置',
+    config.vectorDb !== undefined,
+    `类型: ${config.vectorDb?.type || 'unknown'}`,
+    null
+  );
+  
+  check(
+    'configuration',
+    '嵌入维度',
+    config.indexing?.embeddingDimension === 768,
+    `维度: ${config.indexing?.embeddingDimension || 'unknown'}`,
+    null
+  );
   } catch (e) {
-    check('configuration', '配置可解析', false, e.message, null);
+  check('configuration', '配置可解析', false, e.message, null);
   }
 }
 
@@ -316,17 +316,17 @@ if (results.failed > 0) {
   console.log('\n🔧 建议修复:');
   
   if (!fs.existsSync(path.join(projectRoot, 'lib/context/RecipeExtractor.js'))) {
-    console.log('  1. 核心工具缺失 - 需要实现或安装');
+  console.log('  1. 核心工具缺失 - 需要实现或安装');
   }
   
   if (metadataFiles.length === 0 && recipeFiles.length > 0) {
-    console.log(`  2. 执行元数据迁移:`);
-    console.log(`     node scripts/migrate-recipes-metadata.js`);
+  console.log(`  2. 执行元数据迁移:`);
+  console.log(`     node scripts/migrate-recipes-metadata.js`);
   }
   
   if (!hasIndex && metadataFiles.length > 0) {
-    console.log(`  3. 构建向量索引:`);
-    console.log(`     asd embed  (或 node scripts/recipe-migration-complete.js --phase 2)`);
+  console.log(`  3. 构建向量索引:`);
+  console.log(`     asd embed  (或 node scripts/recipe-migration-complete.js --phase 2)`);
   }
 }
 
@@ -351,12 +351,12 @@ function findAllFiles(dir, ext) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   
   for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...findAllFiles(fullPath, ext));
-    } else if (entry.name.endsWith(ext)) {
-      files.push(fullPath);
-    }
+  const fullPath = path.join(dir, entry.name);
+  if (entry.isDirectory()) {
+    files.push(...findAllFiles(fullPath, ext));
+  } else if (entry.name.endsWith(ext)) {
+    files.push(fullPath);
+  }
   }
   return files;
 }
@@ -366,39 +366,39 @@ function evaluateCapabilities() {
   
   // 工具可用性 (30%)
   const toolsScore = [
-    fs.existsSync(path.join(projectRoot, 'lib/context/RecipeExtractor.js')),
-    fs.existsSync(path.join(projectRoot, 'lib/context/IndexingPipeline.js')),
-    fs.existsSync(path.join(projectRoot, 'lib/application/services/RecipeServiceV2.js'))
+  fs.existsSync(path.join(projectRoot, 'lib/context/RecipeExtractor.js')),
+  fs.existsSync(path.join(projectRoot, 'lib/context/IndexingPipeline.js')),
+  fs.existsSync(path.join(projectRoot, 'lib/application/services/RecipeServiceV2.js'))
   ].filter(Boolean).length * 10;
   score += Math.min(toolsScore, 30);
   
   // 数据可用性 (30%)
   const dataScore = [
-    recipeFiles.length > 0 ? 10 : 0,
-    metadataFiles.length > 0 ? 10 : 0,
-    hasIndex ? 10 : 0
+  recipeFiles.length > 0 ? 10 : 0,
+  metadataFiles.length > 0 ? 10 : 0,
+  hasIndex ? 10 : 0
   ].reduce((a, b) => a + b, 0);
   score += dataScore;
   
   // 依赖完整性 (20%)
   const depsScore = [
-    deps.openai !== undefined ? 10 : 0,
-    (deps.lancedb !== undefined || deps['@lancedb/lancedb'] !== undefined) ? 10 : 0
+  deps.openai !== undefined ? 10 : 0,
+  (deps.lancedb !== undefined || deps['@lancedb/lancedb'] !== undefined) ? 10 : 0
   ].reduce((a, b) => a + b, 0);
   score += depsScore;
   
   // 配置完整性 (20%)
   const configScore = [
-    fs.existsSync(configPath) ? 10 : 0,
-    fs.existsSync(specPath) ? 10 : 0
+  fs.existsSync(configPath) ? 10 : 0,
+  fs.existsSync(specPath) ? 10 : 0
   ].reduce((a, b) => a + b, 0);
   score += configScore;
 
   return {
-    '工具完整性': Math.min(toolsScore, 30),
-    '数据完整性': dataScore,
-    '依赖完整性': depsScore,
-    '配置完整性': configScore
+  '工具完整性': Math.min(toolsScore, 30),
+  '数据完整性': dataScore,
+  '依赖完整性': depsScore,
+  '配置完整性': configScore
   };
 }
 

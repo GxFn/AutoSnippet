@@ -52,18 +52,18 @@ curl http://localhost:8080/api/health
 curl -X POST http://localhost:8080/api/agent/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "My First Task",
-    "priority": "high"
+  "name": "My First Task",
+  "priority": "high"
   }'
 
 # 响应示例
 {
   "success": true,
   "data": {
-    "id": "task_abc123",
-    "name": "My First Task",
-    "status": "pending",
-    "priority": "high"
+  "id": "task_abc123",
+  "name": "My First Task",
+  "status": "pending",
+  "priority": "high"
   }
 }
 ```
@@ -77,10 +77,10 @@ curl http://localhost:8080/api/agent/stats
 {
   "success": true,
   "data": {
-    "totalTasks": 1,
-    "completedTasks": 0,
-    "failedTasks": 0,
-    "state": "idle"
+  "totalTasks": 1,
+  "completedTasks": 0,
+  "failedTasks": 0,
+  "state": "idle"
   }
 }
 ```
@@ -91,9 +91,9 @@ curl http://localhost:8080/api/agent/stats
 curl -X POST http://localhost:8080/api/agent/tasks/batch \
   -H "Content-Type: application/json" \
   -d '[
-    { "name": "Task 1", "priority": "high" },
-    { "name": "Task 2", "priority": "normal" },
-    { "name": "Task 3", "priority": "low" }
+  { "name": "Task 1", "priority": "high" },
+  { "name": "Task 2", "priority": "normal" },
+  { "name": "Task 3", "priority": "low" }
   ]'
 ```
 

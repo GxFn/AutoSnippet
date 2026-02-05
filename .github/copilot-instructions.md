@@ -25,7 +25,7 @@
 ## Recipe 结构要点
 - 必须包含：Frontmatter（`title`、`trigger`、`category`、`language`、`summary_cn`、`summary_en`、`headers` 必填）+ `## Snippet / Code Reference` + `## AI Context / Usage Guide`。
 - **Frontmatter 必填字段（7 个）**：
-  - `title`: 英文名，单行，≤50 字符，动词开头
+  - `title`: **中文名**，简短精准描述功能，≤20 字（✅ "颜色工具方法"、"JSON 响应解析"；❌ 避免 "Use xxx" 机械格式）
   - `trigger`: MUST 以 `@` 开头，小写+下划线，无空格
   - `category`: MUST 为 8 个标准值之一（`View`, `Service`, `Tool`, `Model`, `Network`, `Storage`, `UI`, `Utility`）
   - `language`: `swift` 或 `objectivec`
@@ -34,6 +34,11 @@
   - `headers`: 完整 import/include 语句数组（Swift: `["import X"]`; ObjC: `["#import <X/Y.h>"]`）
 - 多段 Recipe 可用「空行 + `---` + 下一段 Frontmatter」分隔。
 - 已是完整 Recipe Markdown 时可直接解析入库，无需 AI 重写。
+- **占位符**：代码示例推荐使用 Xcode 占位符（如 `<#URL#>` / `<#Token#>`），并在 Usage Guide 中解释含义。- **Usage Guide 格式**：
+  - **MUST use `###` section headings**（如 `### 何时用`、`### 关键点`）
+  - **MUST use `-` bullet lists**（列表项单独一行）
+  - **禁止**连续文本无换行（❌ `何时用：A；B。关键点：X；Y。`）
+  - **正确示例**：`### 何时用\n- 场景A\n- 场景B\n\n### 关键点\n- 要点1\n- 要点2`- **Usage Guide 深度**：除“何时用/关键点”外，建议包含依赖、步骤/配置、错误处理、性能、安全、常见误用与相关 Recipe。
 
 ## 推荐工作流
 - 查找：先用 `autosnippet_context_search` 或 Dashboard Search。

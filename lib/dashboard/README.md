@@ -16,9 +16,9 @@ lib/dashboard/
 │   ├── indexRoutes.js      # /api/index/* 端点
 │   └── statusRoutes.js     # /api/status/* 端点
 └── services/               # 业务逻辑服务
-    ├── RecipeSearchService.js
-    ├── SnippetManagementService.js
-    └── IndexManagementService.js
+  ├── RecipeSearchService.js
+  ├── SnippetManagementService.js
+  └── IndexManagementService.js
 
 bin/
 └── dashboard-server.js     # 启动脚本（简化版）
@@ -69,11 +69,11 @@ module.exports = router;
 // lib/dashboard/services/RecipeSearchService.js
 class RecipeSearchService {
   async search(keyword, options) {
-    // 搜索逻辑
+  // 搜索逻辑
   }
 
   async getById(id) {
-    // 获取详情逻辑
+  // 获取详情逻辑
   }
 }
 
@@ -147,10 +147,10 @@ const router = express.Router();
 
 router.get('/my-endpoint', async (req, res) => {
   try {
-    const result = await myService.doSomething();
-    res.json({ success: true, data: result });
+  const result = await myService.doSomething();
+  res.json({ success: true, data: result });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+  res.status(500).json({ error: error.message });
   }
 });
 
@@ -166,10 +166,10 @@ module.exports = router;
 ```javascript
 router.get('/endpoint', async (req, res, next) => {
   try {
-    const result = await service.getData();
-    res.json(result);
+  const result = await service.getData();
+  res.json(result);
   } catch (error) {
-    next(error);  // 交给全局错误处理中间件
+  next(error);  // 交给全局错误处理中间件
   }
 });
 ```
@@ -197,12 +197,12 @@ describe('RecipeSearchService', () => {
   let service;
 
   beforeEach(() => {
-    service = new RecipeSearchService();
+  service = new RecipeSearchService();
   });
 
   it('should search recipes by keyword', async () => {
-    const results = await service.search('async');
-    expect(results).toBeArray();
+  const results = await service.search('async');
+  expect(results).toBeArray();
   });
 });
 ```
@@ -216,12 +216,12 @@ const app = require('../../../lib/dashboard/DashboardServer');
 
 describe('Dashboard API', () => {
   it('GET /api/recipes/search should return results', async () => {
-    const res = await request(app)
-      .get('/api/recipes/search')
-      .query({ q: 'async' });
-    
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveProperty('data');
+  const res = await request(app)
+    .get('/api/recipes/search')
+    .query({ q: 'async' });
+  
+  expect(res.statusCode).toBe(200);
+  expect(res.body).toHaveProperty('data');
   });
 });
 ```
@@ -240,8 +240,8 @@ async search(keyword) {
   let results = cache.get(cacheKey);
   
   if (!results) {
-    results = await this.queryDatabase(keyword);
-    cache.set(cacheKey, results, 3600);  // 缓存 1 小时
+  results = await this.queryDatabase(keyword);
+  cache.set(cacheKey, results, 3600);  // 缓存 1 小时
   }
   
   return results;
@@ -275,10 +275,10 @@ A: 使用 async/await：
 ```javascript
 router.get('/endpoint', async (req, res, next) => {
   try {
-    const data = await service.fetchData();
-    res.json(data);
+  const data = await service.fetchData();
+  res.json(data);
   } catch (error) {
-    next(error);
+  next(error);
   }
 });
 ```

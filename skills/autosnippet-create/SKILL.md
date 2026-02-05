@@ -17,6 +17,37 @@ This skill tells the agent how to **submit module usage code** (that Cursor has 
 4. **One Recipe = one scenario**: If you are drafting content, **split** into multiple Recipes by scenario. Never combine multiple usage patterns into one Recipe file or one candidate.
 5. **Recipe candidates can be intro-only**: Intro-only docs (no code block) can be submitted as candidates; after approval they become Recipes and **do not generate a Snippet**—used only for search and Guard context.
 6. **MUST follow standard Recipe format**: Use the complete template from **autosnippet-concepts** skill. Include all required fields: frontmatter with `title`, `trigger`, `category` (one of 8 standard values), `language`, `summary`, `headers` (complete import statements), plus `## Snippet / Code Reference` and `## AI Context / Usage Guide` section. **RECOMMENDED (optional): Provide English version too**—summary_en + English `## AI Context / Usage Guide (EN)` section improves search and team knowledge sharing (token cost minimal, ROI high). Chinese-only is acceptable. Never use module names as category; extract all imports to headers array.
+   - **Placeholders**: Prefer Xcode placeholders in snippets (e.g. `<#URL#>`, `<#Token#>`) and explain each placeholder in the Usage Guide.
+   - **Usage Guide structure (强制格式要求)**: 
+   * **MUST use structured format with clear section headings** (### heading name)：**NEVER put all content in one continuous line**
+   * **MUST use newlines (`\n`) to separate sections and bullet points** — at least 2-3 newlines between major sections
+   * **MUST use bullet lists (`-` or `*`)** for multi-item sections; avoid long paragraphs
+   * Recommended sections (按需包含):
+     - **什么时候用** (必填)：3～5 条适用场景，用 `-` 列表，每行一条
+     - **何时不用** (推荐)：排除场景、易误用情况，用 `-` 列表
+     - **使用步骤** (推荐)：1～3 步操作手册，用 `1.` `2.` `3.` 列表
+     - **关键点** (推荐)：易错点、约束条件、版本限制，用 `-` 列表
+     - **依赖与前置条件** (推荐)：模块、权限、最低版本，用 `-` 列表
+     - **错误处理** (推荐)：常见失败场景、重试/降级策略
+     - **性能与资源** (可选)：缓存、线程安全、内存
+     - **安全与合规** (可选)：敏感信息、日志脱敏
+     - **常见误用** (可选)：反例（❌）与规避方式（✅）
+     - **最佳实践** (可选)：推荐做法、设计模式
+     - **替代方案** (可选)：其他 Recipe 或方案对比
+     - **相关 Recipe** (推荐)：关联 trigger 或补充模式
+   * **BAD Example** (❌ 禁止这样写，AI生成会导致格式混乱)：`何时用：在需要…时；与…配合；或…时。关键点：…内部…；…支持…；…需…。`
+   * **GOOD Example** (✅ 应该这样写，清晰的多行结构)：
+     ```
+     ### 何时用
+     - App 启动时需持续监测网络状态
+     - 在应用生命周期管理类中统一启停
+     
+     ### 关键点
+     - 单例 sharedMonitor，线程安全
+     - startMonitoring 开始，stopMonitoring 停止
+     - 后台自动停止，前台自动恢复
+     ```
+   - See [templates/recipes-setup/README.md](../../templates/recipes-setup/README.md) for detailed format guide & examples.
 7. **Auto-fill headers from project context**: Before submitting, **automatically check `references/project-recipes-context.md`** (in `.cursor/skills/autosnippet-recipes/references/`) to see what modules and headers are already used in similar Recipes. Copy the exact import format for `headers` field. If needed, call MCP **`autosnippet_context_search`** with the module name to find similar Recipes and extract their header patterns. This ensures consistency and correctness.
 8. **Primary flow**: Code is ready (in editor or clipboard) → user opens browser to **`http://localhost:3000`**（Dashboard 需已运行）→ in the Dashboard click **New Recipe** → **Use Copied Code** (paste the code) → AI fills title/summary/trigger/headers → **user reviews and approves** → user **saves** → Recipe is added to the knowledge base.
 8. **Alternative (in editor)**: User adds **`// as:create`** in the source file, copies the code (or keeps the code you just wrote), saves the file → **watch** (from `asd watch` or `asd ui`) opens the Dashboard with current file path and clipboard → user completes "Use Copied Code" in the web, **reviews**, and saves → added to knowledge base.
@@ -140,3 +171,5 @@ Watch parses all such blocks and adds each as a separate candidate; prompt may s
 - **autosnippet-concepts**: What the knowledge base and Recipe are; where they live.
 - **autosnippet-recipes**: Read or search existing Recipe content; get project context.
 - **autosnippet-structure**: Dependency structure (unrelated to submit flow).
+
+```

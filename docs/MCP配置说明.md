@@ -24,12 +24,12 @@ Cursor 通过 MCP（Model Context Protocol）调用 AutoSnippet 知识库与 Das
 ```json
 {
   "mcpServers": {
-    "autosnippet": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["/path/to/AutoSnippet/scripts/mcp-server.js"],
-      "cwd": "/path/to/your/project/root"
-    }
+  "autosnippet": {
+    "type": "stdio",
+    "command": "node",
+    "args": ["/path/to/AutoSnippet/scripts/mcp-server.js"],
+    "cwd": "/path/to/your/project/root"
+  }
   }
 }
 ```
@@ -39,12 +39,12 @@ Cursor 通过 MCP（Model Context Protocol）调用 AutoSnippet 知识库与 Das
 ```json
 {
   "mcpServers": {
-    "autosnippet": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["<AutoSnippet 安装路径>/scripts/mcp-server.js"],
-      "cwd": "<项目根路径>"
-    }
+  "autosnippet": {
+    "type": "stdio",
+    "command": "node",
+    "args": ["<AutoSnippet 安装路径>/scripts/mcp-server.js"],
+    "cwd": "<项目根路径>"
+  }
   }
 }
 ```

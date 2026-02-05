@@ -5,9 +5,9 @@ const RankingEngine = require('../../../lib/search/rankingEngine');
 
 async function testCoarseRankingOrder() {
   const keywordSearch = () => ([
-    { title: 'Alpha Snippet', name: 'alpha', content: 'alpha beta gamma', code: 'alpha', type: 'snippet' },
-    { title: 'Beta Snippet', name: 'beta', content: 'beta', code: 'beta', type: 'snippet' },
-    { title: 'Gamma Snippet', name: 'gamma', content: 'gamma delta', code: 'gamma', type: 'snippet' }
+  { title: 'Alpha Snippet', name: 'alpha', content: 'alpha beta gamma', code: 'alpha', type: 'snippet' },
+  { title: 'Beta Snippet', name: 'beta', content: 'beta', code: 'beta', type: 'snippet' },
+  { title: 'Gamma Snippet', name: 'gamma', content: 'gamma delta', code: 'gamma', type: 'snippet' }
   ]);
 
   const engine = new RankingEngine({ keywordSearch });
@@ -19,18 +19,18 @@ async function testCoarseRankingOrder() {
 
 async function testFineRankingOrder() {
   const keywordSearch = () => ([
-    { title: 'First', name: 'first', content: 'alpha', code: 'alpha', type: 'snippet' },
-    { title: 'Second', name: 'second', content: 'alpha beta', code: 'alpha', type: 'snippet' },
-    { title: 'Third', name: 'third', content: 'gamma', code: 'gamma', type: 'snippet' }
+  { title: 'First', name: 'first', content: 'alpha', code: 'alpha', type: 'snippet' },
+  { title: 'Second', name: 'second', content: 'alpha beta', code: 'alpha', type: 'snippet' },
+  { title: 'Third', name: 'third', content: 'gamma', code: 'gamma', type: 'snippet' }
   ]);
 
   const model = {
-    async predict(features) {
-      // Mock: 第二个候选项（原始顺序）应该得到最高分
-      // 但由于 coarseRanker 可能改变顺序，我们需要根据候选项特征返回分数
-      // 简化：直接返回固定分数，假设粗排序后的顺序
-      return [0.3, 0.9, 0.1];  // 假设第二个元素（索引1）是 'second'
-    }
+  async predict(features) {
+    // Mock: 第二个候选项（原始顺序）应该得到最高分
+    // 但由于 coarseRanker 可能改变顺序，我们需要根据候选项特征返回分数
+    // 简化：直接返回固定分数，假设粗排序后的顺序
+    return [0.3, 0.9, 0.1];  // 假设第二个元素（索引1）是 'second'
+  }
   };
 
   const engine = new RankingEngine({ keywordSearch, model });
