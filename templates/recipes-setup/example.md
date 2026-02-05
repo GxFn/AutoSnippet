@@ -1,14 +1,16 @@
 ---
-id: recipe_network_request_001
-title: 基础网络请求模板（URLSession）
-language: swift
+# 必填字段
+title: Basic URLSession GET Request Template
 trigger: @request
 category: Network
-summary: 使用 URLSession 发起 GET 请求并解析 JSON 的标准写法，适用于不依赖第三方库的场景。
+language: swift
+summary_cn: 使用 URLSession 发起 GET 请求并解析 JSON 的标准写法，适用于不依赖第三方库的场景。
+summary_en: Standard URLSession GET request with JSON parsing. No third-party dependencies.
+headers: ["import Foundation"]
+
+# 可选字段
 keywords: ["网络请求", "URLSession", "async", "JSON", "GET", "HTTP"]
 tags: [network, template, production-ready]
-
-# 语义与使用场景（供 AI 检索与场景匹配）
 whenToUse: |
   - 需要从远端 API 发起简单 GET 请求并拿到 JSON 时
   - 不引入第三方网络库、仅用系统 URLSession 时
@@ -17,13 +19,13 @@ whenNotToUse: |
   - 生产环境已有统一网络层（AF/Alamofire 或自研 Client）时应优先用现有方案
   - 需要 WebSocket、长连接、流式响应时应用专用方案
   - 需要复杂重试、超时策略时建议用更完整封装
-
 difficulty: intermediate
 authority: 4
 relatedRecipes: ["@error_handling", "@async_await"]
 version: "1.0.0"
 updatedAt: 1706515200
-headers: ["import Foundation"]
+author: team
+deprecated: false
 ---
 
 ## Snippet / Code Reference

@@ -12,6 +12,12 @@ This skill explains [AutoSnippet](https://github.com/GxFn/AutoSnippet)'s **knowl
 1. **Project root** = directory containing `AutoSnippet/AutoSnippet.boxspec.json`. All paths below are relative to the project root.
 2. For **looking up** existing Recipe content or **searching** recipes, use the **autosnippet-recipes** skill.
 3. For **creating** a new Recipe or Snippet, use the **autosnippet-create** skill.
+4. For **project structure** (targets/dep graph), use **autosnippet-structure**.
+
+5. **Self-check & Fallback (统一 Envelope)**
+  - Before heavy operations, call `autosnippet_health` and `autosnippet_capabilities`.
+  - All MCP tools return a JSON Envelope: `{ success, errorCode?, message?, data?, meta }`.
+  - On failure or empty results, do NOT retry within the same cycle; fall back to static context or ask user for minimal confirmation, then continue with reduced scope.
 
 ---
 
@@ -50,6 +56,43 @@ The knowledge base has **context storage** capability: Recipes, docs, etc. are e
 
 **Usage guidance for Cursor**: Assume `asd ui` is kept running when calling MCP tools (`autosnippet_context_search`, `autosnippet_open_create`). If a call fails (e.g. connection refused, API error), do **not** retry within the current agent cycle; fall back to static context (`references/project-recipes-context.md`) or in-context lookup instead.
 
+**Envelope reading guidance**:
+- Parse Envelope fields:
+  - `success === true` → use `data` and respect `meta.source`.
+  - `success === false` → check `errorCode` and `message`; propose safe fallback.
+- Preferred fallbacks:
+  - Use local static context and previously loaded Recipe docs.
+  - Narrow query (reduce `limit`, add keywords), or switch intent (e.g., from semantic search to direct Recipe lookup).
+  - If operation requires UI (open/create/submit) and fails, inform the user and provide minimal manual steps.
+
+**Self-check & safety**:
+- Use `autosnippet_health` to verify UI and service availability before heavy operations.
+- Use `autosnippet_capabilities` to list available tools and inputs/outputs.
+- Authentication and HTTP wiring live in MCP, not in Skills. Do not hardcode URLs/HTTP in Skills.
+
+---
+
+## MCP Tool Map (Concept-level)
+
+This is a conceptual map. Skills stay semantic; MCP provides capability.
+
+| Intent | Primary tool(s) |
+|---|---|
+| 语义检索 | `autosnippet_context_search` |
+| 结果分析 | `autosnippet_context_analyze` |
+| 结构发现 | `autosnippet_get_targets`, `autosnippet_get_target_files`, `autosnippet_get_target_metadata` |
+| 候选预检 | `autosnippet_validate_candidate` |
+| 去重建议 | `autosnippet_check_duplicate` |
+| 候选提交 | `autosnippet_submit_candidates`, `autosnippet_submit_draft_recipes` |
+| 反馈闭环 | `autosnippet_confirm_recipe_usage`, `autosnippet_request_recipe_rating` |
+| 自检/能力 | `autosnippet_health`, `autosnippet_capabilities` |
+
+### Failure Handling (Examples)
+- 检索失败（`SEARCH_FAILED`）：改用静态 Recipe 目录或缩小关键词后再试（下一轮）。
+- 目标文件获取失败（`GET_TARGET_FILES_FAILED`）：提示检查 `asd ui` 与 `targetName`，改为从本地源路径列举（下一轮）。
+- 打开创建页失败（`OPEN_CREATE_FAILED`）：提示用户手动打开 Dashboard 并复制代码；继续收集上下文。
+- 采纳或评分表单失败（`ELICIT_FAILED`）：记录失败原因；建议在 Dashboard 中手动完成，或稍后重试。
+
 ---
 
 ## Recipe (配方)
@@ -76,6 +119,7 @@ The knowledge base has **context storage** capability: Recipes, docs, etc. are e
 - **`headers`**: MUST be complete import/include statements from the code. Swift: `["import ModuleName"]`, ObjC: `["#import <Module/Header.h>"]`. NOT just module names.
 - **`trigger`**: MUST start with `@` (e.g. `@requestManager`). Lowercase, no spaces.
 - **`language`**: MUST be `swift` or `objectivec` (lowercase).
+- **`summary_cn` / `summary_en`**: MUST be concise; `summary_cn` ≤ 100 字，`summary_en` ≤ 100 words.
 
 **Standard Category Definitions (8 categories - MUST use exactly these):**
 
@@ -100,28 +144,29 @@ The knowledge base has **context storage** capability: Recipes, docs, etc. are e
 7. If it's code utilities/helpers → `Tool`
 8. If none above fit → `Utility`
 
-**Frontmatter 字段（常用）**：
+**Frontmatter 字段（三维说明：含义 / 来源 / 规则）**：
 
-| 字段 | 类型 | 说明 | 示例 |
+| 字段 | 含义 | 来源 | 规则 |
 | :--- | :--- | :--- | :--- |
-| `id` | String | 唯一标识符 | `com.bilibili.network.request` |
-| `title` | String | 标题（必填） | `基础网络请求模板` |
-| `language` | String | 语言（`swift` / `objectivec`） | `swift` |
-| `trigger` | String | 触发词（必填，建议 `@` 开头） | `@request` |
-| `tags` | Array | 标签（**自动分析**：从代码功能提取关键词，如 network, async, cache） | `[network, template]` |
-| `summary` | String | 简短摘要 | `标准化的网络请求封装` |
-| `category` | String | **分类（必须是以下之一）**：`View` / `Service` / `Tool` / `Model` / `Network` / `Storage` / `UI` / `Utility` | `Network` |
-| `headers` | Array | 依赖头文件（Swift import 或 ObjC #import 语句） | `["import BDNetworkControl"]` 或 `["#import <BDUtils/BDUtils.h>"]` |
-| `moduleName` | String | 模块名（**自动提取**：从 headers 的 #import 中解析，如 `<BDNetworkControl/xxx.h>` → `BDNetworkControl`） | `BDNetworkControl` |
-| `deps` | Object | 依赖关系（可选） | `{ "targets": ["BDNetworkControl"], "imports": ["BDNetworkControl"] }` |
-| `difficulty` | String | 难度等级（**自动判断**：beginner/intermediate/advanced，基于代码复杂度） | `intermediate` |
-| `authority` | Number | 权威分 1～5（默认3，审核人员可调整） | `3` |
-| `version` | String | 版本号（自动生成 1.0.0） | `"1.0.0"` |
-| `author` | String | 作者（可选） | `gaoxuefeng` |
-| `updatedAt` | Number | 更新时间戳（自动生成） | `1706515200` |
-| `deps` | Object | 依赖关系（可选） | `{ "targets": ["BDNetworkControl"], "imports": ["BDNetworkControl"] }` |
-| `author` | String | 作者（可选） | `gaoxuefeng` |
-| `updatedAt` | Number | 更新时间戳 | `1706515200` |
+| `title` | 标准用法的名称 | 人工命名 | **必填**；英文/简短；≤50 字符 |
+| `trigger` | 触发词（Snippet/检索） | 人工命名 | **必填**；`@` 开头，小写/下划线/无空格；唯一 |
+| `category` | 8 类标准分类 | 人工判断 | **必填**；必须为 8 类之一 |
+| `language` | 代码语言 | 从代码确定 | **必填**；`swift` / `objectivec` |
+| `summary_cn` | 中文摘要 | 人工/AI | **必填**；≤100 字 |
+| `summary_en` | 英文摘要 | 人工/AI | **必填**；≤100 words |
+| `headers` | 完整 import/#import | 从代码提取 | **必填**；数组；必须是完整语句 |
+| `keywords` | 语义标签 | AI/人工 | 可选；数组；用于检索 |
+| `tags` | 额外标签 | 人工 | 可选；数组；非语义必需 |
+| `version` | 版本号 | 系统/人工 | 可选；语义化版本（如 `1.0.0`） |
+| `author` | 作者/团队 | 人工 | 可选；字符串 |
+| `deprecated` | 是否弃用 | 人工 | 可选；布尔值 |
+| `id` | 唯一标识 | 系统生成 | 可选；若提供需唯一 |
+| `moduleName` | 模块名 | 从 headers 解析 | 自动；不手填 |
+| `deps` | 依赖关系 | 系统解析 | 可选；对象 `{ targets, imports }` |
+| `difficulty` | 难度等级 | 系统评估 | 可选；`beginner/intermediate/advanced` |
+| `authority` | 权威评分 | 审核设置 | 可选；1～5 |
+
+**系统字段（自动生成，无需手填）**：`created`、`lastModified`、`contentHash`。
 
 **批量解析规则**：
 - 多段 Recipe 可在同一文本中，使用「空行 + `---` + 下一段 Frontmatter」分隔。
@@ -131,25 +176,27 @@ The knowledge base has **context storage** capability: Recipes, docs, etc. are e
 
 ````markdown
 ---
-id: com.company.module.feature
-title: Descriptive Title (10-30 characters)
-language: objectivec
-trigger: @triggerName
+id: recipe_network_001
+title: Request with Retry
+trigger: @requestRetry
 category: Network
-summary: One-sentence description of what this Recipe does and when to use it.
-tags: [network, api, template]
+language: objectivec
+summary_cn: 带自动重试的网络请求
+summary_en: Make HTTP request with automatic retry
 headers:
   - "#import <BDNetworkControl/BDBaseRequest.h>"
   - "#import <BDNetworkControl/BDRequestDefine.h>"
+keywords: [network, retry]
+tags: [network, resilience]
+version: "1.0.0"
+author: team_name
+deprecated: false
 moduleName: BDNetworkControl
 deps:
   targets: ["BDNetworkControl"]
   imports: ["BDNetworkControl"]
 difficulty: intermediate
 authority: 3
-author: username
-version: "1.0.0"
-updatedAt: 1738598400
 ---
 
 ## Snippet / Code Reference
@@ -201,96 +248,33 @@ request.method = BDRequestMethodGET;
      - 📚 **Knowledge reuse**: Global team can access knowledge more effectively
    - **Token cost**: Only ~20-30% increase (minimal impact)
    - **Optional approach**: Chinese-only is acceptable; English improves discoverability
-   - **How** (if providing): Generate both `summary` (Chinese) and `summary_en` (English) in frontmatter + both Chinese and English usage guide sections
-   - When submitting via MCP, can include just Chinese or both Chinese + English (`summary_cn` + `summary_en` + `usageGuide_cn` + `usageGuide_en`)
+  - **How** (if providing): Generate both `summary_cn` and `summary_en` in frontmatter + both Chinese and English usage guide sections
+  - When submitting via MCP, can include just Chinese or both Chinese + English (`summary_cn` + `summary_en` + `usageGuide_cn` + `usageGuide_en`)
 3. **DO NOT include `type: full`** - this field is deprecated and should be removed
 4. **Headers MUST be complete import statements** - `#import <Module/File.h>` not just filenames
-5. **All frontmatter fields are REQUIRED:**
-   - `id` - unique identifier (format: com.company.module.feature)
-   - `title` - 10-30 characters, descriptive
-   - `language` - objc/swift/typescript/javascript/python etc
-   - `trigger` - @triggerName format (no spaces or special chars)
-   - `category` - MUST be one of the 8 standard categories
-   - `summary` - one sentence explaining use case (Chinese)
-   - `summary_en` - English translation of summary
-   - `headers` - complete import/include statements (as list)
-   - `deps` - project dependencies (if any)
-5. **Snippet section** - runnable code example with context and comments
-6. **Usage Guide section** - explain When/How/Why with related patterns
-2. **Fill ALL required fields**: `id`, `title`, `language`, `trigger`, `category`, `summary`
-3. **Extract headers from code**: Copy every `#import`/`import` line into `headers` array
-4. **Use standard category**: Pick ONE from the 8 categories, never use module names
-5. **Make trigger unique**: Format `@ModuleName` + `Feature`, all lowercase, no spaces
-6. **Write runnable code**: Code should be copy-paste ready with minimal edits
-7. **Be specific in summary**: Describe the exact use case, not general concepts
+5. **Required frontmatter fields (必须齐全)**:
+  - `title`, `trigger`, `category`, `language`, `summary_cn`, `summary_en`, `headers`
+6. **Snippet section** - runnable code example with context and comments
+7. **Usage Guide section** - explain When/How/Why with related patterns
+8. **Make trigger unique**: Format `@featureName`, all lowercase, no spaces
+9. **Be specific in summary**: Describe the exact use case, not general concepts
 
 ---
 
 ## Common Mistakes & How to Fix Them
 
-### ❌ WRONG Examples (DO NOT follow these)
-
-**Mistake 1: Using module name as category**
-```yaml
-# ❌ WRONG
-category: BDNetworkControl
-
-# ✅ CORRECT
-category: Network
-```
-
-**Mistake 2: Headers with just file names**
-```yaml
-# ❌ WRONG
-headers: ["BDUtils.h"]
-
-# ✅ CORRECT
-headers: ["#import <BDUtils/BDUtils.h>"]
-```
-
-**Mistake 3: Incomplete headers array**
-```yaml
-# ❌ WRONG
-headers: []
-
-# ✅ CORRECT (extracted from code)
-headers:
-  - "#import <BDNetworkControl/BDBaseRequest.h>"
-  - "#import <BDNetworkControl/BDRequestDefine.h>"
-```
-
-**Mistake 4: Using deprecated `type` field**
-```yaml
-# ❌ WRONG
-type: full
-
-# ✅ CORRECT (just remove this line, it's not used anymore)
-```
-
-**Mistake 5: Trigger without @**
-```yaml
-# ❌ WRONG
-trigger: requestManager
-
-# ✅ CORRECT
-trigger: @requestManager
-```
-
-**Mistake 6: Mixing multiple patterns in one Recipe**
-```yaml
-# ❌ WRONG - combining 3 different patterns
-title: Network Request, Error Handling, and Retry Logic
-
-# ✅ CORRECT - split into 3 separate Recipes
-# Recipe 1: title: BDBaseRequest Network Request
-# Recipe 2: title: Network Error Handling  
-# Recipe 3: title: Request Retry with Backoff
-```
+- **类别误用**：category 只能是 8 类之一，不能写模块名
+- **headers 不完整**：必须是完整 import/#import 语句数组，不能是文件名
+- **缺失必填**：`title`/`trigger`/`category`/`language`/`summary_cn`/`summary_en`/`headers` 必须齐全
+- **trigger 格式错误**：必须 `@` 开头，小写、无空格
+- **字段滥用**：不要使用已弃用的 `type` 字段
+- **合并多模式**：一个 Recipe 只描述一个具体场景
 
 ### ✅ Quick Checklist Before Submitting
 
 - [ ] Has all 3 sections: Frontmatter + Snippet + Usage Guide
-- [ ] **Has BOTH Chinese and English versions** (summary_cn + summary_en, usageGuide_cn + usageGuide_en)
+- [ ] **summary_cn + summary_en** (建议同时提供；中文可接受但不推荐)
+- [ ] Required fields filled: `title`, `trigger`, `category`, `language`, `summary_cn`, `summary_en`, `headers`
 - [ ] `category` is ONE of: View, Service, Tool, Model, Network, Storage, UI, Utility
 - [ ] `headers` contains complete `#import` or `import` statements
 - [ ] `trigger` starts with `@` and is lowercase
@@ -298,19 +282,14 @@ title: Network Request, Error Handling, and Retry Logic
 - [ ] Code snippet is runnable with minimal edits
 - [ ] Summary describes the specific use case (not generic)
 - [ ] No `type:` field (this is deprecated)
-- [ ] All required fields are filled: id, title, language, trigger, category, summary, summary_en
-- [ ] `moduleName` extracted from headers (ObjC: `#import <ModuleName/xxx.h>`)
-- [ ] `tags` generated from code keywords (2-4 tags like: network, async, cache)
-- [ ] `difficulty` judged from complexity (beginner/intermediate/advanced)
+- [ ] Optional fields (if provided) are well-formed: `keywords`, `tags`, `version`, `author`, `deprecated`
 
 ### Recipe Creation Principles
 
 When creating or extracting Recipes:
-1. **ALWAYS generate both Chinese AND English versions** (critical for team use and knowledge reuse):
-   - Write `summary` in Chinese, then provide `summary_en` (English translation)
-   - Write main `usageGuide` section in Chinese, then provide English version separately
-   - When submitting via MCP `autosnippet_submit_candidates`, include `summary_cn`, `summary_en`, `usageGuide_cn`, `usageGuide_en` all together
-   - If source is English-only, also generate Chinese version before submitting
+1. **建议提供中英双语**：`summary_cn` + `summary_en`，并可补充双语 usage guide
+2. **保持单场景**：一个 Recipe 只讲一个具体用法
+3. **字段严格**：必填字段必须齐全、格式正确
    - Tools like Dashboard `/api/ai/translate` can help auto-generate missing language, but it's better to provide both
 2. **Split, don't combine**: If you identify 3 usage patterns in a module, create 3 separate Recipes, not 1 combined Recipe.
 3. **Each Recipe has a clear trigger**: One `@trigger` for one specific scenario. E.g. `@WebViewLoadURL`, `@NetworkRetry`, `@AsyncError`.
@@ -430,12 +409,24 @@ headers:
 ```yaml
 id: BDBaseRequest.ResponseHandling
 title: BDBaseRequest 响应与错误处理
-language: objectivec
 trigger: @BDBaseRequestResponse
 category: Network
-summary: 使用 responseJson/responseString 获取成功响应，failure block 中使用 NSError。
+language: objectivec
+summary_cn: 使用 responseJson/responseString 获取成功响应，failure block 中使用 NSError。
+summary_en: Use responseJson/responseString for success and NSError in failure block.
 headers:
   - "#import <BDNetworkControl/BDBaseRequest.h>"
+keywords: [network, response, error-handling]
+tags: [network]
+version: "1.0.0"
+author: team_name
+deprecated: false
+moduleName: BDNetworkControl
+deps:
+  targets: ["BDNetworkControl"]
+  imports: ["BDNetworkControl"]
+difficulty: beginner
+authority: 3
 ---
 
 ## Snippet / Code Reference
@@ -461,13 +452,25 @@ headers:
 ```yaml
 id: BDPyramid.ModuleLifecycle
 title: BDPyramid Module 定义与生命周期
-language: objectivec
 trigger: @BDPyramidModule
 category: Service
-summary: 使用 ModuleDefine 声明组件，实现 BDPModuleProtocol 的注册和初始化方法。
+language: objectivec
+summary_cn: 使用 ModuleDefine 声明组件，实现 BDPModuleProtocol 的注册和初始化方法。
+summary_en: Define module with ModuleDefine and implement BDPModuleProtocol lifecycle.
 headers:
   - "#import <BDPyramid/BDPyramid.h>"
   - "#import <BDPyramid/BDPModuleProtocol.h>"
+keywords: [module, lifecycle, registration]
+tags: [architecture]
+version: "1.0.0"
+author: team_name
+deprecated: false
+moduleName: BDPyramid
+deps:
+  targets: ["BDPyramid"]
+  imports: ["BDPyramid"]
+difficulty: intermediate
+authority: 3
 ---
 
 ## Snippet / Code Reference
@@ -506,12 +509,24 @@ Priority 值越大越先执行；moduleRegister 用于框架内注册，moduleIn
 ```yaml
 id: NSObject.KVOSafe
 title: NSObject KVO 安全添加与移除
-language: objectivec
 trigger: @KVOSafe
 category: Utility
-summary: 避免 KVO 重复注册或泄漏，需配对 addObserver 和 removeObserver，避免循环引用。
+language: objectivec
+summary_cn: 避免 KVO 重复注册或泄漏，需配对 addObserver 和 removeObserver，避免循环引用。
+summary_en: Pair addObserver/removeObserver to avoid leaks and crashes.
 headers:
   - "#import <Foundation/Foundation.h>"
+keywords: [kvo, safety, lifecycle]
+tags: [safety]
+version: "1.0.0"
+author: team_name
+deprecated: false
+moduleName: Foundation
+deps:
+  targets: ["Foundation"]
+  imports: ["Foundation"]
+difficulty: beginner
+authority: 3
 ---
 
 ## Snippet / Code Reference

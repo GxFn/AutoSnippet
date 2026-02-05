@@ -221,6 +221,51 @@ function registerRecipesRoutes(app, ctx) {
 			res.status(500).json({ error: err.message });
 		}
 	});
+
+	// API: 删除所有 Recipes
+	app.post('/api/recipes/delete-all', async (req, res) => {
+		try {
+			const probe = writeGuard.checkWritePermission(projectRoot);
+			if (!probe.ok) {
+				return res.status(403).json({ error: probe.error || '没权限', code: 'RECIPE_WRITE_FORBIDDEN' });
+			}
+			const rootSpecPath = Paths.getProjectSpecPath(projectRoot);
+			let rootSpecDel = null;
+			try { if (fs.existsSync(rootSpecPath)) rootSpecDel = JSON.parse(fs.readFileSync(rootSpecPath, 'utf8')); } catch (_) {}
+			const recipesDir = Paths.getProjectRecipesPath(projectRoot, rootSpecDel);
+			
+			if (!fs.existsSync(recipesDir)) {
+				return res.json({ success: true, count: 0 });
+			}
+
+			const files = fs.readdirSync(recipesDir).filter(f => f.endsWith('.md'));
+			let deletedCount = 0;
+
+			for (const fileName of files) {
+				const filePath = path.join(recipesDir, fileName);
+				try {
+					fs.unlinkSync(filePath);
+					deletedCount++;
+					
+					// 从语义索引中移除
+					try {
+						const { getInstance } = require('../../../lib/context');
+						const service = getInstance(projectRoot);
+						const adapter = service.getAdapter();
+						const sourcePath = path.relative(projectRoot, filePath).replace(/\\/g, '/');
+						await adapter.deleteBySourcePath(sourcePath);
+					} catch (_) {}
+				} catch (err) {
+					console.error(`Failed to delete ${fileName}:`, err);
+				}
+			}
+
+			res.json({ success: true, count: deletedCount });
+		} catch (err) {
+			console.error('[API Error]', err);
+			res.status(500).json({ error: err.message });
+		}
+	});
 }
 
 module.exports = {

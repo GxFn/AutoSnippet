@@ -90,20 +90,22 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
 
 	const openCompare = useCallback(async (res: ScanResultItem, recipeName: string, similarList: SimilarRecipe[] = []) => {
 		const targetName = res.candidateTargetName || '';
+		// 移除 .md 后缀（如果有的话）
+		const normalizedRecipeName = recipeName.replace(/\.md$/i, '');
 		let recipeContent = '';
-		const existing = recipes?.find(r => r.name === recipeName || r.name.endsWith('/' + recipeName));
+		const existing = recipes?.find(r => r.name === normalizedRecipeName || r.name.endsWith('/' + normalizedRecipeName));
 		if (existing?.content) {
 			recipeContent = existing.content;
 		} else {
 			try {
-				const resp = await axios.get<{ content: string }>(`/api/recipes/get?name=${encodeURIComponent(recipeName)}`);
+				const resp = await axios.get<{ content: string }>(`/api/recipes/get?name=${encodeURIComponent(normalizedRecipeName)}`);
 				recipeContent = resp.data.content;
 			} catch (_) {
 				return;
 			}
 		}
-		const initialCache: Record<string, string> = { [recipeName]: recipeContent };
-		setCompareModal({ candidate: res, targetName, recipeName, recipeContent, similarList: similarList.slice(0, 3), recipeContents: initialCache });
+		const initialCache: Record<string, string> = { [normalizedRecipeName]: recipeContent };
+		setCompareModal({ candidate: res, targetName, recipeName: normalizedRecipeName, recipeContent, similarList: similarList.slice(0, 3), recipeContents: initialCache });
 	}, [recipes]);
 
 	const handleContentLangChange = useCallback(async (i: number, newLang: 'cn' | 'en', currentRes: ScanResultItem) => {

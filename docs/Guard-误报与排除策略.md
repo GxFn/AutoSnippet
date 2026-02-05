@@ -11,7 +11,7 @@
 | 条件 | 说明 |
 |------|------|
 | **项目根** | 当前目录或其上级含有 `AutoSnippetRoot.boxspec.json`，即被识别为 AutoSnippet 项目根。 |
-| **watch / ui 运行中** | 需先执行 `asd watch` 或 `asd ui`；编辑器内写入 `// as:lint`（或旧版 `// as:guard`）并保存后，由 watch 触发检查并写入违反记录。 |
+| **watch / ui 运行中** | 需先执行 `asd watch` 或 `asd ui`；编辑器内写入 `// as:audit`（或 `// as:a`）并保存后，由 watch 触发检查并写入违反记录。 |
 | **规则与记录路径** | 规则文件：`Knowledge/.autosnippet/guard-rules.json`；违反记录：同目录下 `guard-violations.json`。若项目尚无 `Knowledge`，首次读写时会自动创建 `Knowledge/.autosnippet`。 |
 | **Dashboard Guard 页** | 在浏览器中查看规则表与违反记录前，需通过 `asd ui` 打开 Dashboard，Guard 页数据来自上述 JSON 文件。 |
 

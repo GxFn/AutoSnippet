@@ -4,6 +4,78 @@
 
 ---
 
+## [1.7.0] - 2026-02-05
+
+### 重大改进
+
+- **Recipe 标准化（7 个必填字段）**：
+  - `title`, `trigger`, `category`, `language`, `summary_cn`, `summary_en`, `headers` 为必填
+  - Category 限定为 8 个标准值（View/Service/Tool/Model/Network/Storage/UI/Utility）
+  - headers 必须为完整 import/include 语句数组
+  - 更新所有模板和文档以反映新标准
+
+- **MCP 服务器增强**：
+  - 统一 JSON Envelope 格式（`{ success, errorCode, message, data, meta }`）
+  - 新增工具：`autosnippet_health`, `autosnippet_capabilities`, `autosnippet_context_analyze`, `autosnippet_validate_candidate`, `autosnippet_check_duplicate`, `autosnippet_get_target_metadata`
+  - 完整的 20+ 错误码支持（SEARCH_FAILED、RATE_LIMIT、ELICIT_FAILED 等）
+  - 鉴权支持（ASD_MCP_TOKEN）
+  - 限流保护（提交频率控制）
+  - OpenAI Provider 支持 Target 类型检测与专用提示
+
+- **Dashboard 批量操作**：
+  - Recipe 一键删除所有功能
+  - Snippet 一键删除所有功能
+  - 改进删除 API 实现（修复 SpecRepositoryV2 方法调用）
+
+### 新增
+
+- **候选管理增强**：
+  - 候选去重与聚合功能（`aggregateCandidates`）
+  - 候选校验模块（`validateRecipeCandidate`）
+  - 支持 intro-only Recipe（纯介绍无代码）
+  - 草稿提交流程增强（自动校验、去重、限流）
+
+- **Skills 重组（v2.0）**：
+  - 新增 `autosnippet-intent`（路由 Skill，替代 autosnippet-when）
+  - 新增 `autosnippet-structure`（结构发现，替代 autosnippet-dep-graph）
+  - 新增 `autosnippet-candidates`（统一候选生成，合并 autosnippet-batch-scan 和 autosnippet-recipe-candidates）
+  - 所有 Skills 添加自检与回退指导
+  - 弃用标记：autosnippet-when, autosnippet-search, autosnippet-batch-scan, autosnippet-recipe-candidates, autosnippet-dep-graph
+
+- **诊断与审计工具**：
+  - `npm run diagnose:mcp`：MCP 健康诊断脚本
+  - `scripts/demo-candidates-submit.js`：候选提交演示
+  - `scripts/recipe-audit.js`：Recipe 审计脚本（检查必填字段与格式）
+  - `docs/Recipe-审核检查清单.md`：人工审核标准
+  - `docs/交付自检说明.md`：交付前自检清单
+
+### 修复
+
+- **Dashboard 修复**：
+  - RecipeEditor headers 验证逻辑（移除引号误报）
+  - SPMExplorerView 和 CandidatesView 相似度点击 404（规范化 .md 后缀）
+  - Snippet 删除 API 方法错误（改用 readSpecFile/deleteSnippet）
+  - 重新构建 Dashboard（3 次，确保所有更新生效）
+
+- **术语统一**：
+  - `// as:guard` → `// as:audit`（guardViolations.js、statusCommand.js、test/README.md）
+  - 文档与代码保持一致
+
+### 改进
+
+- **文档完善**：
+  - `.github/copilot-instructions.md`：Recipe 字段详细说明（7 个必填 + 格式要求）
+  - `scripts/cursor-rules/autosnippet-conventions.mdc`：英文版 Recipe 规则
+  - `templates/recipes-setup/`：三个模板文件完全更新（_template.md, example.md, README.md）
+  - `skills/` 目录：14 个 Skills 文件更新（Envelope 读取、错误码处理、自检回退）
+
+- **测试完善**：
+  - 新增 `test-current-features.js`：快速功能验证测试（10/10 通过）
+  - `TEST_REPORT.md`：集成测试报告
+  - 集成测试全部通过（39/39，100% 成功率）
+
+---
+
 ## [1.6.2] - 2026-02-05
 
 ### 新增

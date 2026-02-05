@@ -1,9 +1,11 @@
 ---
 name: autosnippet-batch-scan
-description: When the user wants to use Cursor as a batch scanner for a whole SPM Target (alternative or complement to asd ais). Describes when to recommend, flow semantics, and which MCP tools to call; MCP provides the actual capability (connection, API).
+description: DEPRECATED. Use autosnippet-candidates (v2.0) for both single-file and batch Target candidate generation.
 ---
 
-# AutoSnippet Batch Scan — Cursor as Batch Scanner
+# AutoSnippet Batch Scan — Cursor as Batch Scanner (Deprecated)
+
+**Deprecated**: use **autosnippet-candidates** for unified candidate generation (single file + batch target). This file is kept for backward compatibility only.
 
 This skill describes **when and how** to use **Cursor as a batch scanning tool** for an SPM Target: get target list → get file list → extract candidates per file with Cursor → submit to Dashboard Candidates → human review. **Skills express semantics** (when to use, flow, order of steps); **MCP provides capability** (the tools `autosnippet_get_targets`, `autosnippet_get_target_files`, `autosnippet_submit_candidates`). Do not expose URLs or HTTP here; call MCP tools by name.
 

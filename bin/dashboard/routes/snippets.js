@@ -101,6 +101,34 @@ function registerSnippetsRoutes(app, ctx) {
 			res.status(500).json({ error: err.message });
 		}
 	});
+
+	// API: 删除所有 Snippets
+	app.post('/api/snippets/delete-all', async (req, res) => {
+		try {
+			const probe = writeGuard.checkWritePermission(projectRoot);
+			if (!probe.ok) {
+				return res.status(403).json({ error: probe.error || '没权限', code: 'RECIPE_WRITE_FORBIDDEN' });
+			}
+			const rootSpecPath = Paths.getProjectSpecPath(projectRoot);
+			const spec = specRepository.readSpecFile(rootSpecPath);
+			const count = spec?.list?.length || 0;
+
+			if (count > 0) {
+				// 获取所有 snippet identifiers
+				const identifiers = spec.list.map(s => s.identifier);
+				
+				// 逐个删除（使用 deleteSnippet 确保清理分体文件和同步）
+				for (const identifier of identifiers) {
+					await specRepository.deleteSnippet(rootSpecPath, identifier, { syncRoot: true });
+				}
+			}
+
+			res.json({ success: true, count });
+		} catch (err) {
+			console.error('[API Error]', err);
+			res.status(500).json({ error: err.message });
+		}
+	});
 }
 
 module.exports = {

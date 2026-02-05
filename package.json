@@ -1,6 +1,6 @@
 {
 	"name": "autosnippet",
-	"version": "1.6.2",
+	"version": "1.7.0",
 	"description": "A iOS module management tool.",
 	"main": "index.js",
 	"scripts": {
@@ -44,7 +44,8 @@
 		"migrate:guard": "node scripts/migrate-guard-rules.js",
 		"init:snippets": "node scripts/init-xcode-snippets.js init",
 		"list:snippets": "node scripts/init-xcode-snippets.js list",
-		"remove:snippets": "node scripts/init-xcode-snippets.js remove"
+		"remove:snippets": "node scripts/init-xcode-snippets.js remove",
+		"diagnose:mcp": "node scripts/diagnose-mcp.js"
 	},
 	"author": "gaoxuefeng",
 	"license": "MIT",

@@ -5,6 +5,8 @@ description: When the user wants to check if the current file meets project stan
 
 # AutoSnippet Guard — When to Recommend
 
+> Self-check & Fallback: MCP 工具返回统一 JSON Envelope（{ success, errorCode?, message?, data?, meta }）。重操作前调用 autosnippet_health/autosnippet_capabilities；失败时不在同一轮重试，转用静态上下文或缩小范围后再试。
+
 **Use this skill when**: The user wants to **check** whether the current file or code meets **project standards** (规范 / Audit). You decide whether to recommend; do not force.
 
 ## When to recommend
@@ -21,11 +23,15 @@ description: When the user wants to check if the current file meets project stan
 
 - The same **Recipe** content in `AutoSnippet/recipes/` (and `references/project-recipes-context.md`) is what Guard uses as the standard. No separate config.
 
+## Audit trigger
+
+Use `// as:audit` (or `// as:audit keyword`) only. `// as:lint` has been deprecated.
+
 ## On-Demand Context (when asd ui is running)
 
 Use MCP tool `autosnippet_context_search` for on-demand semantic search; pass `query`, `limit?`. Requires AutoSnippet MCP configured and `asd ui` running.
 
 ## Relation
 
-- **autosnippet-when**: General "when to recommend what"; may point here for Guard.
+- **autosnippet-intent**: General "when to recommend what"; may point here for Guard.
 - **autosnippet-recipes**: Recipe content and context; Guard reads the same content.

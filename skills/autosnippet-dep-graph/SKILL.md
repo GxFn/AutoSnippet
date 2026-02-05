@@ -1,9 +1,11 @@
 ---
 name: autosnippet-dep-graph
-description: Teaches the agent where and how the project's SPM dependency structure is stored. Use when the user asks about dependencies, module relationships, what depends on what, package/target layout, or when suggesting code that crosses modules.
+description: DEPRECATED. Use autosnippet-structure for dependency graph and target structure queries.
 ---
 
-# AutoSnippet Dependency Structure (Dep Graph)
+# AutoSnippet Dependency Structure (Dep Graph) — Deprecated
+
+**Deprecated**: use **autosnippet-structure** for dependency graph and target structure queries. This file is kept for backward compatibility only.
 
 This skill gives the agent context about the project's **SPM (Swift Package Manager) dependency structure** in projects that use [AutoSnippet](https://github.com/GxFn/AutoSnippet). The structure is stored in a single JSON file and can be read to answer "what does X depend on," "which packages use Y," or "where is module Z."
 

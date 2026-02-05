@@ -1,9 +1,11 @@
 ---
 name: autosnippet-recipe-candidates
-description: When the user wants to scan specific code files/modules to generate Recipe candidates. Use a draft folder (recommended), one .md per Recipe, then MCP autosnippet_submit_draft_recipes. Candidates can be intro-only (no code); those do not generate Snippet.
+description: DEPRECATED. Use autosnippet-candidates (v2.0) for unified candidate generation. Draft flow is an optional path in that skill.
 ---
 
-# AutoSnippet Recipe Candidates — Draft Folder + MCP Submit
+# AutoSnippet Recipe Candidates — Draft Folder + MCP Submit (Deprecated)
+
+**Deprecated**: use **autosnippet-candidates** for unified candidate generation (single file + batch target). The draft folder flow (`autosnippet_submit_draft_recipes`) is still valid and documented there. This file is kept for backward compatibility only.
 
 ⚠️ **CRITICAL**: This skill is for **single file/module scanning** (e.g., "扫描 BDSchemeDispatcher"). 
 

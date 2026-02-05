@@ -54,6 +54,11 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({ data, isShellTarget, is
 	const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
 	const [similarityMap, setSimilarityMap] = useState<Record<string, SimilarRecipe[]>>({});
 	const [similarityLoading, setSimilarityLoading] = useState<string | null>(null);
+	const [filters, setFilters] = useState({
+		priority: 'all' as 'all' | 'high' | 'medium' | 'low',
+		sort: 'default' as 'default' | 'score-desc' | 'score-asc',
+		onlySimilar: false
+	});
 	const [compareModal, setCompareModal] = useState<{
 		candidate: ExtractedRecipe & { id: string };
 		targetName: string;
@@ -79,20 +84,22 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({ data, isShellTarget, is
 	}, []);
 
 	const openCompare = useCallback(async (cand: ExtractedRecipe & { id: string }, targetName: string, recipeName: string, similarList: SimilarRecipe[] = []) => {
+		// 移除 .md 后缀（如果有的话）
+		const normalizedRecipeName = recipeName.replace(/\.md$/i, '');
 		let recipeContent = '';
-		const existing = data?.recipes?.find(r => r.name === recipeName || r.name.endsWith('/' + recipeName));
+		const existing = data?.recipes?.find(r => r.name === normalizedRecipeName || r.name.endsWith('/' + normalizedRecipeName));
 		if (existing?.content) {
 			recipeContent = existing.content;
 		} else {
 			try {
-				const res = await axios.get<{ content: string }>(`/api/recipes/get?name=${encodeURIComponent(recipeName)}`);
+				const res = await axios.get<{ content: string }>(`/api/recipes/get?name=${encodeURIComponent(normalizedRecipeName)}`);
 				recipeContent = res.data.content;
 			} catch (_) {
 				return;
 			}
 		}
-		const initialCache: Record<string, string> = { [recipeName]: recipeContent };
-		setCompareModal({ candidate: cand, targetName, recipeName, recipeContent, similarList: similarList.slice(0, 3), recipeContents: initialCache });
+		const initialCache: Record<string, string> = { [normalizedRecipeName]: recipeContent };
+		setCompareModal({ candidate: cand, targetName, recipeName: normalizedRecipeName, recipeContent, similarList: similarList.slice(0, 3), recipeContents: initialCache });
 	}, [data?.recipes]);
 
 	const candidateEntries = data?.candidates ? Object.entries(data.candidates) : [];
@@ -174,11 +181,30 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({ data, isShellTarget, is
 						const currentPage = pageState.page;
 						const pageSize = pageState.pageSize;
 						
+						const filteredItems = group.items
+							.filter((cand) => {
+								if (filters.priority !== 'all') {
+									const priority = (cand as any).reviewNotes?.priority;
+									if (priority !== filters.priority) return false;
+								}
+								if (filters.onlySimilar) {
+									const related = (cand as any).relatedRecipes;
+									if (!Array.isArray(related) || related.length === 0) return false;
+								}
+								return true;
+							})
+							.sort((a, b) => {
+								if (filters.sort === 'default') return 0;
+								const qa = (a as any).quality?.overallScore ?? 0;
+								const qb = (b as any).quality?.overallScore ?? 0;
+								return filters.sort === 'score-desc' ? qb - qa : qa - qb;
+							});
+
 						// 分页计算
-						const totalItems = group.items.length;
+						const totalItems = filteredItems.length;
 						const totalPages = Math.ceil(totalItems / pageSize);
 						const startIndex = (currentPage - 1) * pageSize;
-						const paginatedItems = group.items.slice(startIndex, startIndex + pageSize);
+						const paginatedItems = filteredItems.slice(startIndex, startIndex + pageSize);
 						
 						// 分页处理函数
 						const handlePageChange = (page: number) => {
@@ -204,6 +230,49 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({ data, isShellTarget, is
 									{isShell && !isSilent && <span className="text-[10px] font-bold text-slate-300 border border-slate-200 px-1 rounded ml-2">SHELL MODULE</span>}
 									<span className="text-xs text-slate-400">扫描于 {new Date(group.scanTime).toLocaleString()}</span>
 									<div className="flex items-center gap-2 ml-auto">
+										<select
+											className="text-[10px] font-bold px-2 py-1 rounded border border-slate-200 text-slate-600 bg-white"
+											value={filters.priority}
+											onChange={e => setFilters(prev => ({ ...prev, priority: e.target.value as any }))}
+											title="按优先级过滤"
+										>
+											<option value="all">优先级：全部</option>
+											<option value="high">优先级：高</option>
+											<option value="medium">优先级：中</option>
+											<option value="low">优先级：低</option>
+										</select>
+										<select
+											className="text-[10px] font-bold px-2 py-1 rounded border border-slate-200 text-slate-600 bg-white"
+											value={filters.sort}
+											onChange={e => setFilters(prev => ({ ...prev, sort: e.target.value as any }))}
+											title="按综合分排序"
+										>
+											<option value="default">综合分：默认</option>
+											<option value="score-desc">综合分：高→低</option>
+											<option value="score-asc">综合分：低→高</option>
+										</select>
+										<label className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
+											<input
+												type="checkbox"
+												checked={filters.onlySimilar}
+												onChange={e => setFilters(prev => ({ ...prev, onlySimilar: e.target.checked }))}
+											/>
+											只看相似
+										</label>
+										{(filters.priority !== 'all' || filters.sort !== 'default' || filters.onlySimilar) && (
+											<>
+												<span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+													已筛选
+												</span>
+												<button
+													onClick={() => setFilters({ priority: 'all', sort: 'default', onlySimilar: false })}
+													className="text-[10px] font-bold text-slate-600 hover:text-slate-800 px-2 py-1 rounded border border-slate-200 bg-white"
+													title="重置筛选"
+												>
+													重置
+												</button>
+											</>
+										)}
 										<span className="text-xs text-slate-400">共 {group.items.length} 条</span>
 										{totalItems > pageSize && (
 											<span className="text-xs text-slate-500">（当前页 {paginatedItems.length} 条）</span>
@@ -256,7 +325,40 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({ data, isShellTarget, is
 													<button onClick={() => handleDeleteCandidate(targetName, cand.id)} title="忽略" className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-colors"><Trash2 size={ICON_SIZES.sm} /></button>
 												</div>
 											</div>
-											<p className="text-xs text-slate-500 line-clamp-2 mb-4 flex-1 h-8 leading-relaxed">{cand.summary}</p>
+													<p className="text-xs text-slate-500 line-clamp-2 mb-3 flex-1 h-8 leading-relaxed">{cand.summary}</p>
+													{(() => {
+														const quality = (cand as any).quality;
+														const overall = typeof quality?.overallScore === 'number' ? quality.overallScore : null;
+														const priority = (cand as any).reviewNotes?.priority;
+														const related = (cand as any).relatedRecipes?.[0];
+														const similarList = similarityMap[cand.id] || [];
+														return (overall != null || priority || related) ? (
+															<div className="flex flex-wrap items-center gap-2 mb-3">
+																{overall != null && (
+																	<span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+																		综合分 {(overall * 100).toFixed(0)}%
+																	</span>
+																)}
+																{priority && (
+																	<span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${priority === 'high' ? 'bg-red-50 text-red-700 border-red-200' : priority === 'medium' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+																		优先级 {priority}
+																	</span>
+																)}
+																{related && (
+																	<button
+																		onClick={() => {
+																			const name = String(related.id || related.title || '').trim();
+																			if (name) openCompare(cand, targetName, name, similarList);
+																		}}
+																		className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
+																		title="点击对比相似 Recipe"
+																	>
+																		相似 {String(related.title || related.id || '').replace(/\.md$/i, '')} {(related.similarity * 100).toFixed(0)}%
+																	</button>
+																)}
+															</div>
+														) : null;
+													})()}
 											
 											{expandedId === cand.id && (
 												<div className="mb-4 space-y-3">

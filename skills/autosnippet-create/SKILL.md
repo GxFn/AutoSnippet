@@ -5,6 +5,8 @@ description: Guides the agent to submit module usage code (designed/written with
 
 # AutoSnippet Create — Submit to Web, Add to AutoSnippet
 
+> Self-check & Fallback: MCP 工具返回统一 JSON Envelope（{ success, errorCode?, message?, data?, meta }）。重操作前调用 autosnippet_health/autosnippet_capabilities；失败时不在同一轮重试，转用静态上下文或缩小范围后再试。
+
 This skill tells the agent how to **submit module usage code** (that Cursor has designed or the user has written) to the **AutoSnippet web (Dashboard)** so it is **added to the knowledge base (Recipes)**. For concepts (knowledge base, Recipe), use **autosnippet-concepts**. For looking up existing Recipes, use **autosnippet-recipes**.
 
 ## Instructions for the agent (read this first)
@@ -137,4 +139,4 @@ Watch parses all such blocks and adds each as a separate candidate; prompt may s
 
 - **autosnippet-concepts**: What the knowledge base and Recipe are; where they live.
 - **autosnippet-recipes**: Read or search existing Recipe content; get project context.
-- **autosnippet-dep-graph**: Dependency structure (unrelated to submit flow).
+- **autosnippet-structure**: Dependency structure (unrelated to submit flow).

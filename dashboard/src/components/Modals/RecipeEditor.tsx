@@ -24,6 +24,7 @@ const defaultStats = {
 
 const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRecipe, handleSaveRecipe, closeRecipeEdit, isSavingRecipe = false }) => {
 	const [viewMode, setViewMode] = useState<'edit' | 'preview'>('preview');
+	const REQUIRED_CATEGORIES = ['View', 'Service', 'Tool', 'Model', 'Network', 'Storage', 'UI', 'Utility'];
 
 	const handleSetAuthority = async (authority: number) => {
 		try {
@@ -72,6 +73,40 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
 	};
 
 	const { metadata, body } = parseContent(editingRecipe.content || '');
+
+	const validateMetadata = (meta: Record<string, string>) => {
+		const errors: string[] = [];
+		const warnings: string[] = [];
+		const get = (key: string) => (meta[key] || '').trim();
+		const title = get('title');
+		const trigger = get('trigger');
+		const category = get('category');
+		const language = get('language').toLowerCase();
+		const summaryCn = get('summary_cn') || get('summary');
+		const summaryEn = get('summary_en');
+		const headers = get('headers');
+
+		if (!title) errors.push('缺少 title');
+		if (!trigger || !trigger.startsWith('@')) errors.push('trigger 必须以 @ 开头');
+		if (!category || !REQUIRED_CATEGORIES.includes(category)) errors.push(`category 必须为以下之一：${REQUIRED_CATEGORIES.join(', ')}`);
+		if (!language || (language !== 'swift' && language !== 'objectivec' && language !== 'markdown')) errors.push('language 必须为 swift 或 objectivec');
+		if (!summaryCn) errors.push('缺少 summary/summary_cn');
+		if (!summaryEn) warnings.push('缺少 summary_en');
+
+		if (!headers) {
+			warnings.push('缺少 headers（建议填写完整 import 语句）');
+		} else {
+			const list = headers.startsWith('[')
+				? headers.slice(1, -1).split(',').map(h => h.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
+				: [headers.replace(/^["']|["']$/g, '')];
+			const invalid = list.filter(h => !(h.startsWith('import ') || h.startsWith('#import ')));
+			if (invalid.length > 0) warnings.push('headers 建议为完整 import 语句（Swift: import X / ObjC: #import <X/Y.h>）');
+		}
+
+		return { errors, warnings };
+	};
+
+	const { errors, warnings } = validateMetadata(metadata);
 
 	// 格式化时间戳
 	const formatTimestamp = (ts: number | undefined) => {
@@ -131,6 +166,28 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
 						<div>
 							<label className="block text-xs font-bold text-slate-400 uppercase mb-1">Path</label>
 							<input className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" value={editingRecipe.name} onChange={e => setEditingRecipe({ ...editingRecipe, name: e.target.value })} />
+						</div>
+					)}
+
+					{(errors.length > 0 || warnings.length > 0) && (
+						<div className="rounded-xl border p-4 text-xs space-y-2 bg-amber-50 border-amber-200 text-amber-800">
+							<div className="font-bold">Frontmatter 校验提示</div>
+							{errors.length > 0 && (
+								<div>
+									<div className="font-semibold">错误</div>
+									<ul className="list-disc pl-5">
+										{errors.map((e, i) => <li key={i}>{e}</li>)}
+									</ul>
+								</div>
+							)}
+							{warnings.length > 0 && (
+								<div>
+									<div className="font-semibold">建议</div>
+									<ul className="list-disc pl-5">
+										{warnings.map((w, i) => <li key={i}>{w}</li>)}
+									</ul>
+								</div>
+							)}
 						</div>
 					)}
 					

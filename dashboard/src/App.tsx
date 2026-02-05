@@ -656,6 +656,21 @@ ${usageGuide_en}`;
 		}
 	};
 
+	const handleDeleteAllRecipes = async () => {
+		if (!data?.recipes || data.recipes.length === 0) return;
+		const count = data.recipes.length;
+		if (!window.confirm(`⚠️ 危险操作！\n\n确定要删除所有 ${count} 个 Recipes 吗？\n\n此操作不可恢复！`)) return;
+		if (!window.confirm(`再次确认：真的要删除全部 ${count} 个 Recipes 吗？`)) return;
+		try {
+			await axios.post('/api/recipes/delete-all');
+			fetchData();
+			notify(`已删除 ${count} 个 Recipes`, { type: 'success' });
+		} catch (err) {
+			const msg = getWritePermissionErrorMsg(err);
+			notify(msg ?? '删除失败', { type: 'error' });
+		}
+	};
+
 	const handleDeleteCandidate = async (targetName: string, candidateId: string): Promise<void> => {
 		try {
 			await axios.post('/api/candidates/delete', { targetName, candidateId });
@@ -695,6 +710,21 @@ ${usageGuide_en}`;
 		try {
 			await axios.post('/api/snippets/delete', { identifier });
 			fetchData();
+		} catch (err) {
+			const msg = getWritePermissionErrorMsg(err);
+			notify(msg ?? '删除失败', { type: 'error' });
+		}
+	};
+
+	const handleDeleteAllSnippets = async () => {
+		if (!data?.rootSpec?.list || data.rootSpec.list.length === 0) return;
+		const count = data.rootSpec.list.length;
+		if (!window.confirm(`⚠️ 危险操作！\n\n确定要删除所有 ${count} 个 Snippets 吗？\n\n此操作不可恢复！`)) return;
+		if (!window.confirm(`再次确认：真的要删除全部 ${count} 个 Snippets 吗？`)) return;
+		try {
+			await axios.post('/api/snippets/delete-all');
+			fetchData();
+			notify(`已删除 ${count} 个 Snippets`, { type: 'success' });
 		} catch (err) {
 			const msg = getWritePermissionErrorMsg(err);
 			notify(msg ?? '删除失败', { type: 'error' });
@@ -818,13 +848,15 @@ ${usageGuide_en}`;
 						<SnippetsView 
 							snippets={filteredSnippets} 
 							openSnippetEdit={openSnippetEdit} 
-							handleDeleteSnippet={handleDeleteSnippet} 
+							handleDeleteSnippet={handleDeleteSnippet}
+							handleDeleteAllSnippets={handleDeleteAllSnippets}
 						/>
 					) : activeTab === 'recipes' ? (
 						<RecipesView 
 							recipes={filteredRecipes} 
 							openRecipeEdit={openRecipeEdit} 
 							handleDeleteRecipe={handleDeleteRecipe}
+							handleDeleteAllRecipes={handleDeleteAllRecipes}
 							onRefresh={fetchData}
 							currentPage={recipePage}
 							onPageChange={setRecipePage}

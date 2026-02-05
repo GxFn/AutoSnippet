@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit3, Trash2 } from 'lucide-react';
+import { Edit3, Trash2, AlertTriangle } from 'lucide-react';
 import { Snippet } from '../../types';
 import { categoryConfigs } from '../../constants';
 import Pagination from '../Shared/Pagination';
@@ -9,9 +9,10 @@ interface SnippetsViewProps {
 	snippets: Snippet[];
 	openSnippetEdit: (snippet: Snippet) => void;
 	handleDeleteSnippet: (identifier: string, title: string) => void;
+	handleDeleteAllSnippets?: () => void;
 }
 
-const SnippetsView: React.FC<SnippetsViewProps> = ({ snippets, openSnippetEdit, handleDeleteSnippet }) => {
+const SnippetsView: React.FC<SnippetsViewProps> = ({ snippets, openSnippetEdit, handleDeleteSnippet, handleDeleteAllSnippets }) => {
 	const [currentPage, setCurrentPage] = useState(1);
 	const [pageSize, setPageSize] = useState(12);
 
@@ -37,6 +38,17 @@ const SnippetsView: React.FC<SnippetsViewProps> = ({ snippets, openSnippetEdit, 
 
 	return (
 		<div>
+			{handleDeleteAllSnippets && snippets.length > 0 && (
+				<div className="mb-4 flex justify-end">
+					<button
+						onClick={handleDeleteAllSnippets}
+						className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium border border-red-200"
+					>
+						<AlertTriangle size={ICON_SIZES.sm} />
+						删除所有 Snippets ({snippets.length})
+					</button>
+				</div>
+			)}
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 				{paginatedSnippets.map((snippet) => (
 				<div key={snippet.identifier} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group relative">

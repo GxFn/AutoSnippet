@@ -19,6 +19,7 @@ These rules are written when installing AutoSnippet Skills (`asd install:cursor-
 - **Project root**: directory containing `*.boxspec.json` (this repo: `AutoSnippet.boxspec.json`).
 - **Knowledge base**: `AutoSnippet/` (read-only for AI).
 - **Recipes**: `AutoSnippet/recipes/*.md` (Markdown + Frontmatter + Snippet/Usage Guide; path is fixed).
+  - **Frontmatter required fields (7)**: `title` (English, ≤50 chars, verb-based), `trigger` (MUST start with `@`), `category` (MUST be one of: `View`, `Service`, `Tool`, `Model`, `Network`, `Storage`, `UI`, `Utility`), `language` (`swift` or `objectivec`), `summary_cn` (≤100 chars), `summary_en` (≤100 words), `headers` (complete import statements like `["import Foundation"]` or `["#import <UIKit/UIKit.h>"]`).
 - **Snippets**: `AutoSnippet/snippets/*.json` or root spec `list`.
 - **Candidates**: `AutoSnippet/.autosnippet/candidates.json` (reviewed in Dashboard).
 - **Vector index**: `AutoSnippet/.autosnippet/context/` (`asd embed`).

@@ -5,6 +5,8 @@ description: Provides this project's Recipe-based context to the agent. Recipes 
 
 # AutoSnippet Recipe Context (Project Context)
 
+> Self-check & Fallback: MCP 工具返回统一 JSON Envelope（{ success, errorCode?, message?, data?, meta }）。重操作前调用 autosnippet_health/autosnippet_capabilities；失败时不在同一轮重试，转用静态上下文或缩小范围后再试。
+
 This skill **provides the agent with this project's context** from [AutoSnippet](https://github.com/GxFn/AutoSnippet) Recipes. Recipes are the project's standard usage docs: code snippets plus usage guides. Use this context for standards, Guard, and code suggestions.
 
 ## Instructions for the agent (read this first)
@@ -91,6 +93,7 @@ Skills provide Cursor with **semantic interface** only, like CRUD; expose only n
 | Capability | Usage | Description |
 |------------|-------|-------------|
 | **On-demand semantic search** | Use MCP tool `autosnippet_context_search`, pass `query`, `limit?` | Returns relevant Recipe/docs by natural language query. Silent retrieval only; does not trigger any adoption form. Requires AutoSnippet MCP configured and `asd ui` running. |
+| **Context analysis** | Use MCP tool `autosnippet_context_analyze` with recipe ids | Multi-dimensional analysis (quality / similarity / relationships) for audit or consolidation decisions. |
 | **Confirm adoption** | Call `autosnippet_confirm_recipe_usage` with the recipe file name(s) when you decide to offer the adoption form | **Meaning**: Pops a "confirm use?" dialog; on confirm, records one human usage (humanUsageCount +1) for that recipe and affects usage stats and authority ranking. **When to show**: You may decide when to show it (e.g. when the user explicitly says they adopt, or when you infer they have adopted the recipe). Do not show it right after presenting recipe or when the user only asks "should I adopt?"—then just answer. Requires Cursor to support MCP Elicitation. |
 | **Static context** | Read `references/project-recipes-context.md`, `by-category/*.md` | No extra connection needed. |
 | **Terminal search** | `asd search <keyword>`, `asd search --semantic <keyword>` | Keyword or semantic search. |

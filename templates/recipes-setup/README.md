@@ -24,42 +24,45 @@ Recipe 是 AutoSnippet **语义记忆（Semantic Memory）** 的载体：以「�
 
 ## Frontmatter 字段（与架构对齐）
 
-### 必填
+### 必填字段（7 个）
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `title` | string | 标题，建议 10～20 字、动词开头 |
-| `trigger` | string | 触发词，建议以 `@` 开头，如 `@request` |
+| 字段 | 类型 | 说明 | 格式要求 |
+|------|------|------|----------|
+| `title` | string | 标题（英文名，单行） | ≤50 字，建议动词开头 |
+| `trigger` | string | 触发词 | **MUST** 以 `@` 开头，小写+下划线，无空格 |
+| `category` | string | **分类（MUST 为 8 个标准值之一）** | `View`, `Service`, `Tool`, `Model`, `Network`, `Storage`, `UI`, `Utility` |
+| `language` | string | 编程语言 | `swift` 或 `objectivec` |
+| `summary_cn` | string | 中文概述 | ≤100 字 |
+| `summary_en` | string | 英文概述 | ≤100 words |
+| `headers` | array | **完整 import/include 语句** | Swift: `["import Foundation"]`<br/>ObjC: `["#import <UIKit/UIKit.h>"]` |
 
-### 强烈推荐（检索与排序）
+### 可选字段（强烈推荐）
 
 | 字段 | 类型 | 说明 | AI 用途 |
 |------|------|------|--------|
-| `id` | string | 唯一标识，建议 `recipe_类别_编号` 或反向域名 | 去重、知识图谱 |
-| `language` | string | 编程语言，如 `swift`、`objectivec` | 过滤、展示 |
-| `category` | string | **分类（必须使用标准值）**：`View`, `Service`, `Tool`, `Model`, `Network`, `Storage`, `UI`, `Utility` | 过滤、场景权重 |
-| `summary` | string | 一句话描述用途 | 摘要、相关性 |
 | `keywords` | array | 关键词列表，如 `["网络请求", "async", "缓存"]` | BM25/关键词搜索 |
 | `whenToUse` | string 或 array | 何时应使用此 Recipe（场景列表） | 场景匹配、意图理解 |
 | `whenNotToUse` | string 或 array | 何时不应使用（排除场景） | 负向过滤、避免误推荐 |
 | `difficulty` | string | 难度：`beginner` / `intermediate` / `advanced` | 难度匹配、学习路径 |
-| `authority` | number | 权威分 1～5（可选，可由使用统计与质量信号更新） | 多信号排序 |
-| `relatedRecipes` | array | 关联 Recipe 的 trigger 或 id，如 `["@error_handling"]` | 知识图谱、推荐 |
-| `version` / `updatedAt` | string / number | 版本号、最后更新时间戳 | 新鲜度、版本追踪 |
+| `authority` | number | 权威分 1～5 | 多信号排序 |
+| `relatedRecipes` | array | 关联 Recipe 的 trigger，如 `["@error_handling"]` | 知识图谱、推荐 |
+| `version` | string | 版本号，如 `"1.0.0"` | 版本追踪 |
+| `updatedAt` | number | 最后更新时间戳 | 新鲜度 |
+| `author` | string | 作者或团队名 | 归属信息 |
+| `deprecated` | boolean | 是否已过时 | 过滤过时内容 |
 
-### 可选扩展（质量与约束）
+### 扩展字段（可选）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `tags` | array | 标签，如 `[production-ready, guard-rule]` |
-| `headers` | array | **完整的 import/include 语句**（Swift: `["import Xxx"]`; ObjC: `["#import <Xxx/Yyy.h>"]`） |
 | `deps` | object | 依赖：`targets`、`imports` 等 |
-| `alternatives` | string 或 array | 替代方案说明或其它 Recipe 的 trigger/id |
-| `quality` | object | 质量信号：如 `codeReviewStatus`、`hasUnitTest`（详见架构文档） |
+| `alternatives` | string 或 array | 替代方案说明或其它 Recipe 的 trigger |
+| `quality` | object | 质量信号：如 `codeReviewStatus`、`hasUnitTest` |
 | `performance` | object | 性能：如 `timeComplexity`、`spaceComplexity` |
 | `security` | object | 安全：如 `riskLevel`、`bestPractices` |
-| `deprecated` | boolean | 是否已过时 |
-| `deprecationReason` / `replacedBy` | string | 过时原因、替代 Recipe |
+| `deprecationReason` | string | 过时原因（配合 `deprecated: true` 使用） |
+| `replacedBy` | string | 替代 Recipe 的 trigger（配合 `deprecated: true` 使用） |
 
 ---
 

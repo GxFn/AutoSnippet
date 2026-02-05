@@ -60,8 +60,12 @@ Cursor 通过 MCP（Model Context Protocol）调用 AutoSnippet 知识库与 Das
 |--------|------|
 | `autosnippet_open_create` | 打开 Dashboard 新建 Recipe 页（Use Copied Code 流程），可选传入 path 用于头文件解析。 |
 | `autosnippet_context_search` | 按自然语言查询检索知识库，返回相关 Recipe/文档；仅静默返回，不触发表单。 |
+| `autosnippet_context_analyze` | 对指定 Recipe 做多维分析（质量、相似度、关系建议），输出结构化结果。 |
 | `autosnippet_get_targets` | 获取项目所有 SPM Target 列表。 |
 | `autosnippet_get_target_files` | 获取指定 Target 的源码文件列表，需传入 targetName。 |
+| `autosnippet_get_target_metadata` | 获取 Target 元数据（package、路径、依赖、sources 等）。 |
+| `autosnippet_validate_candidate` | 候选预校验（字段完整性、格式与规范性），返回 errors/warnings/建议。 |
+| `autosnippet_check_duplicate` | 候选与现有 Recipe 相似度检测，输出相似条目列表与建议。 |
 | `autosnippet_submit_candidates` | 将结构化候选（targetName + items 数组）批量提交到 Dashboard Candidates，用于批量扫描等。 |
 | `autosnippet_submit_draft_recipes` | 将草稿 .md 文件解析并提交为候选。推荐先创建草稿文件夹、每个 Recipe 一个文件，不推荐一个大文件；支持纯介绍文档（无代码），此类不生成 Snippet。可选提交后删除已提交文件。 |
 | `autosnippet_confirm_recipe_usage` | 弹出「是否采纳/使用」确认，用户确认后记为人工使用（humanUsageCount +1）；需 Cursor 支持 Elicitation。 |

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit3, Trash2 } from 'lucide-react';
+import { Edit3, Trash2, AlertTriangle } from 'lucide-react';
 import { Recipe } from '../../types';
 import { categoryConfigs } from '../../constants';
 import Pagination from '../Shared/Pagination';
@@ -9,6 +9,7 @@ interface RecipesViewProps {
 	recipes: Recipe[];
 	openRecipeEdit: (recipe: Recipe) => void;
 	handleDeleteRecipe: (name: string) => void;
+	handleDeleteAllRecipes?: () => void;
 	onRefresh?: () => void;
 	/** 分页由父组件控制，刷新数据后保持当前页 */
 	currentPage?: number;
@@ -21,6 +22,7 @@ const RecipesView: React.FC<RecipesViewProps> = ({
 	recipes,
 	openRecipeEdit,
 	handleDeleteRecipe,
+	handleDeleteAllRecipes,
 	currentPage: controlledPage,
 	onPageChange: controlledOnPageChange,
 	pageSize: controlledPageSize,
@@ -51,6 +53,17 @@ const RecipesView: React.FC<RecipesViewProps> = ({
 
 	return (
 		<div>
+			{handleDeleteAllRecipes && recipes.length > 0 && (
+				<div className="mb-4 flex justify-end">
+					<button
+						onClick={handleDeleteAllRecipes}
+						className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium border border-red-200"
+					>
+						<AlertTriangle size={ICON_SIZES.sm} />
+						删除所有 Recipes ({recipes.length})
+					</button>
+				</div>
+			)}
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 				{paginatedRecipes.map((recipe) => (
 				<div key={recipe.name} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group relative">

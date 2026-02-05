@@ -1,9 +1,11 @@
 ---
 name: autosnippet-search
-description: When the user wants to find or insert standard code from the knowledge base (e.g. "查一下项目里怎么写", "有没有现成的写法", "插入这段标准代码"), use this skill to recommend search (as:search, Dashboard, or API) and then use autosnippet-recipes for the actual lookup.
+description: DEPRECATED. Use autosnippet-intent for routing, and autosnippet-recipes for actual lookup.
 ---
 
-# AutoSnippet Search — When to Recommend
+# AutoSnippet Search — When to Recommend (Deprecated)
+
+**Deprecated**: use **autosnippet-intent** for routing, then use **autosnippet-recipes** for actual lookup.
 
 **Use this skill when**: The user wants to **find** or **insert** standard code from the project's knowledge base (Recipes). You decide whether to recommend; do not force.
 
@@ -31,5 +33,5 @@ Use MCP tool `autosnippet_context_search` for on-demand semantic search; pass `q
 
 ## Relation
 
-- **autosnippet-when**: General "when to recommend what"; may point here for search.
+- **autosnippet-intent**: Router for "when to recommend what"; may point here for search.
 - **autosnippet-recipes**: Project context, search API, and code lookup steps.

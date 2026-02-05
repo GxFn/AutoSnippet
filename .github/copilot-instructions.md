@@ -23,9 +23,17 @@
 6. Skills 负责语义与流程，MCP 负责能力与调用；不要在 Skill 内硬编码 URL/HTTP。
 
 ## Recipe 结构要点
-- 必须包含：Frontmatter（`title`、`trigger` 必填）+ `## Snippet / Code Reference` + `## AI Context / Usage Guide`。
+- 必须包含：Frontmatter（`title`、`trigger`、`category`、`language`、`summary_cn`、`summary_en`、`headers` 必填）+ `## Snippet / Code Reference` + `## AI Context / Usage Guide`。
+- **Frontmatter 必填字段（7 个）**：
+  - `title`: 英文名，单行，≤50 字符，动词开头
+  - `trigger`: MUST 以 `@` 开头，小写+下划线，无空格
+  - `category`: MUST 为 8 个标准值之一（`View`, `Service`, `Tool`, `Model`, `Network`, `Storage`, `UI`, `Utility`）
+  - `language`: `swift` 或 `objectivec`
+  - `summary_cn`: 中文概述，≤100 字
+  - `summary_en`: 英文概述，≤100 words
+  - `headers`: 完整 import/include 语句数组（Swift: `["import X"]`; ObjC: `["#import <X/Y.h>"]`）
 - 多段 Recipe 可用「空行 + `---` + 下一段 Frontmatter」分隔。
- - 已是完整 Recipe Markdown 时可直接解析入库，无需 AI 重写。
+- 已是完整 Recipe Markdown 时可直接解析入库，无需 AI 重写。
 
 ## 推荐工作流
 - 查找：先用 `autosnippet_context_search` 或 Dashboard Search。

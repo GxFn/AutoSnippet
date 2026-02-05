@@ -1,14 +1,16 @@
 ---
-id: recipe_类别_编号
-title: 这里写标题（建议 10～20 字、动词开头）
-language: swift
+# 必填字段
+title: Your Recipe Title Here (English, ≤50 chars, verb-based)
 trigger: @my_trigger
-category: Network
-summary: 一句话描述该 Recipe 的用途，供摘要与检索使用。
+category: Network  # MUST be one of: View, Service, Tool, Model, Network, Storage, UI, Utility
+language: swift  # swift or objectivec
+summary_cn: 中文概述，≤100 字，描述该 Recipe 的用途
+summary_en: English summary, ≤100 words
+headers: ["import Foundation"]  # 完整 import 语句数组（Swift: "import X"; ObjC: "#import <X/Y.h>"）
+
+# 可选字段
 keywords: ["关键词1", "关键词2", "关键词3"]
 tags: [tag1, tag2]
-
-# 语义与使用场景（强烈建议填写，便于 AI 场景匹配与负向过滤）
 whenToUse: |
   - 适用场景 1
   - 适用场景 2
@@ -16,13 +18,13 @@ whenToUse: |
 whenNotToUse: |
   - 不应使用的场景 1
   - 不应使用的场景 2
-
-difficulty: beginner
-authority: 1
+difficulty: beginner  # beginner, intermediate, advanced
+authority: 1  # 1~5
 relatedRecipes: ["@相关Recipe的trigger"]
 version: "1.0.0"
 updatedAt: 1706515200
-headers: ["import Foundation"]
+author: team_name
+deprecated: false
 ---
 
 ## Snippet / Code Reference

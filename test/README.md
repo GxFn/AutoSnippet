@@ -58,7 +58,7 @@ node test/runner.js --install       # 仅 asd install（校验 .codesnippet 写�
 node test/runner.js --search        # 仅 asd search（关键词 / 无关键词）
 node test/runner.js --update        # 仅 asd update（修改 snippet summary）
 node test/runner.js --spmmap        # 仅 asd spm-map --dry-run
-node test/runner.js --watch         # 仅 asd watch（含 as:guard / as:create）
+node test/runner.js --watch         # 仅 asd watch（含 as:audit / as:create）
 node test/runner.js --embed           # 仅 asd embed（Mock AI，自建项目）
 node test/runner.js --install-skill   # 仅 install:cursor-skill（自建项目）
 node test/runner.js --embed-real      # 仅 asd embed（真实环境 BiliDiliForTest）
