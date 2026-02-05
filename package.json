@@ -1,7 +1,7 @@
 {
   "name": "autosnippet",
   "version": "1.7.0",
-  "description": "A iOS module management tool.",
+  "description": "AutoSnippet Dashboard - 连接开发者、AI 与项目知识库的工具",
   "main": "index.js",
   "scripts": {
   "postinstall": "node scripts/ensure-parse-package.js && node scripts/build-native-ui.js && node scripts/build-asd-entry.js",
@@ -42,10 +42,6 @@
   "test:update": "node bin/asd-cli.js u",
   "test:watch": "node bin/asd-cli.js w",
   "test:root": "node bin/asd-cli.js root",
-  "migrate:run": "node scripts/migration/run.js",
-  "migrate:validate": "node scripts/migration/validate.js",
-  "migrate:fix": "node scripts/migration/fix.js",
-  "migrate:guard": "node scripts/migrate-guard-rules.js",
   "init:snippets": "node scripts/init-xcode-snippets.js init",
   "list:snippets": "node scripts/init-xcode-snippets.js list",
   "remove:snippets": "node scripts/init-xcode-snippets.js remove",

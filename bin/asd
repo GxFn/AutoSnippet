@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# AutoSnippet 入口：优先使用原生校验入口（bin/asd-verify），否则回退到 node bin/asd-cli.js
+# AutoSnippet Dashboard (asd) 入口：优先使用原生校验入口（bin/asd-verify），否则回退到 node bin/asd-cli.js
 # 解析 $0 的符号链接，使 DIR 指向包内 bin 目录（npm install -g 时 $0 可能是 global bin 下的 symlink）
 SCRIPT="$0"
 while [ -L "$SCRIPT" ]; do

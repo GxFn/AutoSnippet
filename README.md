@@ -11,7 +11,7 @@
 
 | 角色 | 职责 | 能力 |
 |------|------|------|
-| **开发者** | 审核与决策；维护项目标准 | Dashboard 审核 Candidate，保存 Recipe；使用 Snippet 补全、`// as:search` 插入；运行 `asd embed`、`asd ui` |
+| **开发者** | 审核与决策；维护项目标准 | Dashboard 审核 Candidate，保存 Recipe；使用 Snippet 补全、`ass` 快捷联想或 `// as:search` 插入；运行 `asd embed`、`asd ui` |
 | **Cursor Agent** | 按规范生成代码；检索与提交 | Skills 理解规范；MCP 按需检索、打开新建 Recipe 页；`autosnippet_submit_candidates` 批量提交候选供人工审核；不直接改 Knowledge |
 | **项目内 AI** | 提取、摘要、扫描、审查 | `asd ais` 扫描；Use Copied Code 分析填充；Guard 审查；Dashboard RAG；深度扫描结果可算相似度。由 `.env` 配置 |
 | **知识库** | 存储与提供项目标准 | Recipes、Snippets、语义向量索引；Guard、搜索、质量评估、相似度分析；两种 AI 的上下文均依赖此 |
@@ -48,20 +48,23 @@ asd ui                     # 启动 Dashboard + watch
 
 `asd ui` 会启动 Web 管理后台并后台 watch；首次运行若前端不存在会自动构建。浏览器会自动打开 Dashboard。
 
-![Dashboard 概览](./images/20260131014718_38_167.png)
+![Dashboard 概览](./images/20260205232116_66_167.png)
 
 ## 核心流程
 
-1. **组建知识库**：`asd ais <Target>` 或 `asd ais --all` → Dashboard Candidates 审核 → Recipe 入库
-2. **依赖关系**：`asd spm-map` 或 Dashboard 刷新
-3. **Cursor 集成**：`asd install:cursor-skill --mcp`（安装 Skills + Cursor 规则 `.cursor/rules/` + MCP；MCP 工具使用时需 `asd ui` 运行）
-4. **语义索引**：`asd ui` 启动时自动 embed；也可手动 `asd embed`
+**智能 AI 优先 → 前端操作 → 命令行补充**
+
+1. **Cursor AI 快捷扫描**（推荐）：在 Cursor 中输入自然语言（如「扫描这个 Target」、「批量提取代码候选」），AI 智能触发 `autosnippet-batch-scan` 等 Skill，通过 MCP 工具 `autosnippet_get_targets` → `autosnippet_get_target_files` → 按文件提取 → `autosnippet_submit_candidates` 一键批量扫描，自动提交候选到 Dashboard Candidates
+2. **前端审核与入库**：Dashboard Candidates 页面人工审核 → 保存 Recipe 入库（优先前端操作，无需命令行）
+3. **依赖关系**（可选）：Dashboard 刷新自动分析，或使用 `asd spm-map` 命令行更新
+4. **语义索引**（自动）：`asd ui` 启动时自动 embed；也可手动 `asd embed`
+5. **Cursor 集成**（首次）：`asd install:cursor-skill --mcp`（安装 Skills + Cursor 规则 `.cursor/rules/` + MCP；MCP 工具使用时需 `asd ui` 运行）
 
 ### 闭环
 
-**扫描 → 审核 → 沉淀 → Cursor/AI 使用 → 再沉淀**：项目 AI 通过扫描 Target 批量提交候选，Cursor 完成的代码通过 Skill 提交候选，开发者完成的代码通过剪切板提交候选，Dashboard 中的候选经过人工审核进入知识库；知识库内 Recipe 为第一公民，拥有最高优先级。
+**AI 扫描 → Dashboard 审核 → 知识库沉淀 → Cursor/AI 按规范生成 → 再沉淀**：Cursor AI 通过自然语言指令智能扫描并批量提交候选，完整代码通过 Skill 智能提交，开发者也可通过 Dashboard Use Copied Code 或剪切板提交候选，所有候选经 Dashboard 人工审核进入知识库；知识库内 Recipe 为第一公民，拥有最高优先级。
 
-开发者通过 Snippet 获取 Recipe 内容插入编辑器， Cursor 通过 Skills 把 Recipe 产生的 context 当做上下文使用，对向量库进行查询；AI 用知识库产生的代码，过审后添加到知识库，成为了 AI 新的上下文，使得 AI 的开发趋于标准化。
+Cursor 在编辑器内通过自然语言交互触发 Skill，使用 MCP 工具检索知识库，用 Recipe 作为生成代码的上下文标准；AI 生成的代码遵循 Recipe 规范，过审后成为新 Recipe，持续提升 AI 的开发标准化程度。
 
 知识库随人工审核持续更新，AI 始终基于最新上下文，Recipe 会在使用中获得评级调整。
 
@@ -71,13 +74,14 @@ asd ui                     # 启动 Dashboard + watch
 
 | 指令 | 作用 |
 |------|------|
-| `// as:create` / `// as:c` | 无选项时只打开 Dashboard（路径已填），由用户点 Scan File 或 Use Copied Code。`-c` 强制用剪切板（静默创建或打开）；`-f` 强制用路径（打开 Dashboard 并自动执行 Scan File） |
-| `// as:audit` / `// as:a` [关键词或规模] | 按知识库 AI 审查；无后缀时仅检查当前文件；后缀 **file** / **target** / **project** 可扩大范围（target=当前 Target 内所有源文件，project=项目内所有源文件）；其他为检索关键词 |
-| `// as:search` / `// as:s` [关键词] | 从知识库检索并插入 Recipe/Snippet |
+| `ass` / `// as:search` [关键词] | 从知识库检索并插入 Recipe/Snippet；`ass` 是最快捷的联想方式，优先推荐 |
+| `asc` / `// as:create` | 无选项时只打开 Dashboard（路径已填），由用户点 Scan File 或 Use Copied Code。`-c` 强制用剪切板（静默创建或打开）；`-f` 强制用路径（打开 Dashboard 并自动执行 Scan File） |
+| `asa` / `// as:audit` [关键词或规模] | 按知识库 AI 审查；无后缀时仅检查当前文件；后缀 **file** / **target** / **project** 可扩大范围（target=当前 Target 内所有源文件，project=项目内所有源文件）；其他为检索关键词 |
 | `// as:include` / `// as:import` | Snippet 内头文件/模块标记，保存时自动注入 |
 
-**静默候选**：在 Cursor 内用户提出保存案例，Cursor 生成草案；后台用草案静默创建候选，无需打开浏览器，到 Dashboard **Candidates** 页审核即可。在 Xcode 等编辑器内也可写 `// as:c -c`、复制代码后保存，剪贴板内容同样静默入库。  
-**搜索无跳转**：`// as:search` / `// as:s` 在编辑器内弹窗或终端选择，即选即插，无需跳转 Dashboard，不打断当前编辑。
+**Snippet 生效**：`ass`、`asc`、`asa` 是 Xcode Snippet，需要执行 `asd setup` 将其注册到 Xcode 后，**彻底关闭 Xcode 并重启**才能生效。重启后在源码中输入首字母即可触发自动完成菜单。  
+**静默候选**：在 Cursor 内用户提出保存案例，Cursor 生成草案；后台用草案静默创建候选，无需打开浏览器，到 Dashboard **Candidates** 页审核即可。在 Xcode 等编辑器内也可写 `asc -c`、复制代码后保存，剪贴板内容同样静默入库。  
+**快捷联想**：输入 `ass`（AutoSnippet Search）触发 Snippet 快捷联想，或使用 `// as:search` / `// as:s` 在编辑器内弹窗选择，即选即插，无需跳转 Dashboard，不打断当前编辑。
 
 ## 常用命令
 
@@ -96,12 +100,6 @@ asd ui                     # 启动 Dashboard + watch
 | `asd install:full` | 全量安装；`--parser` 含 Swift 解析器 |
 | `asd embed` | 手动构建语义向量索引（`asd ui` 启动时也会自动执行） |
 | `asd spm-map` | 刷新 SPM 依赖映射（依赖关系图数据来源） |
-
-### 用 Cursor 做批量扫描
-
-除 `asd ais [Target]`（项目内 AI）外，可用 **Cursor 作为批量扫描工具**：在 Cursor 里让 Agent 通过 **MCP 工具**（`autosnippet_get_targets` → `autosnippet_get_target_files` → 按文件提取 → `autosnippet_submit_candidates`）扫描指定 Target，用 Cursor 模型提取候选并提交到 Dashboard，再到 **Candidates** 页审核入库。
-
-简单一句：「扫描 BDNetwork ，生成 Recipes 到候选」。话又说回来，最好还是详细点，先候选一两个文件，确认 cursor 认清字段，就可以在当前会话多文件执行了。
 
 ## 可选依赖
 
@@ -159,33 +157,15 @@ AutoSnippet 下各路径与版本控制的关系建议如下（可按项目需�
 
 ---
 
-## 发布管理
+## 为什么推荐 Cursor
 
-AutoSnippet 提供完整的 AI 辅助发布流程：
+**Cursor 优先**的原因：
 
-```bash
-# 发布前检查
-npm run release:check
+- **MCP & Skills 完整支持**：Cursor 对 MCP（Model Context Protocol）的集成完善，Skills 能够正常触发和运行，支持自然语言指令流畅地调用 `autosnippet_get_targets`、`autosnippet_get_target_files`、`autosnippet_submit_candidates` 等工具
+- **候选提交体验流畅**：整个从扫描 → 提取 → 提交的工作流无缝衔接，用户无需手动介入，一键完成批量操作
+- **VSCode Copilot 限制**：目前 VSCode Copilot 的 MCP 集成存在问题，无法直接调用 MCP 工具。降级方案是存储候选为 Draft（本地），然后通过 API 提交，增加了用户额外操作步骤
 
-# 发布 Patch 版本（Bug 修复）
-npm run release:patch
-
-# 发布 Minor 版本（新功能）
-npm run release:minor
-
-# 发布 Major 版本（破坏性变更）
-npm run release:major
-```
-
-**文档**：
-- **[AI 发布指南](./docs/AI发布指南.md)**：完整的发布流程、检查清单和错误处理
-- **[AI 发布快速参考](./docs/AI发布清单.md)**：命令速查和决策树
-
-**推荐流程**：
-1. 运行 `npm run release:check` 进行发布前检查
-2. 根据变更类型选择版本升级命令
-3. 按提示完成发布流程
-4. 在 GitHub 创建 Release 并通知相关方
+建议优先在 Cursor 中使用 AutoSnippet；如需 VSCode Copilot 支持，欢迎 [Issue](https://github.com/GxFn/AutoSnippet/issues) 讨论降级方案的适配。
 
 ---
 

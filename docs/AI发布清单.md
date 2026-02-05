@@ -27,17 +27,20 @@ npm run test:unit && npm run test:integration
 # 5. 构建其他
 npm run build:native-ui
 
+# ⚠️ 开发者确认：以下命令将自动创建 commit 和 tag [需开发者确认]
 # 6. 版本升级（1.7.0 → 1.7.1）
 npm version patch
 
 # 7. 更新 CHANGELOG（手动编辑）
 # ... 编辑 CHANGELOG.md ...
 
+# ⚠️ 开发者确认：以下命令将修改 git 历史 [需开发者确认]
 # 8. 提交所有变更
 git add .
 git commit --amend -m "chore: release v1.7.1"
 git tag -f v1.7.1
 
+# 🚨 开发者最终确认：推送将触发自动发布 [需开发者最终确认]
 # 9. 推送触发发布
 git push origin main --tags
 
@@ -89,6 +92,8 @@ npm version
 # 查看最近变更
 git log v1.7.0..HEAD --oneline
 
+# ⚠️ 开发者确认：以下命令将自动创建 commit 和 tag
+# 执行前确认工作区干净 [需开发者确认]
 # 执行版本升级
 npm version patch   # 1.7.0 → 1.7.1
 npm version minor   # 1.7.0 → 1.8.0
@@ -103,6 +108,8 @@ cat >> CHANGELOG.md << 'EOF'
 
 EOF
 
+# ⚠️ 开发者确认：以下命令将修改 git 历史
+# 确保尚未推送到远程 [需开发者确认]
 # 修正提交
 git add CHANGELOG.md
 git commit --amend -m "chore: release v1.7.1"
@@ -114,12 +121,16 @@ git tag -f v1.7.1
 ### Phase 3: 发布（Publish）
 
 ```bash
+# ⚠️ 开发者确认：审查所有变更
+# 确认构建产物和环境变量正确 [需开发者确认]
 # 提交所有变更
 git add .
 git status  # 确认包含 dist/ 等构建产物
 git commit --amend -m "chore: release v1.7.1"
 git tag -f v1.7.1
 
+# 🚨 开发者最终确认：推送将触发自动发布
+# 确认所有检查项通过 [需开发者最终确认]
 # 推送触发 GitHub 自动发布
 git push origin main --tags
 
@@ -276,13 +287,15 @@ npm version patch
       ↓
     构建前端 → npm run build:dashboard
       ↓
-    运行测试 → npm version [type]
+    运行测试
+      ↓
+    ⚠️ 请求用户确认 → npm version [type]
       ↓
     提示编辑 CHANGELOG
       ↓
-    确认无误后 → git add . → commit --amend → tag -f
+    ⚠️ 请求用户确认 → git add . → commit --amend → tag -f
       ↓
-    推送到 GitHub → git push --tags
+    🚨 请求用户最终确认 → git push --tags
       ↓
     恢复开发环境 → cp .env.backup .env
       ↓

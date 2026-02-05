@@ -368,7 +368,7 @@ When `asd ui` is running in the project root, use the HTTP API for on-demand sem
 |------------|-------------|-------|
 | **Recipe lookup** | Read `references/project-recipes-context.md` or MCP `autosnippet_context_search`. Recipe over source | autosnippet-recipes |
 | **Create Recipe** | Dashboard Use Copied Code / Scan File; or write to `_draft_recipe.md` | autosnippet-create |
-| **Search & insert** | `// as:search`, `asd search`, Dashboard search | autosnippet-search |
+| **Search & insert** | `ass` shortcut or `// as:search`, `asd search`, Dashboard search | autosnippet-search |
 | **Audit review** | `// as:audit`; watch runs AI review against knowledge base | autosnippet-guard |
 | **Dependency graph** | `AutoSnippet/AutoSnippet.spmmap.json`; `asd spm-map` to update | autosnippet-dep-graph |
 | **Vector store** | Built by `asd embed`; `autosnippet_context_search` for on-demand lookup. Use as context storage to save space | autosnippet-concepts / autosnippet-recipes |
@@ -590,7 +590,7 @@ authority: 3
 
 ### How to use knowledge once it’s in the base
 
-- **Search**: MCP `autosnippet_context_search`, or terminal `asd search`, Dashboard search, `// as:search`.
+- **Search**: MCP `autosnippet_context_search`, or terminal `asd search`, Dashboard search, `ass` shortcut or `// as:search`.
 - **Audit**: `// as:audit` runs Guard against Recipe standards.
 - **Record adoption**: When the user confirms use, call `autosnippet_confirm_recipe_usage` to record human usage (affects authority and ranking).
 

@@ -246,7 +246,7 @@ for (const name of skillDirs) {
 }
 
 // 可选：写入 Cursor 规则（.cursor/rules/*.mdc），使会话中持久遵循 AutoSnippet 约定
-const cursorRulesSource = path.join(autoSnippetRoot, 'scripts', 'cursor-rules');
+const cursorRulesSource = path.join(autoSnippetRoot, 'templates', 'cursor-rules');
 const cursorRulesTarget = path.join(projectRoot, '.cursor', 'rules');
 if (fs.existsSync(cursorRulesSource)) {
   const ruleFiles = fs.readdirSync(cursorRulesSource, { withFileTypes: true })

@@ -61,7 +61,7 @@
 
 - **文档完善**：
   - `.github/copilot-instructions.md`：Recipe 字段详细说明（7 个必填 + 格式要求）
-  - `scripts/cursor-rules/autosnippet-conventions.mdc`：英文版 Recipe 规则
+  - `templates/cursor-rules/autosnippet-conventions.mdc`：英文版 Recipe 规则
   - `templates/recipes-setup/`：三个模板文件完全更新（_template.md, example.md, README.md）
   - `skills/` 目录：14 个 Skills 文件更新（Envelope 读取、错误码处理、自检回退）
 

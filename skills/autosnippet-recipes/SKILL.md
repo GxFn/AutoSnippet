@@ -84,7 +84,7 @@ You can **search** recipes in three ways:
 | Use | How |
 |-----|-----|
 | **Audit** | User adds `// as:audit` (or `// as:audit keyword`) in source and saves; `asd watch` runs AI review against Recipes. |
-| **Search** | `// as:search keyword` or `asd search` to find Recipes/Snippets and insert. |
+| **Search** | `ass` shortcut (AutoSnippet Search) or `// as:search keyword` or `asd search` to find Recipes/Snippets and insert. |
 | **AI Assistant** | Dashboard RAG and AI chat use Recipes as context. |
 | **Xcode** | Recipes can be linked to Snippets; Snippets sync to Xcode CodeSnippets. |
 

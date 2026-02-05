@@ -1,4 +1,4 @@
-# AutoSnippet AI 发布指南
+ka# AutoSnippet AI 发布指南
 
 > **目标受众**：AI Agent（GitHub Copilot、Cursor、Claude 等）  
 > **用途**：指导 AI 执行 AutoSnippet 的标准化发布流程  
@@ -46,17 +46,22 @@ git pull origin main
 
 # 确认 Node.js 版本（>=16）
 node -v
+
+# 检查敏感信息未进入版本控制
+git status --ignored | grep -E "\.env$|.*-key\.js$|test-key\.js"
 ```
 
 **期望输出**：
 - 当前分支：`main`
 - 工作区状态：`nothing to commit, working tree clean`
 - Node.js：`v16.x.x` 或更高
+- 敏感文件：.env、*.key.js 等应被 .gitignore 忽略
 
 **修复方案**：
 - 如有未提交变更 → 先 commit 或 stash
 - 如不在 main 分支 → `git checkout main`
 - 如有冲突 → 解决冲突后再发布
+- 如敏感文件未被忽略 → 更新 .gitignore 并移除已提交的敏感文件
 
 ---
 
@@ -161,6 +166,15 @@ ls -lh resources/native-ui/native-ui
 ---
 
 #### 2.2 更新版本号
+
+⚠️ **开发者确认必需**
+
+执行以下命令前，请确认：
+- 工作区已干净（无未提交变更）
+- 此操作将自动创建 git commit 和 tag
+- **是否继续版本升级？[需开发者手动确认]**
+
+确认后执行：
 ```bash
 # Patch 版本（1.7.0 → 1.7.1）
 npm version patch
@@ -237,6 +251,15 @@ git tag -f v1.7.1
 
 #### 3.2 提交构建产物和环境变量
 
+⚠️ **开发者确认必需**
+
+执行以下命令前，请仔细审查：
+- 运行 `git status` 检查将要提交的文件
+- 确认 dist/ 等构建产物已包含
+- 确认 .env 已切换为生产配置
+- **是否继续提交所有变更？[需开发者手动确认]**
+
+确认后执行：
 ```bash
 # 添加所有发布相关变更
 git add .
@@ -258,6 +281,17 @@ git tag -f v1.7.1
 
 #### 3.3 推送到 GitHub（触发自动发布）
 
+🚨 **开发者最终确认 - 关键操作**
+
+**警告**：此操作将触发自动发布流程，请最后确认：
+- ✅ 所有测试已通过
+- ✅ 构建产物已验证
+- ✅ CHANGELOG 已更新
+- ✅ commit 和 tag 已正确创建
+- ✅ 环境变量已切换到生产模式
+- **确认无误后推送到 GitHub？[需开发者最终确认]**
+
+确认后执行：
 ```bash
 # 推送代码和标签
 git push origin main --tags
@@ -456,7 +490,11 @@ git push origin main
    - 提醒切换生产环境变量
    - 每完成一个 Phase，输出简要总结
    - 每遇到错误，立即停止并报告
-   - 要求用户确认关键步骤（如推送到 GitHub）
+   - **🚨 必须在每个 git 操作前要求用户明确确认**：
+     - `npm version` 前确认工作区干净
+     - `git commit --amend` 前确认 CHANGELOG 已更新
+     - `git push` 前确认所有检查项通过
+   - 不要自动执行任何 git 命令，必须等待用户输入 Y/N 确认
 
 3. **使用结构化输出**：
    ```

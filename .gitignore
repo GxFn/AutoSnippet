@@ -41,7 +41,10 @@ test/integration/reports/
 /tmp/
 
 # Copilot 文档和任务记录（不跟随 git）
-copilotDocs/
+docs/copilot/
+
+# 临时开发脚本（不跟随 git）
+scratch/
 
 # 性能测试结果（本地生成，不提交）
 benchmarks/
@@ -55,8 +58,6 @@ AutoSnippet/
 
 # 其他 .autosnippet 缓存目录
 .autosnippet/
-.cursor/
-.vscode/
 
 # 构建产物（可选：若需提交 dist 可删此行）
 dashboard/dist/

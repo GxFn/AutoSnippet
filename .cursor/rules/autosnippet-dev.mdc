@@ -1,18 +1,26 @@
-## AutoSnippet 项目特性
+---
+description: AutoSnippet 开发环境 — 这是核心开发仓库，不是用户项目
+alwaysApply: true
+---
+
+# AutoSnippet 项目特性
 
 **重要**：本项目是 AutoSnippet 的核心开发仓库，不是用户项目环境。
 
-### 禁止操作
+## 禁止操作
+
 - **不要执行面向用户的 asd 命令**：如 `asd setup`、`asd embed`、`asd search` 等（这些是为用户项目设计的）
 - **不要在本项目启动测试性前端服务**：如 Dashboard UI 测试、开发服务器等
 - **不要把 AutoSnippet/ 目录当做用户的 Knowledge Base**：它是源代码库，不是某个用户的项目数据
 
-### 需要测试时
+## 需要测试时
+
 - **本地测试 asd 命令**：先运行 `npm run dev:link` 将开发代码部署到全局，然后要求开发者提供测试项目路径执行 asd 命令
 - **使用专门的测试脚本**：可执行 `test-*.js` 或 `scripts/` 中的开发工具脚本
 - **不要在 AutoSnippet 项目内测试用户命令**：避免混淆开发环境与用户项目环境
 
 ## 文件存放约定
+
 - **开发中的临时文档**：保存到 `docs/copilot/`（不跟随 git）
 - **临时测试脚本**：保存到 `scratch/`（不跟随 git）
 - **正式文档**：保存到 `docs/`（跟随 git）
