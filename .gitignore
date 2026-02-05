@@ -27,6 +27,7 @@ test-key.js
 .env
 .env.local
 .env.*.local
+.env.backup
 recipes/async-patterns/
 
 # 集成测试报告（本地生成，不提交）
