@@ -129,10 +129,11 @@ func spawnNode(root: String, integrityVerified: Bool) -> Int32 {
 }
 
 // MARK: - Main
-// 使用环境变量 ASD_SKIP_CHECKSUMS=1 可跳过完整性校验（仅限开发者模式）
+// 使用环境变量 ASD_SKIP_CHECKSUMS=1 或 ASD_SKIP_ENTRY_CHECK=1 可跳过完整性校验（仅限开发者模式）
 // 使用环境变量 ASD_DEBUG=1 可打印详细校验信息
 
-let skipChecksums = ProcessInfo.processInfo.environment["ASD_SKIP_CHECKSUMS"] == "1"
+let skipChecksums = ProcessInfo.processInfo.environment["ASD_SKIP_CHECKSUMS"] == "1" ||
+                    ProcessInfo.processInfo.environment["ASD_SKIP_ENTRY_CHECK"] == "1"
 let debugMode = ProcessInfo.processInfo.environment["ASD_DEBUG"] == "1"
 
 guard let root = getPackageRoot() else {

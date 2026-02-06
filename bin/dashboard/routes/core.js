@@ -360,51 +360,18 @@ function registerCoreRoutes(app, ctx) {
   });
 
   // API: 执行 Xcode 编辑器中的指令（search/create/audit）
-  // 通过创建临时文件触发 FileWatchService，调用真实的处理逻辑
+  // ⚠️ 已禁用：不再通过临时文件触发 watch - 模拟器搜索处理已关闭
   app.post('/api/execute', async (req, res) => {
     try {
-      const { type, query, line, content, source } = req.body;
+      const { type, query, line, content } = req.body;
       
       if (!type || !query) {
         return res.status(400).json({ error: 'Missing type or query' });
       }
 
-      // 生成指令标记
-      let directiveContent = '';
-      
-      // 添加来源标记（可以让 handler 知道是从模拟器还是真实 Xcode 发起）
-      if (source === 'simulator') {
-        directiveContent = `// SOURCE: simulator\n`;
-      }
-      
-      if (type === 'search') {
-        directiveContent += `// as:search ${query}\n`;
-      } else if (type === 'create') {
-        directiveContent += `// as:create ${query}\n`;
-      } else if (type === 'audit') {
-        directiveContent += `// as:audit ${query}\n`;
-      } else {
-        return res.status(400).json({ error: `Unknown type: ${type}` });
-      }
+      console.log(`[API Execute] 模拟器搜索已禁用: type=${type}, query=${query}`);
 
-      // 创建临时文件来触发 watch
-      const tempDir = path.join(projectRoot, '.autosnippet-temp');
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
-      }
-
-      const timestamp = Date.now();
-      const tempFileName = `.as-${type}-${timestamp}.swift`;
-      const tempFilePath = path.join(tempDir, tempFileName);
-
-      // 写入指令到临时文件（包括来源标记）
-      fs.writeFileSync(tempFilePath, directiveContent + (content || ''), 'utf8');
-      
-      console.log(`[API Execute] 已创建临时文件以触发 watch: ${tempFilePath}`);
-      console.log(`[API Execute] 来源: ${source === 'simulator' ? '✨ Xcode 模拟器' : '💻 真实 Xcode'}`);
-      console.log(`[API Execute] 指令内容: ${directiveContent.trim()}`);
-
-      // 对于搜索请求，同时返回搜索结果
+      // 对于搜索请求，直接返回搜索结果（不创建临时文件）
       let searchResults = [];
       if (type === 'search') {
         const rootSpecPath = Paths.getProjectSpecPath(projectRoot);

@@ -4,6 +4,25 @@
 
 ---
 
+## [1.7.3] - 2026-02-06
+
+### 修复
+
+- **搜索结果前缀问题**：移除搜索结果中的 `recipe_` 和 `AutoSnippet/recipes/` 前缀，确保 Web Dashboard 和 Native UI 显示一致的干净文件名
+  - 修复 Dashboard 搜索 API 中的 `normalizePath()` 函数
+  - 修复 SearchServiceV2 中的语义搜索结果标准化
+  - 支持向后兼容旧索引数据
+
+### 新增
+
+- **清除工具脚本**：
+  - `scripts/clear-old-vector-index.js` - 删除旧格式向量索引（含前缀）
+  - `scripts/clear-vector-cache.js` - 清除向量缓存
+
+- **基础设施增强**：
+  - `lib/context/WindowContextManager.js` - 窗口上下文管理
+  - `lib/simulation/SimulatorInsertionManager.js` - 模拟器插入管理
+
 ## [1.7.2] - 2026-02-06
 
 ### 新增

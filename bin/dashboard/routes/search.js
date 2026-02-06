@@ -168,6 +168,19 @@ function registerSearchRoutes(app, ctx) {
   }
 
   // 4. 合并和评分
+  // 路径标准化：移除多种前缀形式（兼容不同的数据来源）
+  // 源头修复：lib/context/IndexingPipeline.js 现在只保存相对路径，不含前缀
+  // 此函数处理来自不同来源的数据格式不一致问题
+  function normalizePath(pathStr) {
+    if (!pathStr) return pathStr;
+    // 移除前缀，优先级从高到低：
+    // 1. "recipe_" 前缀（来自向量索引的id字段）
+    // 2. "AutoSnippet/recipes/" 或 "AutoSnippet\\recipes\\"（旧形式的sourcePath）
+    return pathStr
+      .replace(/^recipe_/, '')              // 移除 vr.id 中的 "recipe_" 前缀
+      .replace(/^AutoSnippet[\\/]recipes[\\/]/, '');  // 移除旧 sourcePath 前缀
+  }
+
   debug(taskId, '4️⃣ Merge & Score Start', {
     vectorCount: vectorResults.length,
     keywordCount: keywordResults.length
@@ -175,23 +188,32 @@ function registerSearchRoutes(app, ctx) {
   const mergedMap = new Map();
   
   for (const vr of vectorResults) {
-    const key = vr.metadata?.name || vr.id || '';
+    const rawName = vr.metadata?.name || vr.id || '';
+    const normalizedName = normalizePath(rawName);
+    const key = normalizedName || rawName;
     if (!mergedMap.has(key)) {
     mergedMap.set(key, {
-      name: key,
+      name: normalizedName,
       content: vr.content || '',
       _vectorScore: vr._vectorScore,
       _keywordScore: 0,
-      ...vr
+      ...vr,
+      _originalName: rawName
     });
     }
   }
 
   for (const kr of keywordResults) {
-    if (!mergedMap.has(kr.name)) {
-    mergedMap.set(kr.name, kr);
+    const normalizedName = normalizePath(kr.name);
+    const key = normalizedName || kr.name;
+    if (!mergedMap.has(key)) {
+    mergedMap.set(key, {
+      ...kr,
+      name: normalizedName,
+      _originalName: kr.name
+    });
     } else {
-    const existing = mergedMap.get(kr.name);
+    const existing = mergedMap.get(key);
     existing._keywordScore = kr._keywordScore;
     existing._contextMatches = kr._contextMatches;
     existing._isContextRelevant = kr._isContextRelevant;
