@@ -114,6 +114,6 @@ description: 生成 Recipe 候选：单文件扫描或批量 Target 扫描。理
 - 常见误用与踩坑
 - 相关 Recipe/扩展读物
 
-> 详细版说明见本目录 [skills/autosnippet-candidates/SKILL_REDESIGNED.md](skills/autosnippet-candidates/SKILL_REDESIGNED.md)。
+> 详细版说明见本目录 [skills/autosnippet-candidates/SKILL_REDESIGNED.md](./../../skills/autosnippet-candidates/SKILL_REDESIGNED.md)。
 
 ```

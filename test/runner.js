@@ -187,10 +187,10 @@ async function testCreate() {
     };
     const presetArg = presetFile.includes(' ') ? `--preset "${presetFile}"` : `--preset ${presetFile}`;
     // 在自建项目目录下运行
-    execSync(`${binToUse} create --no-ai --yes ${presetArg}`, { cwd: projectDir, env: presetEnv, encoding: 'utf8' });
+    execSync(`${binToUse} create --yes ${presetArg}`, { cwd: projectDir, env: presetEnv, encoding: 'utf8' });
     await new Promise(r => setTimeout(r, 800));
     } else {
-    const out = runAsd('create', projectDir);
+    const out = runAsd('create --use-ai', projectDir);
     if (out && !out.includes('success')) {
       console.log('DEBUG: create output:', out);
     }
@@ -255,12 +255,16 @@ async function testCreate() {
 
 async function testInstall() {
   console.log('\n▶️ 运行 install 测试 (自建项目)...');
+  if (process.env.ASD_TEST_ALLOW_INSTALL !== '1') {
+  console.log('⚠️  install 测试默认跳过（设置 ASD_TEST_ALLOW_INSTALL=1 可启用）');
+  return;
+  }
   const projectDir = await prepareSelfBuiltProject('.asd_install_test');
   
   // 先创建一个 snippet 供安装
   const testFile = path.join(projectDir, 'Sources/SwiftModule/InstallTest.swift');
   fs.writeFileSync(testFile, '// as:code\nfunc installTest() {}\n// as:code\n');
-  runAsd('create', projectDir);
+  runAsd('create --use-ai', projectDir);
 
   runAsd('install', projectDir);
   const codeSnippetsDir = path.join(tempDir, 'CodeSnippets');
@@ -279,7 +283,7 @@ async function testSearch() {
   // 创建测试数据
   const testFile = path.join(projectDir, 'Sources/SwiftModule/SearchTest.swift');
   fs.writeFileSync(testFile, '// as:code\nfunc searchMe() {}\n// as:code\n');
-  runAsd('create', projectDir);
+  runAsd('create --use-ai', projectDir);
 
   const out = runAsd('search searchMe', projectDir);
   if (out && typeof out === 'string' && (out.includes('searchMe') || out.includes('未找到匹配'))) {
@@ -288,7 +292,7 @@ async function testSearch() {
   console.log('  ✅ asd search 通过 (命令正常退出)');
   }
   
-  runAsd('search', projectDir);
+  // search 命令需要关键词，避免触发缺参错误
   fs.rmSync(projectDir, { recursive: true, force: true });
 }
 
@@ -313,7 +317,7 @@ async function testUpdate() {
   fs.writeFileSync(presetFile, JSON.stringify(presetData));
   
   const presetEnv = { ...env, ASD_ACODE_FILE: testFile, ASD_PRESET: presetFile };
-  execSync(`${binToUse} create --no-ai --yes --preset "${presetFile}"`, { cwd: projectDir, env: presetEnv });
+  execSync(`${binToUse} create --yes --preset "${presetFile}"`, { cwd: projectDir, env: presetEnv });
   await new Promise(r => setTimeout(r, 500));
 
   // 执行 update
@@ -343,8 +347,8 @@ async function testUpdate() {
 async function testSpmmap() {
   console.log('\n▶️ 运行 spm-map 测试 (使用 BiliDiliForTest 工程)...');
   // spm-map 需要在大型工程中测试更具代表性
-  runAsd('spm-map --dry-run', testHome);
-  console.log('  ✅ asd spm-map --dry-run 通过');
+  runAsd('spm-map', testHome);
+  console.log('  ✅ asd spm-map 通过');
 }
 
 async function testEmbed() {

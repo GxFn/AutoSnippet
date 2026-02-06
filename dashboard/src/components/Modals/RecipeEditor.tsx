@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { X, Save, Eye, Edit3, Loader2 } from 'lucide-react';
 import { Recipe } from '../../types';
 import MarkdownWithHighlight from '../Shared/MarkdownWithHighlight';
+import HighlightedCodeEditor from '../Shared/HighlightedCodeEditor';
 import { ICON_SIZES } from '../../constants/icons';
 
 interface RecipeEditorProps {
@@ -24,14 +25,24 @@ const defaultStats = {
 
 const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRecipe, handleSaveRecipe, closeRecipeEdit, isSavingRecipe = false }) => {
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('preview');
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const REQUIRED_CATEGORIES = ['View', 'Service', 'Tool', 'Model', 'Network', 'Storage', 'UI', 'Utility'];
 
   const handleSetAuthority = async (authority: number) => {
-  try {
-    await axios.post('/api/recipes/set-authority', { name: editingRecipe.name, authority });
-    const stats = editingRecipe.stats ? { ...editingRecipe.stats, authority } : { ...defaultStats, authority };
-    setEditingRecipe({ ...editingRecipe, stats });
-  } catch (_) {}
+    try {
+      await axios.post('/api/recipes/set-authority', { name: editingRecipe.name, authority });
+      if (isMountedRef.current) {
+        const stats = editingRecipe.stats ? { ...editingRecipe.stats, authority } : { ...defaultStats, authority };
+        setEditingRecipe({ ...editingRecipe, stats });
+      }
+    } catch (_) {}
   };
 
   // 解析元数据和正文
@@ -194,11 +205,13 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
       <div className="flex-1 flex flex-col min-h-0">
       {viewMode === 'edit' ? (
         <>
-        <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Markdown Content</label>
-        <textarea
-          className="w-full flex-1 p-4 bg-slate-900 text-slate-100 font-mono text-xs rounded-xl outline-none leading-relaxed"
+        <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Markdown Content</label>
+        <HighlightedCodeEditor
           value={editingRecipe.content || ''}
-          onChange={e => setEditingRecipe({ ...editingRecipe, content: e.target.value })}
+          onChange={e => setEditingRecipe({ ...editingRecipe, content: e })}
+          language="markdown"
+          height="100%"
+          showLineNumbers={true}
         />
         </>
       ) : (

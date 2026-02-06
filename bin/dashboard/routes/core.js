@@ -11,6 +11,14 @@ function registerCoreRoutes(app, ctx) {
   unescapeSnippetLine,
   } = ctx;
 
+  const resolveProjectPath = (inputPath) => {
+  if (!inputPath) return null;
+  const rawPath = String(inputPath);
+  return path.isAbsolute(rawPath)
+    ? path.resolve(rawPath)
+    : path.resolve(projectRoot, rawPath);
+  };
+
   // API: 健康检查（用于检测 Dashboard 是否运行）
   app.get('/api/health', (req, res) => {
   res.json({ 
@@ -179,6 +187,379 @@ function registerCoreRoutes(app, ctx) {
     console.error('[API Error]', err);
     res.status(500).json({ error: err.message });
   }
+  });
+
+  // API: 获取文件树（仅 .h .m .swift 文件和文件夹）
+  app.get('/api/files/tree', (req, res) => {
+    try {
+      const rootPath = projectRoot;
+      const allowedExtensions = ['.h', '.m', '.swift'];
+      
+      const buildTree = (dirPath, maxDepth = 10, currentDepth = 0) => {
+        if (currentDepth >= maxDepth) return { type: 'folder', name: '...', path: dirPath, children: [] };
+        
+        try {
+          const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+          const children = [];
+          
+          for (const entry of entries) {
+            // 跳过隐藏文件和常见的构建/依赖文件夹
+            if (entry.name.startsWith('.') || 
+                ['node_modules', 'build', 'dist', 'DerivedData', 'Pods', '.git'].includes(entry.name)) {
+              continue;
+            }
+            
+            const fullPath = path.join(dirPath, entry.name);
+            const relativePath = path.relative(rootPath, fullPath);
+            
+            if (entry.isDirectory()) {
+              const subtree = buildTree(fullPath, maxDepth, currentDepth + 1);
+              if (subtree.children && subtree.children.length > 0) {
+                children.push(subtree);
+              }
+            } else if (entry.isFile()) {
+              const ext = path.extname(entry.name).toLowerCase();
+              if (allowedExtensions.includes(ext)) {
+                children.push({
+                  type: 'file',
+                  name: entry.name,
+                  path: fullPath,
+                  relativePath: relativePath,
+                  ext: ext
+                });
+              }
+            }
+          }
+          
+          return {
+            type: 'folder',
+            name: path.basename(dirPath) || dirPath,
+            path: dirPath,
+            relativePath: path.relative(rootPath, dirPath) || '',
+            children: children.sort((a, b) => {
+              // 文件夹优先，然后按名字排序
+              if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+              return a.name.localeCompare(b.name);
+            })
+          };
+        } catch (err) {
+          console.error(`[File Tree Error] ${dirPath}:`, err.message);
+          return { type: 'folder', name: path.basename(dirPath), path: dirPath, children: [] };
+        }
+      };
+      
+      const tree = buildTree(rootPath);
+      res.json({ tree, projectRoot });
+    } catch (err) {
+      console.error('[API Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API: 获取文件树（用于 Xcode 模拟器）
+  app.get('/api/tree', (req, res) => {
+    try {
+      const sourceFileExts = ['.h', '.m', '.swift']; // 只显示这些扩展名的文件
+      
+      const buildTree = (dirPath, maxDepth = 3, currentDepth = 0) => {
+        if (currentDepth >= maxDepth) return null;
+        
+        if (!fs.existsSync(dirPath)) {
+          return null;
+        }
+
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        const filtered = entries.filter(e => {
+          if (e.name.startsWith('.')) return false;
+          if (e.name === 'node_modules') return false;
+          
+          // 如果是文件，只保留指定扩展名的文件
+          if (!e.isDirectory()) {
+            const ext = path.extname(e.name).toLowerCase();
+            return sourceFileExts.includes(ext);
+          }
+          
+          return true; // 文件夹总是保留（用于递归遍历）
+        });
+
+        const children = filtered.map(entry => {
+          const fullPath = path.join(dirPath, entry.name);
+          const relPath = path.relative(projectRoot, fullPath);
+          
+          if (entry.isDirectory()) {
+            const subtree = buildTree(fullPath, maxDepth, currentDepth + 1);
+            // 只返回有内容的文件夹
+            if (subtree && subtree.children && subtree.children.length > 0) {
+              return {
+                type: 'folder',
+                name: entry.name,
+                path: relPath.replace(/\\/g, '/'),
+                children: subtree.children
+              };
+            }
+            return null; // 空文件夹不显示
+          } else {
+            return {
+              type: 'file',
+              name: entry.name,
+              path: relPath.replace(/\\/g, '/')
+            };
+          }
+        }).filter(item => item !== null) // 移除空文件夹
+          .sort((a, b) => {
+            if (a.type === b.type) return a.name.localeCompare(b.name);
+            return a.type === 'folder' ? -1 : 1;
+          });
+
+        return {
+          type: 'folder',
+          name: path.basename(dirPath),
+          path: path.relative(projectRoot, dirPath).replace(/\\/g, '/'),
+          children
+        };
+      };
+
+      const srcPath = path.join(projectRoot, 'src');
+      const tree = fs.existsSync(srcPath) ? buildTree(srcPath, 4) : buildTree(projectRoot, 3);
+      res.json(tree);
+    } catch (err) {
+      console.error('[API Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API: 保存文件内容（用于 Xcode 模拟器）
+  app.post('/api/save', (req, res) => {
+    try {
+      const { path: filePath, content } = req.body;
+      
+      if (!filePath || content === undefined) {
+        return res.status(400).json({ error: 'Missing path or content' });
+      }
+
+      // 验证路径安全性
+      const resolvedPath = resolveProjectPath(filePath);
+      const projectRootResolved = path.resolve(projectRoot);
+      
+      if (!resolvedPath.startsWith(projectRootResolved)) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      // 确保目录存在
+      const dir = path.dirname(resolvedPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      fs.writeFileSync(resolvedPath, content, 'utf8');
+      res.json({ success: true, path: filePath });
+    } catch (err) {
+      console.error('[API Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API: 执行 Xcode 编辑器中的指令（search/create/audit）
+  // 通过创建临时文件触发 FileWatchService，调用真实的处理逻辑
+  app.post('/api/execute', async (req, res) => {
+    try {
+      const { type, query, line, content, source } = req.body;
+      
+      if (!type || !query) {
+        return res.status(400).json({ error: 'Missing type or query' });
+      }
+
+      // 生成指令标记
+      let directiveContent = '';
+      
+      // 添加来源标记（可以让 handler 知道是从模拟器还是真实 Xcode 发起）
+      if (source === 'simulator') {
+        directiveContent = `// SOURCE: simulator\n`;
+      }
+      
+      if (type === 'search') {
+        directiveContent += `// as:search ${query}\n`;
+      } else if (type === 'create') {
+        directiveContent += `// as:create ${query}\n`;
+      } else if (type === 'audit') {
+        directiveContent += `// as:audit ${query}\n`;
+      } else {
+        return res.status(400).json({ error: `Unknown type: ${type}` });
+      }
+
+      // 创建临时文件来触发 watch
+      const tempDir = path.join(projectRoot, '.autosnippet-temp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
+      const timestamp = Date.now();
+      const tempFileName = `.as-${type}-${timestamp}.swift`;
+      const tempFilePath = path.join(tempDir, tempFileName);
+
+      // 写入指令到临时文件（包括来源标记）
+      fs.writeFileSync(tempFilePath, directiveContent + (content || ''), 'utf8');
+      
+      console.log(`[API Execute] 已创建临时文件以触发 watch: ${tempFilePath}`);
+      console.log(`[API Execute] 来源: ${source === 'simulator' ? '✨ Xcode 模拟器' : '💻 真实 Xcode'}`);
+      console.log(`[API Execute] 指令内容: ${directiveContent.trim()}`);
+
+      // 对于搜索请求，同时返回搜索结果
+      let searchResults = [];
+      if (type === 'search') {
+        const rootSpecPath = Paths.getProjectSpecPath(projectRoot);
+        try {
+          const rootSpec = specRepository.readSpecFile(rootSpecPath);
+          
+          // 遍历所有 snippets，查找匹配的
+          for (const [snippetId, snippet] of Object.entries(rootSpec.snippets || {})) {
+            if (!snippet) continue;
+            
+            const title = snippet.title || '';
+            const body = snippet.body || '';
+            const category = snippet.category || '';
+            const trigger = snippet.trigger || '';
+            
+            // 搜索关键词匹配
+            if (title.toLowerCase().includes(query.toLowerCase()) ||
+                body.toLowerCase().includes(query.toLowerCase()) ||
+                trigger.toLowerCase().includes(query.toLowerCase()) ||
+                category.toLowerCase().includes(query.toLowerCase())) {
+              searchResults.push({
+                id: snippetId,
+                title: title || snippetId,
+                body: body,
+                category: category,
+                language: snippet.language || 'swift',
+                trigger: trigger
+              });
+            }
+          }
+          
+          // 限制返回最多 10 个结果
+          searchResults = searchResults.slice(0, 10);
+          console.log(`[API Execute] 搜索到 ${searchResults.length} 个结果: ${query}`);
+        } catch (err) {
+          console.warn(`[API Execute] 搜索失败: ${err.message}`);
+        }
+      }
+
+      // 等待一段时间让 watch 处理
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // 清理临时文件（延迟 3 秒后删除，给 SearchHandler 足够的时间读取）
+      setTimeout(() => {
+        try {
+          if (fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
+            console.log(`[API Execute] 已清理临时文件: ${tempFilePath}`);
+          }
+        } catch (err) {
+          console.error(`[API Execute] 清理临时文件失败: ${err.message}`);
+        }
+      }, 3000);
+
+      // 返回成功响应
+      res.json({
+        success: true,
+        type,
+        query,
+        line,
+        message: `已触发 ${type} 指令，watch 监听器正在处理...`,
+        results: searchResults,  // 搜索结果（如果有）
+        timestamp: Date.now()
+      });
+    } catch (err) {
+      console.error('[API Execute Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API: 读取文件内容
+  app.get('/api/files/read', (req, res) => {
+    try {
+      let filePath = req.query.path || '';
+      // 验证路径安全性（防止路径遍历）
+      const resolvedPath = resolveProjectPath(filePath);
+      if (!resolvedPath) {
+        return res.status(400).json({ error: 'Missing path' });
+      }
+      const projectRootResolved = path.resolve(projectRoot);
+      
+      if (!resolvedPath.startsWith(projectRootResolved)) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      if (!fs.existsSync(resolvedPath)) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+      
+      const content = fs.readFileSync(resolvedPath, 'utf8');
+      res.json({
+        content,
+        path: resolvedPath,
+        relativePath: path.relative(projectRoot, resolvedPath).replace(/\\/g, '/')
+      });
+    } catch (err) {
+      console.error('[API Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API: 调用原生弹窗（macOS Native UI）
+  app.post('/api/native-dialog', async (req, res) => {
+    try {
+      const { type, title, message, options } = req.body;
+      const { execFileSync } = require('child_process');
+      
+      // 使用 AutoSnippet 项目根目录（相对于此文件）
+      const autoSnippetRoot = path.resolve(__dirname, '../../..');
+      const nativeUiPath = path.join(autoSnippetRoot, 'resources/native-ui/native-ui');
+      
+      console.log('[Native Dialog] Request:', { type, title, options });
+      console.log('[Native Dialog] Native UI path:', nativeUiPath);
+      
+      // 检查 native-ui 是否存在
+      if (!fs.existsSync(nativeUiPath)) {
+        console.error('[Native Dialog] Binary not found at:', nativeUiPath);
+        return res.status(503).json({ 
+          error: 'Native UI not built', 
+          fallback: true,
+          suggestion: 'Run: npm run build:native-ui' 
+        });
+      }
+
+      let result = null;
+      
+      if (type === 'preview') {
+        // 预览确认弹窗
+        console.log('[Native Dialog] Executing preview...');
+        execFileSync(nativeUiPath, ['preview', title || 'Preview', message || ''], {
+          stdio: ['ignore', 'pipe', 'inherit']
+        });
+        result = { confirmed: true };
+        console.log('[Native Dialog] Preview confirmed');
+      } else if (type === 'list' && options && Array.isArray(options)) {
+        // 列表选择弹窗
+        console.log('[Native Dialog] Executing list with options:', options);
+        const args = ['list', ...options];
+        const output = execFileSync(nativeUiPath, args, {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'inherit']
+        }).trim();
+        const selectedIndex = parseInt(output, 10);
+        result = { selectedIndex, selectedOption: options[selectedIndex] };
+        console.log('[Native Dialog] User selected:', result);
+      } else {
+        return res.status(400).json({ error: 'Invalid dialog type or missing options' });
+      }
+
+      res.json({ success: true, result });
+    } catch (err) {
+      console.error('[Native Dialog Error]', err);
+      // 用户取消或其他错误
+      res.json({ success: false, cancelled: true, error: err.message });
+    }
   });
 }
 

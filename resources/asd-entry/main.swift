@@ -36,35 +36,52 @@ func sha256Hex(filePath: String) -> String? {
 }
 
 /// 校验 checksums.json 中列出的文件。拒绝 relPath 含 ".." 或为绝对路径。
-func verifyIntegrity(root: String, checksumsPath: String) -> Bool {
+/// 根据环境变量决定是否打印详细信息（开发者模式）。
+func verifyIntegrity(root: String, checksumsPath: String, debugMode: Bool) -> Bool {
 	guard let data = try? Data(contentsOf: URL(fileURLWithPath: checksumsPath)) else {
-		fputs("asd: 无法读取 checksums.json\n", stderr)
+		if debugMode {
+			fputs("asd: 无法读取 checksums.json\n", stderr)
+		}
 		return false
 	}
 	guard let json = try? JSONSerialization.jsonObject(with: data),
 	      let entries = json as? [String: String] else {
-		fputs("asd: checksums.json 格式无效\n", stderr)
+		if debugMode {
+			fputs("asd: checksums.json 格式无效\n", stderr)
+		}
 		return false
 	}
 	let rootNorm = (root as NSString).standardizingPath
 	for (relPath, expectedHex) in entries {
 		if relPath.hasPrefix("/") || relPath.contains("..") {
-			fputs("asd: 校验拒绝非法路径: \(relPath)\n", stderr)
+			if debugMode {
+				fputs("asd: 校验拒绝非法路径: \(relPath)\n", stderr)
+			}
 			return false
 		}
 		let fullPath = (root as NSString).appendingPathComponent(relPath)
 		let fullNorm = (fullPath as NSString).standardizingPath
 		let rootSlash = rootNorm.hasSuffix("/") ? rootNorm : rootNorm + "/"
 		guard fullNorm == rootNorm || fullNorm.hasPrefix(rootSlash) else {
-			fputs("asd: 校验拒绝路径逃逸: \(relPath)\n", stderr)
+			if debugMode {
+				fputs("asd: 校验拒绝路径逃逸: \(relPath)\n", stderr)
+			}
 			return false
 		}
 		guard let actualHex = sha256Hex(filePath: fullPath) else {
-			fputs("asd: 完整性校验失败: \(relPath)\n", stderr)
+			if debugMode {
+				fputs("asd: 完整性校验失败: \(relPath)\n", stderr)
+			} else {
+				fputs("asd: 完整性校验失败\n", stderr)
+			}
 			return false
 		}
 		if actualHex.lowercased() != expectedHex.lowercased() {
-			fputs("asd: 完整性校验失败: \(relPath)\n", stderr)
+			if debugMode {
+				fputs("asd: 完整性校验失败: \(relPath)\n", stderr)
+			} else {
+				fputs("asd: 完整性校验失败\n", stderr)
+			}
 			return false
 		}
 	}
@@ -112,6 +129,11 @@ func spawnNode(root: String, integrityVerified: Bool) -> Int32 {
 }
 
 // MARK: - Main
+// 使用环境变量 ASD_SKIP_CHECKSUMS=1 可跳过完整性校验（仅限开发者模式）
+// 使用环境变量 ASD_DEBUG=1 可打印详细校验信息
+
+let skipChecksums = ProcessInfo.processInfo.environment["ASD_SKIP_CHECKSUMS"] == "1"
+let debugMode = ProcessInfo.processInfo.environment["ASD_DEBUG"] == "1"
 
 guard let root = getPackageRoot() else {
 	fail("asd: 无法解析包根目录")
@@ -119,8 +141,15 @@ guard let root = getPackageRoot() else {
 
 let checksumsPath = (root as NSString).appendingPathComponent("checksums.json")
 var integrityVerified = false
-if FileManager.default.fileExists(atPath: checksumsPath) {
-	if !verifyIntegrity(root: root, checksumsPath: checksumsPath) {
+
+// 如果开发者模式跳过校验，直接启动 Node
+if skipChecksums {
+	if debugMode {
+		fputs("asd: 开发者模式，跳过完整性校验\n", stderr)
+	}
+	integrityVerified = false
+} else if FileManager.default.fileExists(atPath: checksumsPath) {
+	if !verifyIntegrity(root: root, checksumsPath: checksumsPath, debugMode: debugMode) {
 		exit(1)
 	}
 	integrityVerified = true

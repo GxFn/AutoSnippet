@@ -25,6 +25,11 @@ function registerCommands(cmd, ctx) {
   // 配置 version 选项
   cmd.version(pjson.version, '-v, --version', 'output the current version');
 
+  // 全局选项（用于非交互/预置输入）
+  cmd
+  .option('-p, --preset <path>', 'preset input JSON path')
+  .option('-y, --yes', 'run without interactive prompts');
+
   function getSpecFile(callback) {
   findPath.findASSpecPath(CMD_PATH, callback);
   }
@@ -380,7 +385,7 @@ function registerCommands(cmd, ctx) {
   cmd
   .command('create')
   .alias('c')
-  .option('-ai', '--use-ai', 'use AI to create snippet')
+  .option('-a, --use-ai', 'use AI to create snippet')
   .description('create an Xcode Snippet, in the file directory marked with `// autosnippet:code`')
   .action(async (options) => {
     const { preset: presetPath, yes } = getGlobalOptions();
@@ -503,7 +508,7 @@ function registerCommands(cmd, ctx) {
     const projectRoot = options.dir || process.env.ASD_CWD || CMD_PATH;
     
     // 提示用户 watch 功能已包含
-    const isDebugMode = process.env.ASD_DEBUG_WATCH === '1' || process.env.ASD_DEBUG_SEARCH === '1';
+    const isDebugMode = process.env.ASD_DEBUG === '1';
     if (isDebugMode) {
       console.log('💡 调试模式已启用，将显示文件监听日志');
     }
@@ -611,8 +616,7 @@ Advanced:
   asd install:full --parser       # 全量安装 + Swift 解析器
 
 Debug modes:
-  ASD_DEBUG_WATCH=1 asd ui         # Dashboard + 文件监听日志
-  ASD_DEBUG_SEARCH=1 asd ui        # Dashboard + 搜索调试日志
+  ASD_DEBUG=1 asd ui              # 开发者模式：显示所有调试日志
 
 Notes:
   - 老命令仍可用：i/c/e/u/w/s 只是别名，不会破坏现有脚本。

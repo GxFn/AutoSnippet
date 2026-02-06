@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { X, Search, CheckCircle } from 'lucide-react';
 import { ICON_SIZES } from '../../constants/icons';
@@ -28,27 +28,57 @@ const SearchModal: React.FC<SearchModalProps> = ({ searchQ, insertPath, onClose 
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [inserting, setInserting] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-  const q = searchQ ? encodeURIComponent(searchQ) : '';
-  axios.get<{ results: SearchResult[]; total: number }>(`/api/recipes/search?q=${q}`)
-    .then(res => setResults(res.data.results || []))
-    .catch(() => setResults([]))
-    .finally(() => setLoading(false));
+    isMountedRef.current = true;
+    const q = searchQ ? encodeURIComponent(searchQ) : '';
+    abortControllerRef.current = new AbortController();
+    
+    axios.get<{ results: SearchResult[]; total: number }>(`/api/recipes/search?q=${q}`, { signal: abortControllerRef.current.signal })
+      .then(res => {
+        if (isMountedRef.current) {
+          setResults(res.data.results || []);
+        }
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError' && isMountedRef.current) {
+          setResults([]);
+        }
+      })
+      .finally(() => {
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [searchQ]);
 
   const handleInsert = async (result: SearchResult) => {
-  setInserting(result.name);
-  try {
-    const content = extractFirstCodeBlock(result.content);
-    await axios.post('/api/insert-at-search-mark', { path: insertPath, content });
-    alert('✅ 已插入到 ' + insertPath);
-    onClose();
-  } catch (err) {
-    alert('❌ 插入失败');
-  } finally {
-    setInserting(null);
-  }
+    setInserting(result.name);
+    try {
+      const content = extractFirstCodeBlock(result.content);
+      await axios.post('/api/insert-at-search-mark', { path: insertPath, content });
+      if (isMountedRef.current) {
+        alert('✅ 已插入到 ' + insertPath);
+        onClose();
+      }
+    } catch (err) {
+      if (isMountedRef.current) {
+        alert('❌ 插入失败');
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setInserting(null);
+      }
+    }
   };
 
   return (

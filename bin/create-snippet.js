@@ -221,6 +221,37 @@ function createCodeSnippets(specFile, answers, updateSnippet, selectedFilePath) 
   }
 }
 
+/**
+ * 使用预置输入创建 snippet（无交互）
+ * @param {string} specFile
+ * @param {object} preset
+ * @returns {Promise<boolean>}
+ */
+async function createCodeSnippetsWithPreset(specFile, preset) {
+  try {
+  if (!preset || !preset.title || !preset.completion_first) {
+    console.error('❌ 预置输入缺少必要字段: title / completion_first');
+    return false;
+  }
+
+  let selectedFilePath = process.env.ASD_ACODE_FILE || null;
+  if (!selectedFilePath) {
+    const filesWithACode = await findFilesWithACode(CMD_PATH);
+    if (!filesWithACode.length) {
+    console.error('❌ 未找到包含 // autosnippet:code 标记的文件');
+    return false;
+    }
+    selectedFilePath = filesWithACode[0].path;
+  }
+
+  createCodeSnippets(specFile, preset, null, selectedFilePath);
+  return true;
+  } catch (err) {
+  console.error('❌ 预置创建失败:', err.message);
+  return false;
+  }
+}
+
 function readStream(specFile, filePathArr, snippet, isHaveHeader) {
   if (filePathArr.length === 0) {
   console.log('未找到由 // as:code 或 // autosnippet:code 标识的代码块，请检查当前文件目录。');
@@ -488,6 +519,7 @@ async function createFromFileWithAi(projectRoot, specFile, selectedFilePath) {
 }
 
 exports.createCodeSnippets = createCodeSnippets;
+exports.createCodeSnippetsWithPreset = createCodeSnippetsWithPreset;
 exports.updateCodeSnippets = updateCodeSnippets;
 exports.saveFromFile = saveFromFile;
 exports.findFilesWithACode = findFilesWithACode;

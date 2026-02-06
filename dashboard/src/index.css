@@ -8,3 +8,36 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* 隐藏滚动条但保持滚动功能 */
+.scrollbar-hidden {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* 编辑器深色滚动条样式 */
+.editor-with-dark-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.editor-with-dark-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.editor-with-dark-scrollbar::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 5px;
+}
+
+.editor-with-dark-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Firefox 滚动条样式 */
+.editor-with-dark-scrollbar {
+  scrollbar-color: #444 transparent;
+}

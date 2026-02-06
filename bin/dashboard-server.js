@@ -132,7 +132,7 @@ async function launch(projectRoot, port = 3000, options = {}) {
   const forceBuild = options.forceBuild === true || process.env.ASD_UI_BUILD === '1' || process.env.ASD_UI_REBUILD === '1';
   
   // 1. 在后台启动 Watcher（支持调试模式）
-  const isDebugMode = process.env.ASD_DEBUG_WATCH === '1' || process.env.ASD_DEBUG_SEARCH === '1';
+  const isDebugMode = process.env.ASD_DEBUG === '1';
   if (isDebugMode) {
   console.log(`[Dashboard] 正在启动项目监听器（调试模式）...`);
   } else {

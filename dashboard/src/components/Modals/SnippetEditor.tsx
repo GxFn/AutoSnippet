@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Save, FileCode, Eye, Edit3 } from 'lucide-react';
 import axios from 'axios';
 import { Snippet } from '../../types';
 import { categories } from '../../constants';
 import CodeBlock from '../Shared/CodeBlock';
+import HighlightedCodeEditor from '../Shared/HighlightedCodeEditor';
 import { ICON_SIZES } from '../../constants/icons';
 
 interface SnippetEditorProps {
@@ -15,27 +16,49 @@ interface SnippetEditorProps {
 
 const SnippetEditor: React.FC<SnippetEditorProps> = ({ editingSnippet, setEditingSnippet, handleSaveSnippet, closeSnippetEdit }) => {
   const [codeView, setCodeView] = useState<'edit' | 'preview'>('preview');
+  const isMountedRef = useRef(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      // 取消未完成的请求
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const codeText = (editingSnippet.content || editingSnippet.body || []).join('\n');
   const codeLang = editingSnippet.language === 'objc' ? 'objectivec' : (editingSnippet.language || 'text');
 
   const handleAiRewrite = async () => {
-  try {
-    const res = await axios.post('/api/ai/summarize', { 
-    code: (editingSnippet.content || editingSnippet.body || []).join('\n'), 
-    language: editingSnippet.language 
-    }); 
-    if (res.data.title_cn || res.data.title) { 
-    setEditingSnippet({
-      ...editingSnippet, 
-      title: res.data.title_cn || res.data.title, 
-      summary: res.data.summary_cn || res.data.summary, 
-      completionKey: res.data.trigger,
-      content: res.data.code ? res.data.code.split('\n') : (editingSnippet.content || editingSnippet.body || [])
-    }); 
-    } 
-  } catch (err) {
-    alert('AI rewrite failed');
-  }
+    try {
+      abortControllerRef.current = new AbortController();
+      const res = await axios.post('/api/ai/summarize', 
+        { 
+          code: (editingSnippet.content || editingSnippet.body || []).join('\n'), 
+          language: editingSnippet.language 
+        },
+        { signal: abortControllerRef.current.signal }
+      );
+      
+      // 只在组件还挂载时更新状态
+      if (isMountedRef.current && res.data.title_cn || res.data.title) { 
+        setEditingSnippet({
+          ...editingSnippet, 
+          title: res.data.title_cn || res.data.title, 
+          summary: res.data.summary_cn || res.data.summary, 
+          completionKey: res.data.trigger,
+          content: res.data.code ? res.data.code.split('\n') : (editingSnippet.content || editingSnippet.body || [])
+        }); 
+      } 
+    } catch (err: any) {
+      // 忽略 abort 错误
+      if (err.name !== 'AbortError' && isMountedRef.current) {
+        alert('AI rewrite failed');
+      }
+    }
   };
 
   return (
@@ -118,7 +141,12 @@ const SnippetEditor: React.FC<SnippetEditorProps> = ({ editingSnippet, setEditin
           AI Rewrite
           </button>
         </div>
-        <textarea className="w-full h-64 p-4 bg-slate-900 text-slate-100 font-mono text-xs rounded-xl outline-none" value={codeText} onChange={e => setEditingSnippet({...editingSnippet, content: (e.target.value || '').split('\n')})} />
+        <HighlightedCodeEditor
+          value={codeText}
+          onChange={(code) => setEditingSnippet({...editingSnippet, content: code.split('\n')})}
+          language={codeLang}
+          height="400px"
+        />
         </div>
       </>
       ) : (

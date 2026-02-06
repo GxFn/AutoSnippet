@@ -6,6 +6,7 @@ import { notify } from '../../utils/notification';
 import { categories } from '../../constants';
 import { ICON_SIZES } from '../../constants/icons';
 import CodeBlock from '../Shared/CodeBlock';
+import HighlightedCodeEditor from '../Shared/HighlightedCodeEditor';
 import MarkdownWithHighlight, { stripFrontmatter } from '../Shared/MarkdownWithHighlight';
 import ContextAwareSearchPanel from './ContextAwareSearchPanel';
 
@@ -533,12 +534,12 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
           )}
           </div>
           {editingCodeIndex === i ? (
-          <div className="bg-slate-900 rounded-xl p-4 overflow-x-auto">
-            <textarea
-            className="w-full bg-transparent text-xs text-slate-100 font-mono leading-relaxed outline-none resize-none"
-            rows={Math.min(12, res.code.split('\n').length)}
-            value={res.code}
-            onChange={e => handleUpdateScanResult(i, { code: e.target.value })}
+          <div className="rounded-xl overflow-hidden">
+            <HighlightedCodeEditor
+              value={res.code}
+              onChange={(code) => handleUpdateScanResult(i, { code })}
+              language={codeLang(res)}
+              height={`${Math.min(12, res.code.split('\n').length) * 20 + 16}px`}
             />
           </div>
           ) : (

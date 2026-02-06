@@ -18,6 +18,7 @@ import SPMExplorerView from './components/Views/SPMExplorerView';
 import DepGraphView from './components/Views/DepGraphView';
 import GuardView from './components/Views/GuardView';
 import AiChatView from './components/Views/AiChatView';
+import XcodeSimulator from './pages/XcodeSimulator';
 import SnippetEditor from './components/Modals/SnippetEditor';
 import RecipeEditor from './components/Modals/RecipeEditor';
 import CreateModal from './components/Modals/CreateModal';
@@ -775,14 +776,17 @@ ${usageGuide_en}`;
 
   const candidateCount = Object.values(data?.candidates || {}).reduce((acc, curr) => acc + curr.items.length, 0);
 
+  const isDarkMode = activeTab === 'editor';
+
   return (
-  <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans">
+  <div className={`flex h-screen ${isDarkMode ? 'bg-[#1e1e1e] text-slate-200' : 'bg-slate-50 text-slate-900'} overflow-hidden font-sans`}>
     <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
     <Sidebar 
     activeTab={activeTab} 
     navigateToTab={navigateToTab} 
     handleRefreshProject={handleRefreshProject} 
-    candidateCount={candidateCount} 
+    candidateCount={candidateCount}
+    isDarkMode={isDarkMode}
     />
 
     <main className="flex-1 flex flex-col overflow-hidden relative">
@@ -794,6 +798,7 @@ ${usageGuide_en}`;
       aiConfig={data?.aiConfig}
       onBeforeAiSwitch={stopCurrentAiTasks}
       onAiConfigChange={fetchData}
+      isDarkMode={isDarkMode}
       onSemanticSearchResults={(results) => {
       setSemanticResults(results);
       if (activeTab !== 'recipes' && activeTab !== 'snippets') {
@@ -809,7 +814,7 @@ ${usageGuide_en}`;
       />
     )}
 
-    <div className="flex-1 overflow-y-auto p-8">
+    <div className={`flex-1 overflow-y-auto ${activeTab === 'editor' ? '' : 'p-8'}`}>
       {loading ? (
       <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -833,8 +838,6 @@ ${usageGuide_en}`;
       />
       ) : activeTab === 'guard' ? (
       <GuardView onRefresh={fetchData} />
-      ) : activeTab === 'help' ? (
-      <HelpView />
       ) : activeTab === 'candidates' ? (
       <CandidatesView 
         data={data} 
@@ -891,6 +894,10 @@ ${usageGuide_en}`;
         recipes={data?.recipes ?? []}
         isSavingRecipe={isSavingRecipe}
       />
+      ) : activeTab === 'editor' ? (
+      <XcodeSimulator />
+      ) : activeTab === 'help' ? (
+      <HelpView />
       ) : (
       <AiChatView 
         chatHistory={chatHistory} 
