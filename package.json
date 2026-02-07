@@ -1,6 +1,6 @@
 {
   "name": "autosnippet",
-  "version": "1.7.3",
+  "version": "1.7.4",
   "description": "AutoSnippet Dashboard - 连接开发者、AI 与项目知识库的工具",
   "main": "index.js",
   "scripts": {
