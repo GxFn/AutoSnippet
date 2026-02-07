@@ -7,14 +7,43 @@
 if (process.platform !== 'darwin') process.exit(0);
 
 const path = require('path');
+const fs = require('fs');
 const { execSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const src = path.join(root, 'resources', 'native-ui', 'main.swift');
+const combinedSrc = path.join(root, 'resources', 'native-ui', 'combined-window.swift');
 const out = path.join(root, 'resources', 'native-ui', 'native-ui');
 
+// 检查是否在发布流程中（npm publish 会设置 npm_lifecycle_event）
+const isPublishing = process.env.npm_lifecycle_event === 'prepublishOnly';
+
 try {
-	execSync(`swiftc "${src}" -o "${out}" -framework AppKit`, { cwd: root, stdio: 'pipe' });
-} catch (_) {
-	// Swift 未安装或构建失败，静默跳过
+	// 编译 native-ui（包含所有源文件）
+	execSync(`swiftc "${src}" "${combinedSrc}" -o "${out}" -framework AppKit`, { 
+		cwd: root, 
+		stdio: 'pipe' 
+	});
+	
+	// 验证构建结果
+	if (fs.existsSync(out)) {
+		console.log('✅ Native UI 构建成功');
+	}
+} catch (err) {
+	// 如果在发布流程中构建失败，应该报错
+	if (isPublishing) {
+		console.error('❌ Native UI 构建失败（发布流程中）');
+		console.error('请确保：');
+		console.error('  1. 当前系统是 macOS');
+		console.error('  2. 已安装 Xcode Command Line Tools: xcode-select --install');
+		console.error('  3. Swift 编译器可用: which swiftc');
+		process.exit(1);
+	}
+	
+	// 在用户安装时，如果已有预编译的二进制文件，静默跳过
+	if (fs.existsSync(out)) {
+		console.log('ℹ️  使用预编译的 Native UI');
+	} else {
+		console.log('⚠️  Native UI 未构建（部分功能可能不可用）');
+	}
 }
