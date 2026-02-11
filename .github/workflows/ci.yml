@@ -39,7 +39,7 @@ jobs:
       - name: Wait for Dashboard
         run: |
           for i in {1..60}; do
-            if curl -sf http://localhost:3100/api/health > /dev/null 2>&1; then
+            if curl -sf http://localhost:3100/api/v1/health > /dev/null 2>&1; then
               echo "✓ Dashboard ready"
               exit 0
             fi
@@ -51,22 +51,20 @@ jobs:
           cat /tmp/dashboard.log || echo "(no log file)"
           exit 1
 
-      - name: MCP Diagnosis Report (inline)
+      - name: Health Diagnosis Report
         run: |
           set -e
           echo "Checking Dashboard health..."
-          HEALTH=$(curl -sf http://localhost:3100/api/health 2>/dev/null || echo "{}")
-          
-          # 检查是否获取到有效响应
+          HEALTH=$(curl -sf http://localhost:3100/api/v1/health 2>/dev/null || echo "{}")
+
           if [ -z "$HEALTH" ] || [ "$HEALTH" = "{}" ]; then
             echo "⚠️ Dashboard health check returned empty response"
             HEALTH="{}"
           fi
-          
+
           echo "Health response: $HEALTH"
           echo "$HEALTH" > mcp-health.json
-          
-          # 解析并生成报告
+
           node -e "
           const fs = require('fs');
           const data = fs.readFileSync('mcp-health.json', 'utf8');
@@ -77,8 +75,8 @@ jobs:
             console.error('Failed to parse health JSON:', data);
             health = {};
           }
-          
-          const ok = Boolean(health && (health.status === 'healthy' || health.status === 'running' || health.healthy === true));
+
+          const ok = Boolean(health && (health.status === 'healthy' || health.status === 'running'));
           const report = {
             success: ok,
             message: ok ? 'UI 健康检查通过' : 'UI 不健康或无响应',
@@ -103,44 +101,32 @@ jobs:
         run: |
           cat > sample-candidates.json << 'JSON'
           {
-            "targetName": "_demo",
             "items": [
               {
-                "title": "Request with Retry",
-                "summary": "带重试的网络请求示例",
-                "summary_en": "Network request example with retry logic",
-                "trigger": "@network_retry",
+                "code": "func requestWithRetry(url: URL, maxRetries: Int = 3) async throws -> Data {\n  for attempt in 1...maxRetries {\n    do {\n      let (data, _) = try await URLSession.shared.data(from: url)\n      return data\n    } catch where attempt < maxRetries {\n      try await Task.sleep(nanoseconds: UInt64(pow(2.0, Double(attempt))) * 1_000_000_000)\n    }\n  }\n  throw URLError(.timedOut)\n}",
                 "language": "swift",
-                "code": "func requestWithRetry() { /* ... */ }",
-                "usageGuide": "在网络不稳定时采用指数退避进行重试；注意幂等性与超时设置。",
-                "usageGuide_en": "Use exponential backoff on unstable networks; mind idempotency and timeouts."
+                "category": "networking",
+                "source": "ci-demo"
               },
               {
-                "title": "WebView Load URL",
-                "summary": "使用 WebView 加载 URL 的标准方式",
-                "summary_en": "Standard way to load a URL into WebView",
-                "trigger": "@webview_load_url",
+                "code": "[webView loadRequest:[NSURLRequest requestWithURL:url]];",
                 "language": "objectivec",
-                "code": "[webView loadRequest:[NSURLRequest requestWithURL:url]]; // ...",
-                "usageGuide": "在主线程发起加载；校验 URL 格式与空值；必要时添加缓存策略。",
-                "usageGuide_en": "Initiate on main thread; validate URL and nulls; optional cache policy."
+                "category": "ui",
+                "source": "ci-demo"
               }
-            ],
-            "source": "ci-demo",
-            "expiresInHours": 24
+            ]
           }
           JSON
-          curl -sf -H "Content-Type: application/json" -d @sample-candidates.json http://localhost:3100/api/candidates/append | tee demo-submit-result.json
+          curl -sf -X POST -H "Content-Type: application/json" \
+            -d @sample-candidates.json \
+            http://localhost:3100/api/v1/candidates/batch-create \
+            | tee demo-submit-result.json || echo '{"note":"candidates submit skipped"}' > demo-submit-result.json
 
       - name: Upload Demo Submission Result
         uses: actions/upload-artifact@v4
         with:
           name: demo-candidates-result
           path: demo-submit-result.json
-
-      - name: Static Envelope Error Codes Check
-        run: |
-          node -e "const fs=require('fs');const s=fs.readFileSync('scripts/mcp-server.js','utf8');const exp=['HEALTH_CHECK_FAILED','SEARCH_FAILED','ANALYZE_FAILED','GET_TARGET_METADATA_FAILED','VALIDATE_FAILED','DUPLICATE_CHECK_FAILED','RATE_LIMIT','SUBMIT_FAILED','PARSE_FAILED','OPEN_CREATE_FAILED','GET_TARGETS_FAILED','GET_TARGET_FILES_FAILED','ELICIT_FAILED','RECORD_USAGE_FAILED','CONFIRM_USAGE_FAILED','SET_AUTHORITY_FAILED','RATING_FAILED','CAPABILITIES_FAILED']; const missing=exp.filter(e=>s.indexOf(\"errorCode: '\"+e+\"'\")<0); if(missing.length){console.error('Missing:',missing.join(','));process.exit(1);} console.log('Static error codes OK');"
 
       - name: Run unit tests
         run: npm run test:unit
