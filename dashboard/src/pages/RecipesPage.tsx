@@ -206,6 +206,7 @@ const RecipesPage: React.FC = () => {
     setEditingRecipe(recipe);
     setEditForm({
       title: recipe.title || '',
+      trigger: recipe.trigger || '',
       language: recipe.language || 'swift',
       category: recipe.category || '',
       description: recipe.description || '',
