@@ -258,6 +258,7 @@ program
   .description('启动 Dashboard UI（API 服务 + 前端开发服务器）')
   .option('-p, --port <port>', 'API 服务端口', '3000')
   .option('-b, --browser', '自动打开浏览器')
+  .option('--no-open', '禁止自动打开浏览器（CI/CD 环境适用）')
   .option('-d, --dir <directory>', '指定 AutoSnippet 项目目录（默认：当前目录）')
   .option('--api-only', '仅启动 API 服务（不启动前端）')
   .action(async (opts) => {
