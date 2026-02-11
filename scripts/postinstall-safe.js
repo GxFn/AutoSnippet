@@ -50,22 +50,9 @@ function checkBinaries() {
   });
 }
 
-// 检查 Swift 解析器（仅在显式要求时构建）
-function checkSwiftParser() {
-  const binaryPath = path.join(root, 'tools', 'parse-package', '.build', 'release', 'ParsePackage');
-  
-  if (fs.existsSync(binaryPath)) {
-    console.log('✅ Swift 解析器: 已安装');
-  } else if (process.env.ASD_BUILD_SWIFT_PARSER === '1') {
-    console.log('ℹ️  Swift 解析器: 需要手动构建');
-    console.log('   运行: cd tools/parse-package && swift build -c release');
-  }
-}
-
 // 主流程
 console.log('\n📦 AutoSnippet 安装检查...\n');
 
 checkBinaries();
-checkSwiftParser();
 
 console.log('\n✅ 安装完成！运行 asd -h 查看帮助\n');

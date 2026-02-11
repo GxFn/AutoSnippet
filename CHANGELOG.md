@@ -4,6 +4,25 @@
 
 ---
 
+## [2.0.1] - 2025-07-25
+
+### 移除
+
+- **Swift 解析器**：移除 `tools/parse-package/` 全部代码；V2 内置 AST-lite 解析器（`lib/service/spm/PackageSwiftParser.js`）已完全覆盖所有字段，无需外部 Swift 编译
+- `postinstall-safe.js` 中 `checkSwiftParser()` 检查
+- `package.json` 中 `build:parser` 脚本及 `files` 中 4 条 `tools/parse-package/*` 条目
+- `.env.example` 中 `ASD_SWIFT_PARSER_*` / `ASD_USE_DUMP_PACKAGE` 环境变量
+- README "Swift 解析器（可选）" 章节及 `--parser` 参数说明
+
+### 修复
+
+- CI 工作流升级至 V2 路由（`/api/v1/`），移除兼容别名
+- CI `asd ui --no-open` 选项支持
+- Dashboard 构建修复（删除废弃 `DashboardPage.tsx`，补齐 `trigger` 字段）
+- V1 残留清理（9 文件：文档路由、注释、路径引用）
+
+---
+
 ## [2.0.0] - 2026-02-12
 
 ### 重大变更

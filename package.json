@@ -1,6 +1,6 @@
 {
   "name": "autosnippet",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "AutoSnippet - 连接开发者、AI 与项目知识库的工具",
   "type": "module",
   "main": "lib/bootstrap.js",
@@ -10,7 +10,6 @@
   "scripts": {
     "postinstall": "node scripts/postinstall-safe.js",
     "prepublishOnly": "node scripts/build-native-ui.js && node scripts/build-asd-entry.js",
-    "build:parser": "cd tools/parse-package && swift build -c release",
     "build:native-ui": "swiftc resources/native-ui/main.swift resources/native-ui/combined-window.swift -o resources/native-ui/native-ui -framework AppKit",
     "install:cursor-skill": "node scripts/install-cursor-skill.js",
     "install:cursor-skill:mcp": "node scripts/install-cursor-skill.js --mcp",
@@ -91,10 +90,6 @@
     "templates",
     "dashboard/dist",
     "template.json",
-    "tools/parse-package/Package.swift",
-    "tools/parse-package/Package.resolved",
-    "tools/parse-package/README.md",
-    "tools/parse-package/Sources",
     "resources/native-ui/main.swift",
     "resources/native-ui/combined-window.swift",
     "resources/native-ui/native-ui",

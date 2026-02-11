@@ -4,8 +4,7 @@
 
 `npm install` 会执行 `postinstall` 中的**可选**脚本：
 
-- `scripts/postinstall-safe.js` — 入口脚本，按需调用以下构建：
-  - Swift 解析器构建（仅当 `ASD_BUILD_SWIFT_PARSER=1` 时）
+- `scripts/postinstall-safe.js` — 入口脚本，检查预构建的二进制文件（Native UI、ASD Entry）
   - `scripts/build-native-ui.js` — 仅在 macOS 上本地编译 `resources/native-ui/main.swift`
   - `scripts/build-asd-entry.js` — 仅在 macOS 上本地编译 `resources/asd-entry/main.swift`
 

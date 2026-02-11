@@ -103,21 +103,9 @@ Cursor 在编辑器内通过自然语言交互触发 Skill，使用 MCP 工具�
 | `asd compliance` | 生成宪法合规评估报告（P1-P4 加权评分） |
 | `asd upgrade` | 升级 IDE 集成文件（MCP/Skills/Cursor Rules/Copilot） |
 | `asd install:cursor-skill --mcp` | 安装 Skills、Cursor 规则（`.cursor/rules/*.mdc`）并配置 MCP。配置时可运行；MCP 工具使用时需 `asd ui` 已启动 |
-| `asd install:full` | 全量安装；`--parser` 含 Swift 解析器 |
+| `asd install:full` | 全量安装（Skills、MCP、Native UI） |
 | `asd embed` | 手动构建语义向量索引（`asd ui` 启动时也会自动执行） |
 | `asd spm-map` | 刷新 SPM 依赖映射（依赖关系图数据来源） |
-
-## 可选依赖
-
-### Swift 解析器（可选）
-
-AutoSnippet 默认使用 `swift package dump-package` 解析 SPM 依赖。如需更准确的解析，可安装 Swift 解析器：
-
-```bash
-asd install:full --parser    # 全量安装（含 Swift 解析器）
-```
-
-构建后会在 `tools/parse-package/.build/release/` 生成解析器，SPM 解析将更准确可靠。未安装时自动回退到 `dump-package`，功能正常。
 
 ## 配置
 
