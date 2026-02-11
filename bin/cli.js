@@ -5,6 +5,7 @@
  * 
  * Usage:
  *   asd setup           - 初始化项目
+ *   asd ais [Target]    - AI 扫描 Target → Candidates
  *   asd search <query>  - 搜索知识库
  *   asd guard <file>    - Guard 检查
  *   asd watch           - 文件监控
@@ -38,9 +39,10 @@ program
   .description('初始化项目工作空间：目录结构、数据库、IDE 集成、模板')
   .option('-d, --dir <path>', '项目目录', '.')
   .option('--force', '强制覆盖已有配置')
+  .option('--seed', '预置示例 Recipe（冷启动推荐）')
   .action(async (opts) => {
     const { SetupService } = await import('../lib/cli/SetupService.js');
-    const service = new SetupService({ projectRoot: resolve(opts.dir), force: opts.force });
+    const service = new SetupService({ projectRoot: resolve(opts.dir), force: opts.force, seed: opts.seed });
 
     console.log(`\n🚀 AutoSnippet V2 — 初始化工作空间`);
     console.log(`   项目: ${service.projectName}`);
@@ -48,6 +50,68 @@ program
 
     await service.run();
     service.printSummary();
+  });
+
+// ─────────────────────────────────────────────────────
+// ais 命令 (AI Scan)
+// ─────────────────────────────────────────────────────
+program
+  .command('ais [target]')
+  .description('AI 扫描 Target 源码 → 提取 Candidates（需配置 AI Provider）')
+  .option('-d, --dir <path>', '项目目录', '.')
+  .option('-m, --max-files <n>', '最大扫描文件数', '200')
+  .option('--dry-run', '仅预览，不创建 Candidate')
+  .option('--json', '以 JSON 格式输出')
+  .action(async (target, opts) => {
+    const projectRoot = resolve(opts.dir);
+    console.log(`\n🔬 AutoSnippet AI Scan`);
+    console.log(`   项目: ${basename(projectRoot)}`);
+    if (target) console.log(`   Target: ${target}`);
+    console.log(`   最大文件数: ${opts.maxFiles}`);
+    if (opts.dryRun) console.log('   模式: dry-run（仅预览）');
+    console.log('');
+
+    try {
+      const { bootstrap, container } = await initContainer({ projectRoot });
+
+      const { AiScanService } = await import('../lib/cli/AiScanService.js');
+      const scanner = new AiScanService({ container, projectRoot });
+
+      const ora = (await import('ora')).default;
+      const spinner = ora('正在扫描源文件并提取候选...').start();
+
+      const report = await scanner.scan(target || null, {
+        maxFiles: parseInt(opts.maxFiles, 10),
+        dryRun: opts.dryRun,
+      });
+
+      spinner.stop();
+
+      if (opts.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(`\n✅ AI 扫描完成`);
+        console.log(`   扫描文件: ${report.files}`);
+        console.log(`   跳过: ${report.skipped}`);
+        console.log(`   提取候选: ${report.candidates}`);
+        if (report.errors.length > 0) {
+          console.log(`\n⚠️  ${report.errors.length} 个错误：`);
+          for (const err of report.errors.slice(0, 10)) {
+            console.log(`   - ${err}`);
+          }
+          if (report.errors.length > 10) console.log(`   ... 及其他 ${report.errors.length - 10} 个`);
+        }
+        if (!opts.dryRun && report.candidates > 0) {
+          console.log(`\n📋 候选已创建，请运行 asd ui 打开 Dashboard 审核`);
+        }
+      }
+
+      await bootstrap.shutdown();
+    } catch (err) {
+      console.error(`\n❌ ${err.message}`);
+      if (process.env.ASD_DEBUG === '1') console.error(err.stack);
+      process.exit(1);
+    }
   });
 
 // ─────────────────────────────────────────────────────

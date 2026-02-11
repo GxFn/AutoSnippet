@@ -1,4 +1,4 @@
-# AutoSnippet
+# AutoSnippet — Project Knowledge Engine
 
 连接开发者、AI 与项目知识库：人工审核沉淀标准，知识库存储 Recipe + Snippet，AI 按规范生成代码。基于 SPM，打通 Xcode 补全与 Cursor 按需检索。
 

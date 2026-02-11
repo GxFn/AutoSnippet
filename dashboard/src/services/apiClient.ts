@@ -586,6 +586,20 @@ export class ApiClient {
   }
 
   /**
+   * AI 批量发现 Recipe 知识图谱关系
+   */
+  async discoverRelations(batchSize: number = 20): Promise<any> {
+    const response = await this.client.post<ApiResponse>(
+      '/recipes/discover-relations',
+      { batchSize }
+    );
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message);
+    }
+    return response.data.data;
+  }
+
+  /**
    * 获取防护规则列表
    */
   async getGuardRules(

@@ -23,6 +23,8 @@ import {
   Edit3,
   Trash2,
   Save,
+  GitBranch,
+  Sparkles,
 } from 'lucide-react';
 import { sortData, exportToCSV, SortConfig } from '../utils/tableUtils';
 
@@ -71,6 +73,17 @@ const emptyContent = (): RecipeContent => ({
 });
 
 /* ── 表单状态 ── */
+const RELATION_TYPES = [
+  { key: 'inherits', label: '继承', icon: '↑' },
+  { key: 'implements', label: '实现', icon: '◇' },
+  { key: 'calls', label: '调用', icon: '→' },
+  { key: 'dependsOn', label: '依赖', icon: '⊕' },
+  { key: 'dataFlow', label: '数据流', icon: '⇢' },
+  { key: 'conflicts', label: '冲突', icon: '✕' },
+  { key: 'extends', label: '扩展', icon: '⊃' },
+  { key: 'related', label: '关联', icon: '∼' },
+] as const;
+
 interface RecipeForm {
   title: string;
   trigger: string;
@@ -83,6 +96,9 @@ interface RecipeForm {
   content: RecipeContent;
   tags: string[];
   tagInput: string;
+  relations: Record<string, string[]>;
+  relationType: string;
+  relationInput: string;
 }
 
 const defaultForm = (): RecipeForm => ({
@@ -97,6 +113,9 @@ const defaultForm = (): RecipeForm => ({
   content: emptyContent(),
   tags: [],
   tagInput: '',
+  relations: {},
+  relationType: 'related',
+  relationInput: '',
 });
 
 const RecipesPage: React.FC = () => {
@@ -190,8 +209,8 @@ const RecipesPage: React.FC = () => {
       return;
     }
     try {
-      const { tagInput, ...rest } = newRecipe;
-      await apiClient.createRecipe(rest as any);
+      const { tagInput, relationType, relationInput, ...rest } = newRecipe;
+      await apiClient.createRecipe({ ...rest, relations: newRecipe.relations } as any);
       toast.success('Recipe 已创建');
       setShowCreateModal(false);
       setNewRecipe(defaultForm());
@@ -204,6 +223,15 @@ const RecipesPage: React.FC = () => {
   /* ── 编辑 ── */
   const openEdit = (recipe: Recipe) => {
     setEditingRecipe(recipe);
+    // 将 relations 中的对象数组转为 ID 字符串数组
+    const flatRelations: Record<string, string[]> = {};
+    if (recipe.relations) {
+      for (const [key, arr] of Object.entries(recipe.relations)) {
+        if (Array.isArray(arr) && arr.length > 0) {
+          flatRelations[key] = arr.map((r: any) => typeof r === 'string' ? r : r.id || r.title || JSON.stringify(r));
+        }
+      }
+    }
     setEditForm({
       title: recipe.title || '',
       trigger: recipe.trigger || '',
@@ -216,6 +244,9 @@ const RecipesPage: React.FC = () => {
       content: { ...emptyContent(), ...(recipe.content || {}) },
       tags: recipe.tags || [],
       tagInput: '',
+      relations: flatRelations,
+      relationType: 'related',
+      relationInput: '',
     });
   };
 
@@ -223,8 +254,8 @@ const RecipesPage: React.FC = () => {
     if (!editingRecipe) return;
     setIsSaving(true);
     try {
-      const { tagInput, ...rest } = editForm;
-      await apiClient.updateRecipe(editingRecipe.id, rest as any);
+      const { tagInput, relationType, relationInput, ...rest } = editForm;
+      await apiClient.updateRecipe(editingRecipe.id, { ...rest, relations: editForm.relations } as any);
       toast.success('Recipe 已更新');
       setEditingRecipe(null);
       loadRecipes(currentPage);
@@ -277,6 +308,22 @@ const RecipesPage: React.FC = () => {
 
   const qualityPercent = (v: number | undefined) => v != null ? Math.round(v * 100) : 0;
 
+  /* ── 发现关系 ── */
+  const [isDiscovering, setIsDiscovering] = useState(false);
+
+  const handleDiscoverRelations = async () => {
+    setIsDiscovering(true);
+    try {
+      const result = await apiClient.discoverRelations();
+      toast.success(`关系发现完成: ${result?.edgesCreated ?? 0} 条新关系`);
+      loadRecipes(currentPage);
+    } catch (error: any) {
+      toast.error(`关系发现失败: ${error.message}`);
+    } finally {
+      setIsDiscovering(false);
+    }
+  };
+
   /* ════════════════════════ Render ════════════════════════ */
 
   return (
@@ -291,13 +338,24 @@ const RecipesPage: React.FC = () => {
             </h1>
             <p className="text-slate-400">管理知识食谱 — 代码模式、架构、最佳实践</p>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition"
-          >
-            <Plus size={18} />
-            新建 Recipe
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleDiscoverRelations}
+              disabled={isDiscovering || recipes.length < 2}
+              className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 transition disabled:opacity-50"
+              title={recipes.length < 2 ? '至少需要 2 个 Recipe 才能发现关系' : 'AI 分析 Recipe 间的知识关系'}
+            >
+              {isDiscovering ? <Loader size={16} className="animate-spin" /> : <GitBranch size={16} />}
+              发现关系
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition"
+            >
+              <Plus size={18} />
+              新建 Recipe
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -372,8 +430,28 @@ const RecipesPage: React.FC = () => {
           <div className="flex gap-6">
             <div className={`flex-1 transition-all ${previewRecipe ? 'max-w-[60%]' : ''}`}>
               {sortedRecipes.length === 0 ? (
-                <div className="text-center py-16 text-slate-500">
-                  {searchQuery || categoryFilter || statusFilter ? '无匹配结果' : '暂无 Recipe'}
+                <div className="text-center py-16">
+                  {searchQuery || categoryFilter || statusFilter ? (
+                    <p className="text-slate-500">无匹配结果</p>
+                  ) : (
+                    <div className="max-w-md mx-auto">
+                      <Sparkles size={48} className="text-blue-400/50 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-white mb-2">开始构建知识库</h3>
+                      <p className="text-slate-400 mb-6">Recipe 是项目知识的核心单元。你可以手动创建，也可以用 AI 从源码中自动提取。</p>
+                      <div className="flex flex-col gap-3">
+                        <button
+                          onClick={() => setShowCreateModal(true)}
+                          className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 transition"
+                        >
+                          <Plus size={18} /> 手动创建 Recipe
+                        </button>
+                        <div className="text-xs text-slate-500 space-y-1">
+                          <p>💡 <strong>AI 扫描</strong>: 在终端运行 <code className="bg-slate-700 px-1.5 py-0.5 rounded">asd ais [Target]</code> 自动提取候选</p>
+                          <p>💡 <strong>Cursor 集成</strong>: 运行 <code className="bg-slate-700 px-1.5 py-0.5 rounded">asd install:cursor-skill --mcp</code> 启用 AI 批量扫描</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
@@ -975,6 +1053,76 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({ title, form, setForm,
                 ))}
               </div>
             )}
+          </div>
+
+          {/* ── 关系 ── */}
+          <div className="border border-slate-600 rounded-lg p-4 space-y-3">
+            <h3 className="text-sm font-bold text-slate-300 flex items-center gap-2">
+              <GitBranch size={14} /> 知识关系
+            </h3>
+            <div className="flex gap-2">
+              <select
+                value={form.relationType}
+                onChange={(e) => setForm({ ...form, relationType: e.target.value })}
+                className="bg-slate-700 border border-slate-600 rounded px-2 py-2 text-white text-xs focus:outline-none focus:border-blue-500 w-24"
+              >
+                {RELATION_TYPES.map(({ key, label, icon }) => (
+                  <option key={key} value={key}>{icon} {label}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={form.relationInput}
+                onChange={(e) => setForm({ ...form, relationInput: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && form.relationInput.trim()) {
+                    e.preventDefault();
+                    const type = form.relationType;
+                    const current = form.relations[type] || [];
+                    setForm({
+                      ...form,
+                      relations: { ...form.relations, [type]: [...current, form.relationInput.trim()] },
+                      relationInput: '',
+                    });
+                  }
+                }}
+                placeholder="输入关联的 Recipe ID 或标题，回车添加"
+                className="flex-1 bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            {/* 已添加的关系 */}
+            {Object.entries(form.relations).some(([, v]) => v.length > 0) && (
+              <div className="space-y-1.5">
+                {RELATION_TYPES.map(({ key, label, icon }) => {
+                  const items = form.relations[key];
+                  if (!items || items.length === 0) return null;
+                  return (
+                    <div key={key} className="flex items-start gap-2">
+                      <span className="text-xs text-slate-400 w-14 shrink-0">{icon} {label}</span>
+                      <div className="flex flex-wrap gap-1">
+                        {items.map((r, i) => (
+                          <span key={i} className="px-1.5 py-0.5 bg-slate-700/70 text-slate-300 rounded text-[10px] font-mono flex items-center gap-1">
+                            {r}
+                            <button
+                              onClick={() => {
+                                const updated = items.filter((_, j) => j !== i);
+                                const newRels = { ...form.relations };
+                                if (updated.length === 0) delete newRels[key]; else newRels[key] = updated;
+                                setForm({ ...form, relations: newRels });
+                              }}
+                              className="text-slate-500 hover:text-red-400"
+                            >
+                              <X size={8} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-[10px] text-slate-500">关系也可通过「发现关系」按钮由 AI 自动分析生成</p>
           </div>
         </div>
 
