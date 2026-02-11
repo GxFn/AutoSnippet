@@ -55,6 +55,9 @@ export interface RecipeStatistics {
   adoptionCount: number;
   applicationCount: number;
   guardHitCount: number;
+  viewCount: number;
+  successCount: number;
+  feedbackScore: number;
 }
 
 export interface RecipeContent {
@@ -74,7 +77,7 @@ export interface Recipe {
   language: string;
   category: string;
   kind?: 'rule' | 'pattern' | 'fact';
-  knowledgeType: 'code-pattern' | 'architecture' | 'best-practice' | 'rule';
+  knowledgeType: 'code-pattern' | 'architecture' | 'best-practice' | 'rule' | 'code-standard' | 'code-style' | 'boundary-constraint' | 'code-relation' | 'inheritance' | 'call-chain' | 'data-flow' | 'module-dependency' | 'solution';
   complexity: 'beginner' | 'intermediate' | 'advanced';
   scope?: string;
   content: RecipeContent;
@@ -453,6 +456,20 @@ export class ApiClient {
       throw new Error(response.data.error?.message);
     }
     return response.data.data;
+  }
+
+  /**
+   * 将候选项提升为 Recipe（一键转化：APPROVED → 创建 Recipe + APPLIED）
+   */
+  async promoteCandidateToRecipe(candidateId: string, overrides?: Record<string, any>): Promise<{ recipe: Recipe; candidate: Candidate }> {
+    const response = await this.client.post<ApiResponse<{ recipe: Recipe; candidate: Candidate }>>(
+      `/candidates/${candidateId}/promote`,
+      overrides || {}
+    );
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message);
+    }
+    return response.data.data!;
   }
 
   /**

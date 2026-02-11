@@ -569,6 +569,12 @@ export const api = {
     await http.delete(`/candidates/${candidateId}`);
   },
 
+  /** 一键将已批准的 Candidate 提升为 Recipe */
+  async promoteCandidateToRecipe(candidateId: string, overrides?: Record<string, any>): Promise<{ recipe: any; candidate: any }> {
+    const res = await http.post(`/candidates/${candidateId}/promote`, overrides || {});
+    return res.data?.data || { recipe: null, candidate: null };
+  },
+
   /** AI 语义字段补全 — 对候选批量补充缺失字段 */
   async enrichCandidates(candidateIds: string[]): Promise<{ enriched: number; total: number; results: Array<{ id: string; enriched: boolean; filledFields: string[] }> }> {
     const res = await http.post('/candidates/enrich', { candidateIds });

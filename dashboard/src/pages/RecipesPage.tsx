@@ -96,6 +96,8 @@ interface RecipeForm {
   content: RecipeContent;
   tags: string[];
   tagInput: string;
+  headers: string[];
+  headerInput: string;
   relations: Record<string, string[]>;
   relationType: string;
   relationInput: string;
@@ -113,6 +115,8 @@ const defaultForm = (): RecipeForm => ({
   content: emptyContent(),
   tags: [],
   tagInput: '',
+  headers: [],
+  headerInput: '',
   relations: {},
   relationType: 'related',
   relationInput: '',
@@ -209,8 +213,8 @@ const RecipesPage: React.FC = () => {
       return;
     }
     try {
-      const { tagInput, relationType, relationInput, ...rest } = newRecipe;
-      await apiClient.createRecipe({ ...rest, relations: newRecipe.relations } as any);
+      const { tagInput, headerInput, relationType, relationInput, ...rest } = newRecipe;
+      await apiClient.createRecipe({ ...rest, relations: newRecipe.relations, dimensions: { headers: newRecipe.headers } } as any);
       toast.success('Recipe 已创建');
       setShowCreateModal(false);
       setNewRecipe(defaultForm());
@@ -244,6 +248,8 @@ const RecipesPage: React.FC = () => {
       content: { ...emptyContent(), ...(recipe.content || {}) },
       tags: recipe.tags || [],
       tagInput: '',
+      headers: (recipe.dimensions as any)?.headers || [],
+      headerInput: '',
       relations: flatRelations,
       relationType: 'related',
       relationInput: '',
@@ -254,8 +260,8 @@ const RecipesPage: React.FC = () => {
     if (!editingRecipe) return;
     setIsSaving(true);
     try {
-      const { tagInput, relationType, relationInput, ...rest } = editForm;
-      await apiClient.updateRecipe(editingRecipe.id, { ...rest, relations: editForm.relations } as any);
+      const { tagInput, headerInput, relationType, relationInput, ...rest } = editForm;
+      await apiClient.updateRecipe(editingRecipe.id, { ...rest, relations: editForm.relations, dimensions: { headers: editForm.headers } } as any);
       toast.success('Recipe 已更新');
       setEditingRecipe(null);
       loadRecipes(currentPage);
@@ -899,6 +905,18 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({ title, form, setForm,
             />
           </div>
 
+          {/* Trigger */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Trigger（触发关键词）</label>
+            <input
+              type="text"
+              value={form.trigger}
+              onChange={(e) => setForm({ ...form, trigger: e.target.value })}
+              placeholder="如: diffable-datasource（用于搜索和 .md 文件名）"
+              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
           {/* 语言 + 分类 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -913,6 +931,11 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({ title, form, setForm,
                 <option value="typescript">TypeScript</option>
                 <option value="javascript">JavaScript</option>
                 <option value="python">Python</option>
+                <option value="java">Java</option>
+                <option value="kotlin">Kotlin</option>
+                <option value="go">Go</option>
+                <option value="rust">Rust</option>
+                <option value="ruby">Ruby</option>
               </select>
             </div>
             <div>
@@ -941,7 +964,14 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({ title, form, setForm,
                 <option value="best-practice">最佳实践</option>
                 <option value="rule">规则</option>
                 <option value="code-standard">代码规范</option>
+                <option value="code-style">代码风格</option>
                 <option value="solution">解决方案</option>
+                <option value="boundary-constraint">边界约束</option>
+                <option value="code-relation">代码关联</option>
+                <option value="inheritance">继承与接口</option>
+                <option value="call-chain">调用链路</option>
+                <option value="data-flow">数据流向</option>
+                <option value="module-dependency">模块依赖</option>
               </select>
             </div>
             <div>
@@ -1047,6 +1077,38 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({ title, form, setForm,
                   <span key={i} className="px-2 py-0.5 bg-slate-700 text-slate-300 rounded text-xs flex items-center gap-1">
                     {t}
                     <button onClick={() => setForm({ ...form, tags: form.tags.filter((_, j) => j !== i) })} className="text-slate-500 hover:text-red-400">
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Headers (import 语句) */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Headers (import 语句)</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={form.headerInput}
+                onChange={(e) => setForm({ ...form, headerInput: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && form.headerInput.trim()) {
+                    e.preventDefault();
+                    setForm({ ...form, headers: [...form.headers, form.headerInput.trim()], headerInput: '' });
+                  }
+                }}
+                placeholder="如: import UIKit — 回车添加"
+                className="flex-1 bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            {form.headers.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {form.headers.map((h, i) => (
+                  <span key={i} className="px-2 py-0.5 bg-slate-700 text-slate-300 rounded text-xs font-mono flex items-center gap-1">
+                    {h}
+                    <button onClick={() => setForm({ ...form, headers: form.headers.filter((_, j) => j !== i) })} className="text-slate-500 hover:text-red-400">
                       <X size={10} />
                     </button>
                   </span>

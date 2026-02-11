@@ -861,6 +861,23 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                             >
                               <Edit3 size={12} /> 审核并保存
                             </button>
+                            {cand.status === 'approved' && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await api.promoteCandidateToRecipe(cand.id);
+                                    notify('已提升为 Recipe');
+                                    onRefresh?.();
+                                  } catch (err: any) {
+                                    notify(`提升失败: ${err.message}`, { type: 'error' });
+                                  }
+                                }}
+                                className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors flex items-center gap-1"
+                                title="一键提升为 Recipe"
+                              >
+                                <Rocket size={12} /> 提升为 Recipe
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
