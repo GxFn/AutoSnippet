@@ -2,7 +2,7 @@
 
 /**
  * 构建 asd 完整性校验入口（Swift，仅 macOS）。产物：bin/asd-verify。
- * 若不存在或构建失败，bin/asd 将回退到 node bin/asd-cli.js。
+ * 若不存在或构建失败，将直接使用 node bin/cli.js。
  */
 
 import { fileURLToPath } from 'node:url';

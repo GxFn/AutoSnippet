@@ -1,7 +1,7 @@
 # AutoSnippet V2 API 端点参考
 
 **版本**：v2.0.0  
-**基础 URL**：`http://localhost:3000/api`  
+**基础 URL**：`http://localhost:3000/api/v1`  
 
 ---
 
@@ -38,19 +38,19 @@ AutoSnippet HTTP API 共 **~91 个端点**，分布在 13 个路由文件中。
 
 | 路由模块 | 前缀 | 端点数 | 说明 |
 |---------|------|--------|------|
-| health | `/api/health` | 2 | 服务健康检查 |
-| auth | `/api/auth` | 3 | 认证与能力探测 |
-| candidates | `/api/candidates` | 14 | Candidate 全生命周期 |
-| recipes | `/api/recipes` | 13 | Recipe 管理与发布 |
-| guardRules | `/api/guard-rules` | 10 | Guard 规则管理 |
-| search | `/api/search` | 7 | 统一搜索 + 图查询 |
-| snippets | `/api/snippets` | 6 | Snippet 管理 |
-| ai | `/api/ai` | 7 | AI Provider 交互 |
-| extract | `/api/extract` | 2 | 代码提取 |
-| commands | `/api/commands` | 8 | 系统命令执行 |
-| spm | `/api/spm` | 5 | SPM 分析 |
-| violations | `/api/violations` | 4 | Guard 违规记录 |
-| monitoring | `/api/monitoring` | 9 | 系统监控 |
+| health | `/api/v1/health` | 2 | 服务健康检查 |
+| auth | `/api/v1/auth` | 3 | 认证与能力探测 |
+| candidates | `/api/v1/candidates` | 14 | Candidate 全生命周期 |
+| recipes | `/api/v1/recipes` | 13 | Recipe 管理与发布 |
+| guardRules | `/api/v1/guard-rules` | 10 | Guard 规则管理 |
+| search | `/api/v1/search` | 7 | 统一搜索 + 图查询 |
+| snippets | `/api/v1/snippets` | 6 | Snippet 管理 |
+| ai | `/api/v1/ai` | 7 | AI Provider 交互 |
+| extract | `/api/v1/extract` | 2 | 代码提取 |
+| commands | `/api/v1/commands` | 8 | 系统命令执行 |
+| spm | `/api/v1/spm` | 5 | SPM 分析 |
+| violations | `/api/v1/violations` | 4 | Guard 违规记录 |
+| monitoring | `/api/v1/monitoring` | 9 | 系统监控 |
 
 ---
 
@@ -58,157 +58,157 @@ AutoSnippet HTTP API 共 **~91 个端点**，分布在 13 个路由文件中。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/health` | 基础健康检查 |
-| GET | `/api/health/ready` | 就绪检查（含依赖状态） |
+| GET | `/api/v1/health` | 基础健康检查 |
+| GET | `/api/v1/health/ready` | 就绪检查（含依赖状态） |
 
 ## 2. Auth（认证）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/auth/login` | 登录 |
-| GET | `/api/auth/me` | 获取当前用户信息 |
-| GET | `/api/auth/probe` | 能力探测（git_write） |
+| POST | `/api/v1/auth/login` | 登录 |
+| GET | `/api/v1/auth/me` | 获取当前用户信息 |
+| GET | `/api/v1/auth/probe` | 能力探测（git_write） |
 
 ## 3. Candidates（候选管理）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/candidates` | 列表（支持分页、过滤） |
-| GET | `/api/candidates/stats` | 统计数据 |
-| GET | `/api/candidates/:id` | 获取单个 Candidate |
-| POST | `/api/candidates` | 创建 Candidate |
-| POST | `/api/candidates/batch` | 批量创建 |
-| PUT | `/api/candidates/:id` | 更新 Candidate |
-| DELETE | `/api/candidates/:id` | 删除 Candidate |
-| POST | `/api/candidates/:id/approve` | 审核通过 |
-| POST | `/api/candidates/:id/reject` | 审核拒绝 |
-| POST | `/api/candidates/:id/apply-to-recipe` | 应用到 Recipe |
-| GET | `/api/candidates/:id/similar` | 查找相似 Candidate |
-| POST | `/api/candidates/enrich` | AI 丰富化 Candidate |
-| GET | `/api/candidates/search` | 搜索 Candidate |
-| GET | `/api/candidates/duplicate-check` | 重复检测 |
+| GET | `/api/v1/candidates` | 列表（支持分页、过滤） |
+| GET | `/api/v1/candidates/stats` | 统计数据 |
+| GET | `/api/v1/candidates/:id` | 获取单个 Candidate |
+| POST | `/api/v1/candidates` | 创建 Candidate |
+| POST | `/api/v1/candidates/batch` | 批量创建 |
+| PUT | `/api/v1/candidates/:id` | 更新 Candidate |
+| DELETE | `/api/v1/candidates/:id` | 删除 Candidate |
+| POST | `/api/v1/candidates/:id/approve` | 审核通过 |
+| POST | `/api/v1/candidates/:id/reject` | 审核拒绝 |
+| POST | `/api/v1/candidates/:id/apply-to-recipe` | 应用到 Recipe |
+| GET | `/api/v1/candidates/:id/similar` | 查找相似 Candidate |
+| POST | `/api/v1/candidates/enrich` | AI 丰富化 Candidate |
+| GET | `/api/v1/candidates/search` | 搜索 Candidate |
+| GET | `/api/v1/candidates/duplicate-check` | 重复检测 |
 
 ## 4. Recipes（知识库管理）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/recipes` | 列表（支持分页、分类过滤） |
-| GET | `/api/recipes/stats` | 统计数据 |
-| GET | `/api/recipes/:id` | 获取单个 Recipe |
-| POST | `/api/recipes` | 创建 Recipe |
-| PUT | `/api/recipes/:id` | 更新 Recipe |
-| DELETE | `/api/recipes/:id` | 删除 Recipe |
-| POST | `/api/recipes/:id/publish` | 发布 Recipe |
-| POST | `/api/recipes/:id/deprecate` | 废弃 Recipe |
-| POST | `/api/recipes/:id/quality` | 更新质量评分 |
-| POST | `/api/recipes/:id/adopt` | 采纳 Recipe |
-| POST | `/api/recipes/:id/apply` | 应用 Recipe |
-| POST | `/api/recipes/batch-usage` | 批量使用统计 |
-| GET | `/api/recipes/search` | 搜索 Recipe |
+| GET | `/api/v1/recipes` | 列表（支持分页、分类过滤） |
+| GET | `/api/v1/recipes/stats` | 统计数据 |
+| GET | `/api/v1/recipes/:id` | 获取单个 Recipe |
+| POST | `/api/v1/recipes` | 创建 Recipe |
+| PUT | `/api/v1/recipes/:id` | 更新 Recipe |
+| DELETE | `/api/v1/recipes/:id` | 删除 Recipe |
+| POST | `/api/v1/recipes/:id/publish` | 发布 Recipe |
+| POST | `/api/v1/recipes/:id/deprecate` | 废弃 Recipe |
+| POST | `/api/v1/recipes/:id/quality` | 更新质量评分 |
+| POST | `/api/v1/recipes/:id/adopt` | 采纳 Recipe |
+| POST | `/api/v1/recipes/:id/apply` | 应用 Recipe |
+| POST | `/api/v1/recipes/batch-usage` | 批量使用统计 |
+| GET | `/api/v1/recipes/search` | 搜索 Recipe |
 
 ## 5. Guard Rules（规则管理）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/guard-rules` | 列表 |
-| GET | `/api/guard-rules/stats` | 统计数据 |
-| GET | `/api/guard-rules/:id` | 获取单个规则 |
-| POST | `/api/guard-rules` | 创建规则 |
-| PUT | `/api/guard-rules/:id` | 更新规则 |
-| DELETE | `/api/guard-rules/:id` | 删除规则 |
-| POST | `/api/guard-rules/:id/enable` | 启用规则 |
-| POST | `/api/guard-rules/:id/disable` | 禁用规则 |
-| POST | `/api/guard-rules/check` | 执行代码检查 |
-| POST | `/api/guard-rules/import-from-recipe` | 从 Recipe 导入规则 |
+| GET | `/api/v1/guard-rules` | 列表 |
+| GET | `/api/v1/guard-rules/stats` | 统计数据 |
+| GET | `/api/v1/guard-rules/:id` | 获取单个规则 |
+| POST | `/api/v1/guard-rules` | 创建规则 |
+| PUT | `/api/v1/guard-rules/:id` | 更新规则 |
+| DELETE | `/api/v1/guard-rules/:id` | 删除规则 |
+| POST | `/api/v1/guard-rules/:id/enable` | 启用规则 |
+| POST | `/api/v1/guard-rules/:id/disable` | 禁用规则 |
+| POST | `/api/v1/guard-rules/check` | 执行代码检查 |
+| POST | `/api/v1/guard-rules/import-from-recipe` | 从 Recipe 导入规则 |
 
 ## 6. Search（搜索）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/search` | 统一搜索（BM25 + keyword + semantic） |
-| GET | `/api/search/graph/query` | 知识图谱查询 |
-| GET | `/api/search/graph/impact` | 影响分析 |
-| GET | `/api/search/graph/stats` | 图统计 |
-| GET | `/api/search/compliance` | 合规搜索 |
-| POST | `/api/search/trigger` | 触发搜索索引刷新 |
-| GET | `/api/search/context-aware` | 上下文感知搜索 |
+| GET | `/api/v1/search` | 统一搜索（BM25 + keyword + semantic） |
+| GET | `/api/v1/search/graph/query` | 知识图谱查询 |
+| GET | `/api/v1/search/graph/impact` | 影响分析 |
+| GET | `/api/v1/search/graph/stats` | 图统计 |
+| GET | `/api/v1/search/compliance` | 合规搜索 |
+| POST | `/api/v1/search/trigger` | 触发搜索索引刷新 |
+| GET | `/api/v1/search/context-aware` | 上下文感知搜索 |
 
 ## 7. Snippets（代码片段）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/snippets` | 列表 |
-| GET | `/api/snippets/:id` | 获取单个 Snippet |
-| POST | `/api/snippets` | 创建 Snippet |
-| PUT | `/api/snippets/:id` | 更新 Snippet |
-| DELETE | `/api/snippets/:id` | 删除 Snippet |
-| POST | `/api/snippets/:id/install` | 安装到 Xcode |
+| GET | `/api/v1/snippets` | 列表 |
+| GET | `/api/v1/snippets/:id` | 获取单个 Snippet |
+| POST | `/api/v1/snippets` | 创建 Snippet |
+| PUT | `/api/v1/snippets/:id` | 更新 Snippet |
+| DELETE | `/api/v1/snippets/:id` | 删除 Snippet |
+| POST | `/api/v1/snippets/:id/install` | 安装到 Xcode |
 
 ## 8. AI（AI 交互 — 已统一走 ChatAgent）
 
 | 方法 | 路径 | 说明 | 内部实现 |
 |------|------|------|----------|
-| GET | `/api/ai/config` | 获取当前 AI Provider 配置 | 直接读 container |
-| POST | `/api/ai/config` | 切换 AI Provider | `createProvider()` 基础设施 |
-| POST | `/api/ai/summarize` | AI 代码摘要 | `chatAgent.executeTool('summarize_code')` |
-| POST | `/api/ai/translate` | AI 翻译 | `chatAgent.executeTool('ai_translate')` |
-| POST | `/api/ai/chat` | AI 对话（ReAct 循环） | `chatAgent.execute(prompt, {history})` |
-| POST | `/api/ai/tool` | 直接执行 ChatAgent 工具 | `chatAgent.executeTool(tool, params)` |
-| POST | `/api/ai/task` | 执行预定义多步任务 | `chatAgent.runTask(task, params)` |
-| GET | `/api/ai/capabilities` | 查询全部工具 + 任务清单 | `chatAgent.getCapabilities()` |
+| GET | `/api/v1/ai/config` | 获取当前 AI Provider 配置 | 直接读 container |
+| POST | `/api/v1/ai/config` | 切换 AI Provider | `createProvider()` 基础设施 |
+| POST | `/api/v1/ai/summarize` | AI 代码摘要 | `chatAgent.executeTool('summarize_code')` |
+| POST | `/api/v1/ai/translate` | AI 翻译 | `chatAgent.executeTool('ai_translate')` |
+| POST | `/api/v1/ai/chat` | AI 对话（ReAct 循环） | `chatAgent.execute(prompt, {history})` |
+| POST | `/api/v1/ai/tool` | 直接执行 ChatAgent 工具 | `chatAgent.executeTool(tool, params)` |
+| POST | `/api/v1/ai/task` | 执行预定义多步任务 | `chatAgent.runTask(task, params)` |
+| GET | `/api/v1/ai/capabilities` | 查询全部工具 + 任务清单 | `chatAgent.getCapabilities()` |
 
 ## 9. Extract（代码提取）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/extract/from-path` | 从文件路径提取代码 |
-| POST | `/api/extract/from-text` | 从文本提取代码 |
+| POST | `/api/v1/extract/from-path` | 从文件路径提取代码 |
+| POST | `/api/v1/extract/from-text` | 从文本提取代码 |
 
 ## 10. Commands（系统命令）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/commands/install` | 安装集成 |
-| GET | `/api/commands/spm-map` | SPM 映射 |
-| POST | `/api/commands/embed` | 嵌入操作 |
-| GET | `/api/commands/status` | 命令状态 |
-| GET | `/api/commands/files` | 列出文件 |
-| POST | `/api/commands/file` | 文件操作 |
-| DELETE | `/api/commands/file` | 删除文件 |
-| POST | `/api/commands/execute` | 执行命令 |
+| POST | `/api/v1/commands/install` | 安装集成 |
+| GET | `/api/v1/commands/spm-map` | SPM 映射 |
+| POST | `/api/v1/commands/embed` | 嵌入操作 |
+| GET | `/api/v1/commands/status` | 命令状态 |
+| GET | `/api/v1/commands/files` | 列出文件 |
+| POST | `/api/v1/commands/file` | 文件操作 |
+| DELETE | `/api/v1/commands/file` | 删除文件 |
+| POST | `/api/v1/commands/execute` | 执行命令 |
 
 ## 11. SPM（Swift Package Manager）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/spm/targets` | 列出 Targets |
-| GET | `/api/spm/dep-graph` | 获取依赖图 |
-| GET | `/api/spm/target-files` | 获取 Target 文件列表 |
-| POST | `/api/spm/scan` | 扫描 Target |
-| POST | `/api/spm/scan-project` | 扫描整个项目 |
+| GET | `/api/v1/spm/targets` | 列出 Targets |
+| GET | `/api/v1/spm/dep-graph` | 获取依赖图 |
+| GET | `/api/v1/spm/target-files` | 获取 Target 文件列表 |
+| POST | `/api/v1/spm/scan` | 扫描 Target |
+| POST | `/api/v1/spm/scan-project` | 扫描整个项目 |
 
 ## 12. Violations（违规记录）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/violations` | 列出违规记录 |
-| GET | `/api/violations/stats` | 违规统计 |
-| DELETE | `/api/violations` | 清除违规记录 |
-| POST | `/api/violations/generate-rules` | 从违规生成 Guard 规则 |
+| GET | `/api/v1/violations` | 列出违规记录 |
+| GET | `/api/v1/violations/stats` | 违规统计 |
+| DELETE | `/api/v1/violations` | 清除违规记录 |
+| POST | `/api/v1/violations/generate-rules` | 从违规生成 Guard 规则 |
 
 ## 13. Monitoring（系统监控）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/monitoring/health` | 详细健康检查 |
-| GET | `/api/monitoring/performance` | 性能指标 |
-| GET | `/api/monitoring/errors` | 错误日志 |
-| GET | `/api/monitoring/cache` | 缓存状态 |
-| GET | `/api/monitoring/realtime` | 实时指标 |
-| GET | `/api/monitoring/dashboard` | 监控仪表盘数据 |
-| POST | `/api/monitoring/reset` | 重置监控数据 |
-| GET | `/api/monitoring/audit` | 审计日志 |
-| GET | `/api/monitoring/sessions` | 活跃会话 |
+| GET | `/api/v1/monitoring/health` | 详细健康检查 |
+| GET | `/api/v1/monitoring/performance` | 性能指标 |
+| GET | `/api/v1/monitoring/errors` | 错误日志 |
+| GET | `/api/v1/monitoring/cache` | 缓存状态 |
+| GET | `/api/v1/monitoring/realtime` | 实时指标 |
+| GET | `/api/v1/monitoring/dashboard` | 监控仪表盘数据 |
+| POST | `/api/v1/monitoring/reset` | 重置监控数据 |
+| GET | `/api/v1/monitoring/audit` | 审计日志 |
+| GET | `/api/v1/monitoring/sessions` | 活跃会话 |
 
 ---
 

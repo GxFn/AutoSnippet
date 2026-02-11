@@ -315,7 +315,7 @@ When creating or extracting Recipes:
 1. **建议提供中英双语**：`summary_cn` + `summary_en`，并可补充双语 usage guide
 2. **保持单场景**：一个 Recipe 只讲一个具体用法
 3. **字段严格**：必填字段必须齐全、格式正确
-   - Tools like Dashboard `/api/ai/translate` can help auto-generate missing language, but it's better to provide both
+   - Tools like Dashboard `/api/v1/ai/translate` can help auto-generate missing language, but it's better to provide both
 2. **Split, don't combine**: If you identify 3 usage patterns in a module, create 3 separate Recipes, not 1 combined Recipe.
 3. **Each Recipe has a clear trigger**: One `@trigger` for one specific scenario. E.g. `@WebViewLoadURL`, `@NetworkRetry`, `@AsyncError`.
 4. **Reusable and focused**: Developer should be able to copy-paste the Recipe's code snippet and use it directly for that ONE scenario.

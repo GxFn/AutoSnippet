@@ -318,7 +318,7 @@ function mapV1ItemToV2Candidate(item: any, targetName: string, source: string) {
 // ═══════════════════════════════════════════════════════
 
 export const api = {
-  // ── Data (bulk fetch — replaces GET /api/data) ──────
+  // ── Data (bulk fetch) ──────
 
   async fetchData(): Promise<ProjectData> {
     const [recipesRes, candidatesRes, aiConfigRes] = await Promise.all([

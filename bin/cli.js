@@ -3,16 +3,15 @@
 /**
  * AutoSnippet V2 CLI
  * 
- * 命令行入口 - 迁移自 V1 cli-commands.js，适配 V2 架构
- * 
  * Usage:
- *   asd2 setup           - 初始化项目
- *   asd2 search <query>  - 搜索知识库
- *   asd2 guard <file>    - Guard 检查
- *   asd2 watch           - 文件监控
- *   asd2 compliance      - 合规评估
- *   asd2 server          - 启动 API 服务
- *   asd2 status          - 环境状态
+ *   asd setup           - 初始化项目
+ *   asd search <query>  - 搜索知识库
+ *   asd guard <file>    - Guard 检查
+ *   asd watch           - 文件监控
+ *   asd compliance      - 合规评估
+ *   asd server          - 启动 API 服务
+ *   asd status          - 环境状态
+ *   asd ui              - 启动 Dashboard UI
  */
 
 import { Command } from 'commander';

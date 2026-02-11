@@ -18,7 +18,7 @@ swift build -c release
 
 ## 使用
 
-由 Node 侧按协议调用，无需单独运行。协议见 [BiliDemo 方案文档](../../BiliDemo/docs/AutoSnippets/AutoSnippet-Node监工-Swift全解析器-实现方案.md) 与 `lib/spm/swiftParserClient.js`。
+由 Node 侧按协议调用，无需单独运行。调用方：`lib/service/spm/PackageSwiftParser.js`。
 
 - **输入**（stdin 一行 JSON）：`{ "schemaVersion": 1, "command": "parsePackage", "packageSwiftPath": "/abs/path/to/Package.swift", "options": { ... } }`
 - **输出**（stdout 一行 JSON）：`{ "schemaVersion": 1, "ok": true, "package": { "name", "packageDir", "targets": [ { "name", "path", "sources", "dependencies": [ { "kind", "name", "package?" } ] } ] } }`
