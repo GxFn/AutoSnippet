@@ -50,7 +50,7 @@ asd ui                     # 启动 Dashboard + watch
 
 `asd ui` 会启动 Web 管理后台并后台 watch；首次运行若前端不存在会自动构建。浏览器会自动打开 Dashboard。
 
-![Dashboard 概览](https://cdn.jsdelivr.net/gh/GxFn/blog-images@main/2026-02-09-autosnippet-manual/20260205232116_66_167.png)
+![Dashboard 概览](https://cdn.jsdelivr.net/gh/GxFn/blog-images@main/autosnippet-manual/20260205232116_66_167.png)
 
 
 ## 核心流程
