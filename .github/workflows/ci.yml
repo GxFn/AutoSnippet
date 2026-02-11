@@ -1,4 +1,7 @@
-# AutoSnippet CI：推送/PR 时构建与单元测试
+# ──────────────────────────────────────────────────────
+# AutoSnippet V2 CI Pipeline
+# 构建 → API 验证 → 单元测试 → 集成测试
+# ──────────────────────────────────────────────────────
 name: CI
 
 on:
@@ -7,132 +10,119 @@ on:
   pull_request:
     branches: [main, master]
 
+env:
+  API_BASE: http://localhost:3100/api/v1
+  NODE_ENV: test
+
 jobs:
-  build-and-test:
+  build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+      - run: npm ci
+      - run: cd dashboard && npm ci
+      - run: npm run build:dashboard
 
-      - name: Install dependencies
-        run: npm ci
+  api-smoke:
+    name: API Smoke Test
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: cd dashboard && npm ci
+      - run: npm run build:dashboard
 
-      - name: Install dashboard dependencies
-        run: cd dashboard && npm ci
-
-      - name: Build Dashboard
-        run: npm run build:dashboard
-
-      - name: Start Dashboard (background)
+      - name: Start API Server
         run: |
           ASD_SKIP_ENTRY_CHECK=1 ASD_DISABLE_WRITE_GUARD=1 ASD_DISABLE_RATE_LIMIT=1 \
-            npm run dashboard -- --port 3100 --no-open > /tmp/dashboard.log 2>&1 &
-          echo "Dashboard started, PID: $!"
-          sleep 3
+            npm run dashboard -- --port 3100 --no-open > /tmp/api-server.log 2>&1 &
+          echo "PID=$!" >> $GITHUB_ENV
+          sleep 2
 
-      - name: Wait for Dashboard
+      - name: Wait for readiness
         run: |
-          for i in {1..60}; do
-            if curl -sf http://localhost:3100/api/v1/health > /dev/null 2>&1; then
-              echo "✓ Dashboard ready"
+          for i in $(seq 1 30); do
+            if curl -sf $API_BASE/health > /dev/null 2>&1; then
+              echo "✓ API ready (${i}s)"
               exit 0
             fi
-            echo "Attempt $i/60: waiting for Dashboard..."
             sleep 1
           done
-          echo "✗ Dashboard not ready after 60 seconds"
-          echo "Dashboard log:"
-          cat /tmp/dashboard.log || echo "(no log file)"
+          echo "✗ API not ready after 30s"
+          cat /tmp/api-server.log
           exit 1
 
-      - name: Health Diagnosis Report
+      - name: Health check
         run: |
-          set -e
-          echo "Checking Dashboard health..."
-          HEALTH=$(curl -sf http://localhost:3100/api/v1/health 2>/dev/null || echo "{}")
+          HEALTH=$(curl -sf $API_BASE/health)
+          echo "$HEALTH" | jq .
+          echo "$HEALTH" | jq -e '.status == "healthy"'
 
-          if [ -z "$HEALTH" ] || [ "$HEALTH" = "{}" ]; then
-            echo "⚠️ Dashboard health check returned empty response"
-            HEALTH="{}"
-          fi
+      - name: Readiness check
+        run: |
+          curl -sf $API_BASE/health/ready | jq -e '.ready == true'
 
-          echo "Health response: $HEALTH"
-          echo "$HEALTH" > mcp-health.json
+      - name: Candidates batch-create
+        run: |
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -d '{
+              "items": [
+                { "code": "func retry() async throws -> Data { }", "language": "swift", "category": "networking", "source": "ci" },
+                { "code": "[webView loadRequest:req];", "language": "objectivec", "category": "ui", "source": "ci" }
+              ]
+            }' \
+            $API_BASE/candidates/batch-create | jq .
 
-          node -e "
-          const fs = require('fs');
-          const data = fs.readFileSync('mcp-health.json', 'utf8');
-          let health;
-          try {
-            health = JSON.parse(data);
-          } catch (e) {
-            console.error('Failed to parse health JSON:', data);
-            health = {};
-          }
+      - name: List candidates
+        run: |
+          curl -sf $API_BASE/candidates?limit=5 | jq '.success'
 
-          const ok = Boolean(health && (health.status === 'healthy' || health.status === 'running'));
-          const report = {
-            success: ok,
-            message: ok ? 'UI 健康检查通过' : 'UI 不健康或无响应',
-            data: { health },
-            meta: { checker: 'ci-inline', baseUrl: 'http://localhost:3100' }
-          };
-          fs.writeFileSync('mcp-report.json', JSON.stringify(report, null, 2));
-          if (!ok) {
-            console.error('Dashboard health check failed');
-            process.exit(1);
-          }
-          console.log('✓ Dashboard health OK');
-          "
+      - name: List recipes
+        run: |
+          curl -sf $API_BASE/recipes?limit=5 | jq '.success'
 
-      - name: Upload Diagnosis Report
+      - name: Upload server log
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: mcp-report
-          path: mcp-report.json
+          name: api-server-log
+          path: /tmp/api-server.log
 
-      - name: Demo Candidates Submit
-        run: |
-          cat > sample-candidates.json << 'JSON'
-          {
-            "items": [
-              {
-                "code": "func requestWithRetry(url: URL, maxRetries: Int = 3) async throws -> Data {\n  for attempt in 1...maxRetries {\n    do {\n      let (data, _) = try await URLSession.shared.data(from: url)\n      return data\n    } catch where attempt < maxRetries {\n      try await Task.sleep(nanoseconds: UInt64(pow(2.0, Double(attempt))) * 1_000_000_000)\n    }\n  }\n  throw URLError(.timedOut)\n}",
-                "language": "swift",
-                "category": "networking",
-                "source": "ci-demo"
-              },
-              {
-                "code": "[webView loadRequest:[NSURLRequest requestWithURL:url]];",
-                "language": "objectivec",
-                "category": "ui",
-                "source": "ci-demo"
-              }
-            ]
-          }
-          JSON
-          curl -sf -X POST -H "Content-Type: application/json" \
-            -d @sample-candidates.json \
-            http://localhost:3100/api/v1/candidates/batch-create \
-            | tee demo-submit-result.json || echo '{"note":"candidates submit skipped"}' > demo-submit-result.json
-
-      - name: Upload Demo Submission Result
-        uses: actions/upload-artifact@v4
+  unit-tests:
+    name: Unit Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          name: demo-candidates-result
-          path: demo-submit-result.json
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:unit
 
-      - name: Run unit tests
-        run: npm run test:unit
-
-      - name: Run integration tests
-        run: npm run test:integration
+  integration-tests:
+    name: Integration Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:integration
         env:
           ASD_DISABLE_WRITE_GUARD: '1'
           ASD_DISABLE_RATE_LIMIT: '1'
