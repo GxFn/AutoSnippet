@@ -6,9 +6,14 @@
  * asd install:full --parser  - 上述 + Swift 解析器
  */
 
-const path = require('path');
-const fs = require('fs');
-const { execSync } = require('child_process');
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+import { execSync } from 'node:child_process';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const rootDir = path.resolve(__dirname, '..');
 const withParser = process.env.ASD_INSTALL_PARSER === '1' || process.env.ASD_INSTALL_PARSER === 'true';
@@ -44,7 +49,7 @@ if (withParser) {
 if (withNativeUi || process.platform === 'darwin') {
   console.log('4/4 构建 Native UI 辅助程序（macOS）...');
   try {
-  require('./build-native-ui.js');
+  await import('./build-native-ui.js');
   } catch (_) {}
 } else {
   console.log('4/4 跳过 Native UI（非 macOS）');

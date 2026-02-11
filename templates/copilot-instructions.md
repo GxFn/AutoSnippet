@@ -2,36 +2,77 @@
 
 ## 项目概览
 - 项目名称：AutoSnippet
-- 目标：通过 Recipe/Snippet/向量检索构建团队知识库与代码复用工作流。
-- 项目根：包含 `*.boxspec.json` 的目录（当前仓库为 `AutoSnippet.boxspec.json`）。
+- 版本：V2（ESM, SQLite, MCP 31 工具）
+- 目标：通过 Recipe 知识库、Guard 规则检查、语义检索构建团队知识管理与代码复用工作流。
+- 项目根：包含 `boxspec.json` 的目录。
 
 ## 知识库与结构
-- 知识库根目录：`AutoSnippet/`（默认，**用户项目可通过 `boxspec.knowledgeBase.dir` 配置改为 `Knowledge/` 或其他**）
-- Recipe：`AutoSnippet/recipes/*.md`（或用户配置的 `{knowledgeBase.dir}/recipes/`）
-- Snippet：`AutoSnippet/snippets/*.json` 或 root spec `list`
-- Candidates：`AutoSnippet/.autosnippet/candidates.json`
-- 向量索引：`AutoSnippet/.autosnippet/context/`（`asd embed` 生成）
-- Recipe 统计：`AutoSnippet/.autosnippet/recipe-stats.json`
-  - 统计权重：`AutoSnippet/.autosnippet/recipe-stats-weights.json` 或 boxspec `recipes.statsWeights`
+- 知识库根目录：`AutoSnippet/`（用户项目可通过 boxspec `knowledgeBase.dir` 自定义）
+- Recipe：`AutoSnippet/recipes/*.md`（Markdown + Frontmatter + Snippet + Usage Guide）
+- constitution.yaml：`AutoSnippet/constitution.yaml`（权限宪法：角色 + 能力 + 治理规则）
+- 运行时 DB：`.autosnippet/autosnippet.db`（SQLite，recipes/candidates/snippets 索引缓存）
+- 向量索引：`.autosnippet/context/`（`asd embed` 生成）
+- Recipe 统计：`.autosnippet/recipe-stats.json`
+
+## 知识三分类（kind）
+知识库中的 Recipe 按 kind 分为三类：
+- **rule** — Guard 规则（boundary-constraint），用于代码质量检查
+- **pattern** — 可复用代码模式（code-pattern, architecture, best-practice 等）
+- **fact** — 结构性知识（code-relation, inheritance, call-chain, data-flow 等）
 
 ## 强制规则（必须遵守）
-1. **禁止直接修改** 知识库目录内容（如 `AutoSnippet/recipes/`、`AutoSnippet/snippets/`、`AutoSnippet/.autosnippet/candidates.json`）。
-2. 创建或入库必须走 **Dashboard** 或 MCP 流程（如 `autosnippet_open_create`、`autosnippet_submit_candidates`）。
+1. **禁止直接修改** 知识库目录内容（`AutoSnippet/recipes/`、`.autosnippet/` 等）。
+2. 创建或入库必须走 **Dashboard** 或 MCP 工具流程（`autosnippet_submit_candidate`、`autosnippet_submit_candidates`）。
 3. **优先使用 Recipe** 作为项目标准；源代码仅作补充。
-4. MCP 检索优先：可用 `autosnippet_context_search` 获取语义检索结果。
+4. MCP 检索优先：使用 `autosnippet_search` 或 `autosnippet_context_search` 获取语义检索结果。
 5. MCP 调用失败时，**不要在同一轮重复重试**，回退到已读文档或静态上下文。
 6. Skills 负责语义与流程，MCP 负责能力与调用；不要在 Skill 内硬编码 URL/HTTP。
 
+## MCP 工具速查
+
+### 检索（首选 search / context_search）
+- `autosnippet_search` — 统合搜索入口（auto 模式 BM25 + 语义融合去重）
+- `autosnippet_context_search` — 智能上下文检索（意图识别 + 4 层漏斗 + 会话连续性）
+- `autosnippet_keyword_search` — SQL LIKE 精确关键词
+- `autosnippet_semantic_search` — 向量语义搜索
+
+### 知识列表 & 详情
+- `autosnippet_list_recipes` / `autosnippet_get_recipe` / `autosnippet_recipe_insights`
+- `autosnippet_list_rules` / `autosnippet_list_patterns` / `autosnippet_list_facts`
+
+### 知识图谱
+- `autosnippet_graph_query` / `autosnippet_graph_impact` / `autosnippet_graph_path` / `autosnippet_graph_stats`
+
+### 候选提交 & 校验
+- `autosnippet_validate_candidate` — 提交前预校验（5 层）
+- `autosnippet_check_duplicate` — 相似度检测
+- `autosnippet_submit_candidate` — 单条提交（reasoning 必填）
+- `autosnippet_submit_candidates` — 批量提交（含去重 + 限流）
+- `autosnippet_submit_draft_recipes` — 解析草稿 Markdown 文件
+- `autosnippet_enrich_candidates` — AI 补全缺失语义字段
+
+### 项目扫描
+- `autosnippet_get_targets` / `autosnippet_get_target_files` / `autosnippet_get_target_metadata`
+- `autosnippet_scan_project` — 轻量探查（文件清单 + Guard 审计）
+- `autosnippet_bootstrap_knowledge` — 冷启动知识库初始化（9 大知识维度）
+
+### Guard & 治理
+- `autosnippet_guard_check` / `autosnippet_guard_audit_files` / `autosnippet_compliance_report`
+
+### 其它
+- `autosnippet_health` / `autosnippet_capabilities` / `autosnippet_confirm_usage`
+
 ## Recipe 结构要点
 - 必须包含：Frontmatter（`title`、`trigger` 必填）+ `## Snippet / Code Reference` + `## AI Context / Usage Guide`。
-- 多段 Recipe 可用「空行 + `---` + 下一段 Frontmatter」分隔。
-  - 已是完整 Recipe Markdown 时可直接解析入库，无需 AI 重写。
+- Frontmatter 必填字段（7）：`title`、`trigger`（@开头）、`category`（8 选 1）、`language`、`summary_cn`、`summary_en`、`headers`。
+- Usage Guide 必须用 `###` 三级标题分段，列表式书写，禁止一行文字墙。
 
 ## 推荐工作流
-- 查找：先用 MCP `autosnippet_context_search` 或 Dashboard Search，或在编辑器中使用 `ass` 快捷联想。
-- 产出候选：生成结构化候选并提交到 Candidates。
-- 采纳与评分：可使用 `autosnippet_confirm_recipe_usage`、`autosnippet_request_recipe_rating`。
+- **查找**：`autosnippet_search`（推荐）或 `autosnippet_context_search`（上下文感知）。
+- **产出候选**：`autosnippet_validate_candidate` 预校验 → `autosnippet_submit_candidate` 提交。
+- **批量扫描**：`autosnippet_bootstrap_knowledge`（冷启动）→ 按 analysisFramework 逐维度分析 → `autosnippet_submit_candidates`。
+- **采纳反馈**：`autosnippet_confirm_usage`（记录使用量影响排序权重）。
 
 ## 与 Cursor 规则联动
-- 本文件与 `templates/cursor-rules/autosnippet-conventions.mdc` 保持一致，均用于提供 AI 的基础项目认知与必要说明。
+- 本文件与 `templates/cursor-rules/autosnippet-conventions.mdc` 保持一致。
 - 如有冲突，以 **禁止修改 Knowledge** 与 **Recipe 优先** 原则为准。

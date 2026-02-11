@@ -151,7 +151,7 @@ const XcodeSimulator: React.FC = () => {
   const loadFileTree = async () => {
     try {
       // 尝试从 API 获取
-      const response = await fetch('/api/files/tree');
+      const response = await fetch('/api/v1/commands/files/tree');
       if (response.ok) {
         const data = await response.json();
         const tree = data.tree || data;
@@ -239,7 +239,7 @@ const XcodeSimulator: React.FC = () => {
 
   const openFile = async (filePath: string) => {
     try {
-      const response = await fetch(`/api/files/read?path=${encodeURIComponent(filePath)}`);
+      const response = await fetch(`/api/v1/commands/files/read?path=${encodeURIComponent(filePath)}`);
       if (!response.ok) {
         throw new Error(`Open failed with status ${response.status}`);
       }
@@ -256,7 +256,7 @@ const XcodeSimulator: React.FC = () => {
   // 保存文件
   const handleSave = async () => {
     try {
-      await fetch('/api/save', {
+      await fetch('/api/v1/commands/files/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -285,7 +285,7 @@ const XcodeSimulator: React.FC = () => {
       console.log(`[Execute] 触发 ${marker.type} 指令...`, { query: marker.query, line: marker.line });
 
       // 执行指令
-      const response = await fetch('/api/execute', {
+      const response = await fetch('/api/v1/commands/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -313,7 +313,7 @@ const XcodeSimulator: React.FC = () => {
           `${idx + 1}. ${result.title} (${result.category || 'uncategorized'})`
         );
         
-        const dialogResponse = await fetch('/api/native-dialog', {
+        const dialogResponse = await fetch('/api/v1/commands/execute', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

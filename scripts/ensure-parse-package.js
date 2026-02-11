@@ -5,9 +5,14 @@
  * 仅当 ASD_BUILD_SWIFT_PARSER=1 时构建；否则打印说明并跳过。成功则运行时优先使用 ParsePackage；未构建时回退 dump-package / AST-lite。
  */
 
-const path = require('path');
-const fs = require('fs');
-const { spawnSync } = require('child_process');
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const rootDir = path.resolve(__dirname, '..');
 const parsePackageDir = path.join(rootDir, 'tools', 'parse-package');
@@ -37,7 +42,7 @@ if (fs.existsSync(binaryPath)) {
 if (process.env.ASD_BUILD_SWIFT_PARSER === '1' || process.env.ASD_BUILD_SWIFT_PARSER === 'true') {
   console.log('正在安装 Swift 解析器（ParsePackage）…');
   runSwiftBuild();
-  return;
+  process.exit(0);
 }
 
 console.log('跳过 Swift 解析器（ParsePackage）；需要时执行 asd install:full --parser 或安装时设置 ASD_BUILD_SWIFT_PARSER=1。');

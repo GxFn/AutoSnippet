@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Shield, AlertTriangle, AlertCircle, Trash2, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { Shield, AlertTriangle, AlertCircle, Trash2, ChevronDown, ChevronRight, ExternalLink, BookOpen, Wrench, Link2 } from 'lucide-react';
+import api from '../../api';
 import { GITHUB_ISSUES_NEW_GUARD_URL } from '../../constants';
 import { ICON_SIZES } from '../../constants/icons';
 
@@ -12,6 +12,12 @@ interface GuardRule {
   note?: string;
   /** 审查规模：仅在该规模下运行；无则任意规模均运行 */
   dimension?: 'file' | 'target' | 'project';
+  /** 规则溯源：为什么存在这条规则 */
+  rationale?: string;
+  /** 修复建议列表 */
+  fixSuggestions?: string[];
+  /** 关联的 Recipe ID/名称 */
+  sourceRecipe?: string;
 }
 
 interface GuardViolation {
@@ -56,12 +62,12 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
 
   const fetchGuard = async () => {
   try {
-    const [rulesRes, violationsRes] = await Promise.all([
-    axios.get<{ rules: Record<string, GuardRule> }>('/api/guard/rules'),
-    axios.get<{ runs: GuardRun[] }>('/api/guard/violations')
+    const [rulesResult, violationsResult] = await Promise.all([
+    api.getGuardRules(),
+    api.getGuardViolations()
     ]);
-    setRules(rulesRes.data?.rules || {});
-    setRuns(violationsRes.data?.runs || []);
+    setRules(rulesResult?.rules || {});
+    setRuns(violationsResult?.runs || []);
   } catch (_) {
     setRules({});
     setRuns([]);
@@ -77,7 +83,7 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
   const handleClearViolations = async () => {
   if (!window.confirm('确定清空所有 Guard 违反记录？')) return;
   try {
-    await axios.post('/api/guard/violations/clear');
+    await api.clearViolations();
     fetchGuard();
     onRefresh?.();
   } catch (_) {}
@@ -100,10 +106,10 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
   setAddRuleError('');
   setGenerating(true);
   try {
-    const res = await axios.post<GuardRule & { ruleId: string }>('/api/guard/rules/generate', {
+    const res = await api.generateGuardRule({
     description: semanticInput.trim()
     });
-    const data = res.data;
+    const data = res;
     const dim = (data as { dimension?: string }).dimension;
     setAddRuleForm({
     ruleId: data.ruleId || '',
@@ -131,7 +137,7 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
   }
   setAddRuleSubmitting(true);
   try {
-    await axios.post('/api/guard/rules', {
+    await api.saveGuardRule({
     ruleId: addRuleForm.ruleId.trim(),
     message: addRuleForm.message.trim(),
     severity: addRuleForm.severity,
@@ -416,29 +422,78 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
             <p className="text-sm text-slate-500">本次运行未发现违反。</p>
             ) : (
             <ul className="space-y-2">
-              {run.violations.map((v, i) => (
+              {run.violations.map((v, i) => {
+              const matchedRule = rules[v.ruleId];
+              return (
               <li key={i} className="flex items-start gap-2 text-sm">
                 {v.severity === 'error' ? (
                 <AlertCircle size={ICON_SIZES.md} className="text-red-500 shrink-0 mt-0.5" />
                 ) : (
                 <AlertTriangle size={ICON_SIZES.md} className="text-amber-500 shrink-0 mt-0.5" />
                 )}
+                <div className="flex-1 space-y-1.5">
                 <div>
-                <span className="font-mono text-xs text-slate-500">[{v.ruleId}] {v.filePath ? `${v.filePath}:${v.line}` : `L${v.line}`}</span>
-                {v.dimension && (
+                  <span className="font-mono text-xs text-slate-500">[{v.ruleId}] {v.filePath ? `${v.filePath}:${v.line}` : `L${v.line}`}</span>
+                  {v.dimension && (
                   <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">
-                  {v.dimension === 'file' ? '同文件' : v.dimension === 'target' ? '同 target' : '同项目'}
+                    {v.dimension === 'file' ? '同文件' : v.dimension === 'target' ? '同 target' : '同项目'}
                   </span>
-                )}
-                <span className="text-slate-700 ml-2">{v.message}</span>
+                  )}
+                  <span className="text-slate-700 ml-2">{v.message}</span>
+                </div>
                 {v.snippet && (
-                  <pre className="mt-1 text-xs text-slate-600 bg-slate-100 p-2 rounded overflow-x-auto">
+                  <pre className="text-xs text-slate-600 bg-slate-100 p-2 rounded overflow-x-auto">
                   {v.snippet}
                   </pre>
                 )}
+                {/* ── 规则溯源增强 ── */}
+                {matchedRule && (matchedRule.rationale || matchedRule.fixSuggestions?.length || matchedRule.sourceRecipe || matchedRule.note) && (
+                  <div className="mt-1 rounded-lg border border-blue-100 bg-blue-50/50 p-2.5 text-xs space-y-1.5">
+                  {matchedRule.rationale && (
+                    <div className="flex items-start gap-1.5">
+                    <BookOpen size={12} className="text-blue-500 shrink-0 mt-0.5" />
+                    <div><span className="font-bold text-blue-700">技术原因：</span><span className="text-slate-600">{matchedRule.rationale}</span></div>
+                    </div>
+                  )}
+                  {matchedRule.fixSuggestions && matchedRule.fixSuggestions.length > 0 && (
+                    <div className="flex items-start gap-1.5">
+                    <Wrench size={12} className="text-emerald-500 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-emerald-700">修复建议：</span>
+                      <ul className="mt-0.5 space-y-0.5 text-slate-600">
+                      {matchedRule.fixSuggestions.map((s, j) => (
+                        <li key={j} className="flex items-start gap-1">
+                        <span className="text-emerald-400 mt-0.5">•</span>
+                        <span>{s}</span>
+                        <button
+                          className="ml-1 text-blue-500 hover:text-blue-700"
+                          title="复制修复建议"
+                          onClick={() => navigator.clipboard.writeText(s)}
+                        >
+                          ⎘
+                        </button>
+                        </li>
+                      ))}
+                      </ul>
+                    </div>
+                    </div>
+                  )}
+                  {matchedRule.sourceRecipe && (
+                    <div className="flex items-center gap-1.5">
+                    <Link2 size={12} className="text-indigo-500 shrink-0" />
+                    <span className="font-bold text-indigo-700">来源 Recipe：</span>
+                    <span className="text-indigo-600 font-mono">{matchedRule.sourceRecipe}</span>
+                    </div>
+                  )}
+                  {!matchedRule.rationale && matchedRule.note && (
+                    <div className="text-slate-500 italic">备注：{matchedRule.note}</div>
+                  )}
+                  </div>
+                )}
                 </div>
               </li>
-              ))}
+              );
+              })}
             </ul>
             )}
           </div>

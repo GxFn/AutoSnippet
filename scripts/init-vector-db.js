@@ -7,9 +7,14 @@
  * 后续可升级到 Milvus Cloud
  */
 
-const path = require('path');
-const fs = require('fs');
-const kbConfig = require('../config/knowledge-base.config');
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+import path from 'node:path';
+import fs from 'node:fs';
+import kbConfig from '../config/knowledge-base.config.js';
 
 const projectRoot = path.resolve(__dirname, '..');
 const logPath = path.join(projectRoot, '.autosnippet', 'logs');
@@ -266,4 +271,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { initVectorDB };
+export default { initVectorDB };

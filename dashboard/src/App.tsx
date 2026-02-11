@@ -2,15 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Toaster } from 'react-hot-toast';
 import { notify } from './utils/notification';
-import { Snippet, Recipe, ProjectData, SPMTarget, ExtractedRecipe, ScanResultItem } from './types';
+import { Recipe, ProjectData, SPMTarget, ExtractedRecipe, ScanResultItem, GuardAuditResult } from './types';
 import { TabType, validTabs } from './constants';
 import { isShellTarget, isSilentTarget, isPendingTarget, getWritePermissionErrorMsg, getSaveErrorMsg } from './utils';
+import api from './api';
+import { useAuth } from './hooks/useAuth';
+import { usePermission } from './hooks/usePermission';
+import LoginView from './components/Views/LoginView';
 
 // Components
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
 import CategoryBar from './components/Shared/CategoryBar';
-import SnippetsView from './components/Views/SnippetsView';
 import RecipesView from './components/Views/RecipesView';
 import HelpView from './components/Views/HelpView';
 import CandidatesView from './components/Views/CandidatesView';
@@ -19,23 +22,44 @@ import DepGraphView from './components/Views/DepGraphView';
 import GuardView from './components/Views/GuardView';
 import AiChatView from './components/Views/AiChatView';
 import XcodeSimulator from './pages/XcodeSimulator';
-import SnippetEditor from './components/Modals/SnippetEditor';
 import RecipeEditor from './components/Modals/RecipeEditor';
 import CreateModal from './components/Modals/CreateModal';
 import SearchModal from './components/Modals/SearchModal';
 
+/** 将 usageGuide 字段安全转为字符串（AI 可能返回 object） */
+function stringifyGuide(val: unknown): string {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') {
+    // AI 常返回 { "When to use": "...", "Key points": "..." }
+    const obj = val as Record<string, unknown>;
+    return Object.entries(obj)
+      .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join('; ') : v}`)
+      .join('\n');
+  }
+  return String(val);
+}
+
 const App: React.FC = () => {
+  const auth = useAuth();
+  const permission = usePermission(auth.user?.role);
+
   const getTabFromPath = (): TabType => {
   const path = window.location.pathname.replace(/^\//, '').split('/')[0] || '';
   return (validTabs.includes(path as any) ? path : 'help') as any;
   };
+
+  // ── 登录门控 ──────────────────────────────────
+  // authEnabled=true 且未登录 → 只渲染登录页
+  if (auth.authEnabled && !auth.isAuthenticated) {
+    return <LoginView onLogin={auth.login} isLoading={auth.isLoading} />;
+  }
 
   // State
   const [data, setData] = useState<ProjectData | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>(getTabFromPath());
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [editingSnippet, setEditingSnippet] = useState<Snippet | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [targets, setTargets] = useState<SPMTarget[]>([]);
   const [selectedTargetName, setSelectedTargetName] = useState<string | null>(null);
@@ -43,6 +67,7 @@ const App: React.FC = () => {
   const [scanProgress, setScanProgress] = useState<{ current: number, total: number, status: string }>({ current: 0, total: 0, status: '' });
   const [scanFileList, setScanFileList] = useState<{ name: string; path: string }[]>([]);
   const [scanResults, setScanResults] = useState<ScanResultItem[]>([]);
+  const [guardAudit, setGuardAudit] = useState<GuardAuditResult | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [recipePage, setRecipePage] = useState(1);
   const [recipePageSize, setRecipePageSize] = useState(12);
@@ -79,20 +104,6 @@ const App: React.FC = () => {
   };
 
   // Handlers
-  const openSnippetEdit = (snippet: Snippet) => {
-  const cleanTitle = snippet.title.replace(/^\[.*?\]\s*/, '');
-  setEditingSnippet({ ...snippet, title: cleanTitle });
-  setActiveTab('snippets');
-  const q = new URLSearchParams(window.location.search);
-  q.set('edit', snippet.identifier);
-  window.history.pushState({}, document.title, `/snippets?${q.toString()}`);
-  };
-
-  const closeSnippetEdit = () => {
-  setEditingSnippet(null);
-  window.history.replaceState({}, document.title, '/snippets');
-  };
-
   const openRecipeEdit = (recipe: Recipe) => {
   setEditingRecipe(recipe);
   setActiveTab('recipes');
@@ -122,13 +133,6 @@ const App: React.FC = () => {
   const pathname = window.location.pathname.replace(/^\//, '').split('/')[0];
   const params = new URLSearchParams(window.location.search);
   const editId = params.get('edit');
-  if (pathname === 'snippets' && editId && data.rootSpec?.list) {
-    const snippet = data.rootSpec.list.find((s: Snippet) => s.identifier === editId);
-    if (snippet && !editingSnippet) {
-    setActiveTab('snippets');
-    openSnippetEdit(snippet);
-    }
-  }
   if (pathname === 'recipes' && editId && data.recipes) {
     try {
     const name = decodeURIComponent(editId);
@@ -172,17 +176,16 @@ const App: React.FC = () => {
   const fetchData = async () => {
   setLoading(true);
   try {
-    const res = await axios.get<ProjectData>('/api/data');
+    const projectData = await api.fetchData();
     // 清理候选池中重复的语言版本
-    if (res.data.candidates) {
-    const cleanedCandidates: typeof res.data.candidates = {};
-    Object.entries(res.data.candidates).forEach(([targetName, targetData]) => {
+    if (projectData.candidates) {
+    const cleanedCandidates: typeof projectData.candidates = {};
+    Object.entries(projectData.candidates).forEach(([targetName, targetData]) => {
       const cleanedItems = targetData.items.map(item => {
-      // 清理重复的语言版本：如果 summary_en 和 summary_cn/summary 相同，则删除 summary_en
       const summary_cn = item.summary_cn || item.summary || '';
       const summary_en = item.summary_en && item.summary_en !== summary_cn ? item.summary_en : undefined;
-      const usageGuide_cn = item.usageGuide_cn || item.usageGuide || '';
-      const usageGuide_en = item.usageGuide_en && item.usageGuide_en !== usageGuide_cn ? item.usageGuide_en : undefined;
+      const usageGuide_cn = stringifyGuide(item.usageGuide_cn || item.usageGuide || '');
+      const usageGuide_en = item.usageGuide_en && stringifyGuide(item.usageGuide_en) !== usageGuide_cn ? stringifyGuide(item.usageGuide_en) : undefined;
       
       return {
         ...item,
@@ -194,9 +197,9 @@ const App: React.FC = () => {
       });
       cleanedCandidates[targetName] = { ...targetData, items: cleanedItems };
     });
-    res.data.candidates = cleanedCandidates;
+    projectData.candidates = cleanedCandidates;
     }
-    setData(res.data);
+    setData(projectData);
   } catch (_) {
   } finally {
     setLoading(false);
@@ -205,15 +208,15 @@ const App: React.FC = () => {
 
   const fetchTargets = async () => {
   try {
-    const res = await axios.get<SPMTarget[]>('/api/spm/targets');
-    setTargets(res.data);
+    const result = await api.fetchTargets();
+    setTargets(result);
   } catch (_) {
   }
   };
 
   const handleSyncToXcode = async () => {
   try {
-    await axios.post('/api/commands/install');
+    await api.syncToXcode();
     notify('已同步到 Xcode CodeSnippets');
   } catch (err) {
     notify('同步失败', { type: 'error' });
@@ -222,7 +225,7 @@ const App: React.FC = () => {
 
   const handleRefreshProject = async () => {
   try {
-    await axios.post('/api/commands/spm-map');
+    await api.refreshProject();
     fetchTargets();
     notify('项目结构已刷新');
   } catch (err) {
@@ -233,13 +236,12 @@ const App: React.FC = () => {
   const handleCreateFromPathWithSpecifiedPath = async (specifiedPath: string) => {
   setIsExtracting(true);
   try {
-    const res = await axios.post<{ result: ExtractedRecipe[], isMarked: boolean }>('/api/extract/path', { relativePath: specifiedPath });
-    setScanResults(res.data.result.map(item => {
-    // 清理重复的语言版本：如果 summary_en 和 summary_cn/summary 相同，则删除 summary_en
+    const extractResult = await api.extractFromPath(specifiedPath);
+    setScanResults(extractResult.result.map(item => {
     const summary_cn = item.summary_cn || item.summary || '';
     const summary_en = item.summary_en && item.summary_en !== summary_cn ? item.summary_en : undefined;
-    const usageGuide_cn = item.usageGuide_cn || item.usageGuide || '';
-    const usageGuide_en = item.usageGuide_en && item.usageGuide_en !== usageGuide_cn ? item.usageGuide_en : undefined;
+    const usageGuide_cn = stringifyGuide(item.usageGuide_cn || item.usageGuide || '');
+    const usageGuide_en = item.usageGuide_en && stringifyGuide(item.usageGuide_en) !== usageGuide_cn ? stringifyGuide(item.usageGuide_en) : undefined;
     
     return {
       ...item,
@@ -247,6 +249,7 @@ const App: React.FC = () => {
       summary_en,
       usageGuide_cn,
       usageGuide_en,
+      tags: Array.isArray(item.tags) ? item.tags : [],
       mode: 'full',
       lang: 'cn',
       includeHeaders: true,
@@ -258,7 +261,7 @@ const App: React.FC = () => {
     navigateToTab('spm', { preserveSearch: true });
     setShowCreateModal(false);
     fetchData();
-    if (res.data.result?.length > 0) {
+    if (extractResult.result?.length > 0) {
     notify('提取完成，已加入候选池，请在 Candidates 页审核');
     }
   } catch (err) {
@@ -272,13 +275,12 @@ const App: React.FC = () => {
   if (!createPath) return;
   setIsExtracting(true);
   try {
-    const res = await axios.post<{ result: ExtractedRecipe[], isMarked: boolean }>('/api/extract/path', { relativePath: createPath });
-    setScanResults(res.data.result.map(item => {
-    // 清理重复的语言版本：如果 summary_en 和 summary_cn/summary 相同，则删除 summary_en
+    const extractResult = await api.extractFromPath(createPath);
+    setScanResults(extractResult.result.map(item => {
     const summary_cn = item.summary_cn || item.summary || '';
     const summary_en = item.summary_en && item.summary_en !== summary_cn ? item.summary_en : undefined;
-    const usageGuide_cn = item.usageGuide_cn || item.usageGuide || '';
-    const usageGuide_en = item.usageGuide_en && item.usageGuide_en !== usageGuide_cn ? item.usageGuide_en : undefined;
+    const usageGuide_cn = stringifyGuide(item.usageGuide_cn || item.usageGuide || '');
+    const usageGuide_en = item.usageGuide_en && stringifyGuide(item.usageGuide_en) !== usageGuide_cn ? stringifyGuide(item.usageGuide_en) : undefined;
     
     return {
       ...item,
@@ -286,6 +288,7 @@ const App: React.FC = () => {
       summary_en,
       usageGuide_cn,
       usageGuide_en,
+      tags: Array.isArray(item.tags) ? item.tags : [],
       mode: 'full',
       lang: 'cn',
       includeHeaders: true,
@@ -297,9 +300,9 @@ const App: React.FC = () => {
     navigateToTab('spm');
     setShowCreateModal(false);
     fetchData();
-    if (res.data.result?.length > 0) {
-    notify(res.data.isMarked ? '提取完成（精准锁定），已加入候选池' : '提取完成，已加入候选池');
-    } else if (!res.data.isMarked) {
+    if (extractResult.result?.length > 0) {
+    notify(extractResult.isMarked ? '提取完成（精准锁定），已加入候选池' : '提取完成，已加入候选池');
+    } else if (!extractResult.isMarked) {
     notify('未找到标记，AI 正在分析完整文件');
     }
   } catch (err) {
@@ -321,17 +324,13 @@ const App: React.FC = () => {
     const relativePath = contextPath || createPath;
     
     try {
-    const res = await axios.post<ExtractedRecipe>('/api/extract/text', {
-      text,
-      ...(relativePath ? { relativePath } : {})
-    });
-    const item = res.data;
+    const item = await api.extractFromText(text, relativePath || undefined);
     
     // 清理重复的语言版本
     const summary_cn = item.summary_cn || item.summary || '';
     const summary_en = item.summary_en && item.summary_en !== summary_cn ? item.summary_en : undefined;
-    const usageGuide_cn = item.usageGuide_cn || item.usageGuide || '';
-    const usageGuide_en = item.usageGuide_en && item.usageGuide_en !== usageGuide_cn ? item.usageGuide_en : undefined;
+    const usageGuide_cn = stringifyGuide(item.usageGuide_cn || item.usageGuide || '');
+    const usageGuide_en = item.usageGuide_en && stringifyGuide(item.usageGuide_en) !== usageGuide_cn ? stringifyGuide(item.usageGuide_en) : undefined;
     
     const multipleCount = (item as ExtractedRecipe & { _multipleCount?: number })._multipleCount;
     setScanResults([{ 
@@ -340,6 +339,7 @@ const App: React.FC = () => {
       summary_en,
       usageGuide_cn,
       usageGuide_en,
+      tags: Array.isArray(item.tags) ? item.tags : [],
       mode: 'full', 
       lang: 'cn',
       includeHeaders: true,
@@ -386,6 +386,7 @@ const App: React.FC = () => {
   setSelectedTargetName(target.name);
   setIsScanning(true);
   setScanResults([]);
+  setGuardAudit(null);
   setScanFileList([]);
   setScanProgress({ current: 0, total: 100, status: '正在获取待扫描文件列表...' });
 
@@ -400,48 +401,118 @@ const App: React.FC = () => {
   }, phaseInterval);
 
   try {
-    const filesRes = await axios.post<{ files: { name: string; path: string }[]; count: number }>('/api/spm/target-files', { target }, {
-    signal: controller.signal
-    });
-    const fileList = filesRes.data?.files || [];
-    const fileCount = filesRes.data?.count ?? fileList.length;
+    const filesResult = await api.getTargetFiles(target, controller.signal);
+    const fileList = filesResult.files || [];
+    const fileCount = filesResult.count ?? fileList.length;
     setScanFileList(fileList);
     setScanProgress(prev => ({ ...prev, current: 10, status: `正在分析 ${fileCount} 个文件...` }));
 
-    const res = await axios.post<{ recipes?: ExtractedRecipe[]; scannedFiles?: { name: string; path: string }[] } | ExtractedRecipe[]>('/api/spm/scan', { target }, {
-    signal: controller.signal
-    });
+    const scanResult = await api.scanTarget(target, controller.signal);
     clearInterval(progressTimer);
     setScanProgress({ current: 100, total: 100, status: '扫描完成' });
 
-    const data = res.data;
-    const recipes = Array.isArray(data) ? data : (data?.recipes ?? []);
-    const scannedFiles = !Array.isArray(data) && data?.scannedFiles ? data.scannedFiles : fileList;
+    const recipes = scanResult.recipes || [];
+    const scannedFiles = scanResult.scannedFiles?.length ? scanResult.scannedFiles : fileList;
 
     if (recipes.length > 0 || scannedFiles.length > 0) {
-    setScanResults(recipes.map((item: ExtractedRecipe) => ({
+    const scanTargetName = typeof target === 'string' ? target : target?.name || 'unknown';
+    const enrichedResults = recipes.map((item: ExtractedRecipe) => ({
+      ...item,
+      mode: 'full' as const,
+      lang: 'cn' as const,
+      includeHeaders: item.includeHeaders !== false,
+      category: item.category || 'Utility',
+      summary: stringifyGuide(item.summary_cn || item.summary || ''),
+      usageGuide: stringifyGuide(item.usageGuide_cn || item.usageGuide || ''),
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      candidateTargetName: scanTargetName,
+      scanMode: 'target' as const,
+    }));
+    setScanResults(enrichedResults);
+    setScanFileList(scannedFiles);
+
+    fetchData();
+    if (recipes.length > 0) {
+      notify(`AI 提取了 ${recipes.length} 条结果，请在右侧审核`);
+    }
+    } else {
+    notify('Scan failed: No source files.', { type: 'error' });
+    }
+  } catch (err: any) {
+    clearInterval(progressTimer);
+    if (axios.isCancel(err)) return;
+    notify(`Scan failed: ${err.response?.data?.error || err.message}`, { type: 'error' });
+  } finally {
+    if (abortControllerRef.current === controller) {
+    setIsScanning(false);
+    setScanProgress({ current: 0, total: 0, status: '' });
+    abortControllerRef.current = null;
+    }
+  }
+  };
+
+  /** 全项目扫描：AI 提取 + Guard 审计 */
+  const handleScanProject = async () => {
+  if (isScanning) return;
+  if (abortControllerRef.current) abortControllerRef.current.abort();
+  const controller = new AbortController();
+  abortControllerRef.current = controller;
+
+  setSelectedTargetName('__project__');
+  setIsScanning(true);
+  setScanResults([]);
+  setGuardAudit(null);
+  setScanFileList([]);
+  setScanProgress({ current: 0, total: 100, status: '正在收集所有 Target 文件...' });
+
+  const phases = [
+    { status: '正在收集源文件...', percent: 10 },
+    { status: '正在 AI 分析代码模式...', percent: 30 },
+    { status: '正在运行 Guard 审计...', percent: 60 },
+    { status: '正在汇总结果...', percent: 85 },
+  ];
+  let phaseIndex = 0;
+  const progressTimer = setInterval(() => {
+    phaseIndex = Math.min(phaseIndex + 1, phases.length);
+    const phase = phases[phaseIndex - 1];
+    if (phase) setScanProgress(prev => ({ ...prev, current: phase.percent, status: phase.status }));
+  }, 5000);
+
+  try {
+    const result = await api.scanProject(controller.signal);
+    clearInterval(progressTimer);
+    setScanProgress({ current: 100, total: 100, status: '全项目扫描完成' });
+
+    const recipes = result.recipes || [];
+    const scannedFiles = result.scannedFiles || [];
+
+    if (recipes.length > 0 || scannedFiles.length > 0) {
+    const enrichedResults = recipes.map((item: ExtractedRecipe) => ({
       ...item,
       mode: 'full' as const,
       lang: 'cn' as const,
       includeHeaders: item.includeHeaders !== false,
       category: item.category || 'Utility',
       summary: item.summary_cn || item.summary || '',
-      usageGuide: item.usageGuide_cn || item.usageGuide || ''
-    })));
+      usageGuide: item.usageGuide_cn || item.usageGuide || '',
+      candidateTargetName: '__project__',
+      scanMode: 'project' as const,
+    }));
+    setScanResults(enrichedResults);
     setScanFileList(scannedFiles);
-    fetchData(); // 刷新候选数
-    if (recipes.length > 0) {
-      notify(`${recipes.length} 条已加入候选池（24h），请在 Candidates 页审核`);
-    }
-    } else if (typeof data === 'object' && data !== null && 'message' in data) {
-    notify((data as { message?: string }).message || 'Scan failed: No source files.', { type: 'error' });
+    setGuardAudit(result.guardAudit || null);
+    fetchData();
+
+    const guardInfo = result.guardAudit?.summary;
+    const violationMsg = guardInfo ? `, Guard: ${guardInfo.totalViolations} 处违反` : '';
+    notify(`全项目扫描完成: ${recipes.length} 条候选${violationMsg}`);
     } else {
-    notify('Scan failed: Unexpected response format', { type: 'error' });
+    notify('全项目扫描完成，未发现可提取内容');
     }
   } catch (err: any) {
     clearInterval(progressTimer);
     if (axios.isCancel(err)) return;
-    notify(`Scan failed: ${err.response?.data?.error || err.message}`, { type: 'error' });
+    notify(`Project scan failed: ${err.response?.data?.error || err.message}`, { type: 'error' });
   } finally {
     if (abortControllerRef.current === controller) {
     setIsScanning(false);
@@ -500,27 +571,6 @@ const App: React.FC = () => {
     return;
     }
     const primarySnippetId = crypto.randomUUID().toUpperCase();
-    
-    if (extracted.mode === 'full') {
-    for (let i = 0; i < triggers.length; i++) {
-      const t = triggers[i];
-      const includeHeaders = (extracted as any).includeHeaders !== false;
-      const snippet: Snippet = {
-      identifier: i === 0 ? primarySnippetId : crypto.randomUUID().toUpperCase(),
-      title: triggers.length > 1 ? `${extracted.title || 'Untitled'} (${t})` : (extracted.title || 'Untitled'),
-      completionKey: t,
-      category: extracted.category || 'Utility',
-      summary: extracted.summary || '',
-      language: extracted.language || 'swift',
-      content: (extracted.code || '').split('\n'),
-      headers: includeHeaders ? (extracted.headers || []) : [],
-      headerPaths: includeHeaders ? (extracted.headerPaths || []) : undefined,
-      moduleName: extracted.moduleName,
-      includeHeaders
-      };
-      await axios.post('/api/snippets/save', { snippet });
-    }
-    }
 
   const recipeName = `${(extracted.title || 'Untitled').replace(/\s+/g, '-')}.md`;
   
@@ -553,6 +603,18 @@ headers: ${JSON.stringify(extracted.headers || [])}`;
   if (extracted.authority) {
     frontmatter += `\nauthority: ${extracted.authority}`;
   }
+  if (extracted.knowledgeType) {
+    frontmatter += `\nknowledge_type: ${extracted.knowledgeType}`;
+  }
+  if (extracted.complexity) {
+    frontmatter += `\ncomplexity: ${extracted.complexity}`;
+  }
+  if (extracted.scope) {
+    frontmatter += `\nscope: ${extracted.scope}`;
+  }
+  if (extracted.tags && extracted.tags.length > 0) {
+    frontmatter += `\ntags: ${JSON.stringify(extracted.tags)}`;
+  }
   
   frontmatter += `
 version: "1.0.0"
@@ -578,18 +640,45 @@ ${usageGuide_cn}`;
 
 ${usageGuide_en}`;
   }
+
+  // Rationale (from AI)
+  if (extracted.rationale) {
+    body += `
+
+## Architecture Usage
+
+${extracted.rationale}`;
+  }
+
+  // Steps (from AI)
+  if (extracted.steps && extracted.steps.length > 0) {
+    body += `
+
+## Best Practices
+
+${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
+  }
+
+  // Preconditions (from AI)
+  if (extracted.preconditions && extracted.preconditions.length > 0) {
+    body += `
+
+## Standards
+
+**Preconditions:**\n${extracted.preconditions.map((p: string) => `- ${p}`).join('\n')}`;
+  }
   
   const recipeContent = frontmatter + body;
-    await axios.post('/api/recipes/save', { name: recipeName, content: recipeContent });
+    await api.saveRecipe(recipeName, recipeContent);
     
-    notify(extracted.mode === 'full' ? '已保存为 Snippet 和 Recipe' : '已保存到 KB');
+    notify(extracted.mode === 'full' ? '已保存为 Recipe（Snippet 将自动生成）' : '已保存到 KB');
     setScanResults(prev => prev.filter(item => item.title !== extracted.title));
     // 若来自候选池，保存后从候选池移除
     const candTarget = extracted.candidateTargetName;
     const candId = extracted.candidateId;
     if (candTarget && candId) {
     try {
-      await axios.post('/api/candidates/delete', { targetName: candTarget, candidateId: candId });
+      await api.deleteCandidate(candId);
     } catch (_) {}
     }
     fetchData();
@@ -635,7 +724,7 @@ ${usageGuide_en}`;
     }
     }
     
-    await axios.post('/api/recipes/save', { name: editingRecipe.name, content: cleanedContent });
+    await api.saveRecipe(editingRecipe.name, cleanedContent);
     closeRecipeEdit();
     fetchData();
   } catch (err) {
@@ -649,7 +738,7 @@ ${usageGuide_en}`;
   const handleDeleteRecipe = async (name: string) => {
   if (!window.confirm(`Are you sure?`)) return;
   try {
-    await axios.post('/api/recipes/delete', { name });
+    await api.deleteRecipe(name);
     fetchData();
   } catch (err) {
     const msg = getWritePermissionErrorMsg(err);
@@ -659,7 +748,7 @@ ${usageGuide_en}`;
 
   const handleDeleteCandidate = async (targetName: string, candidateId: string): Promise<void> => {
   try {
-    await axios.post('/api/candidates/delete', { targetName, candidateId });
+    await api.deleteCandidate(candidateId);
     setScanResults(prev => prev.filter(r => !(r.candidateId === candidateId && r.candidateTargetName === targetName)));
     fetchData();
   } catch (err) {
@@ -671,7 +760,7 @@ ${usageGuide_en}`;
   const handleDeleteAllInTarget = async (targetName: string) => {
   if (!window.confirm(`确定移除「${targetName}」下的全部候选？`)) return;
   try {
-    await axios.post('/api/candidates/delete-target', { targetName });
+    await api.deleteAllCandidatesInTarget(targetName);
     fetchData();
     notify(`已移除 ${targetName} 下的全部候选`);
   } catch (err) {
@@ -679,26 +768,14 @@ ${usageGuide_en}`;
   }
   };
 
-  const handleSaveSnippet = async () => {
-  if (!editingSnippet) return;
+  const handlePromoteToCandidate = async (res: any, index: number) => {
   try {
-    await axios.post('/api/snippets/save', { snippet: editingSnippet });
-    closeSnippetEdit();
+    await api.promoteToCandidate(res, res.candidateTargetName || selectedTargetName || '_review');
+    notify('已加入 Candidate 待审核队列');
+    setScanResults(prev => prev.filter((_, i) => i !== index));
     fetchData();
-  } catch (err) {
-    const msg = getWritePermissionErrorMsg(err);
-    notify(msg ?? '保存 Snippet 失败', { type: 'error' });
-  }
-  };
-
-  const handleDeleteSnippet = async (identifier: string, title: string) => {
-  if (!window.confirm(`Delete snippet: ${title}?`)) return;
-  try {
-    await axios.post('/api/snippets/delete', { identifier });
-    fetchData();
-  } catch (err) {
-    const msg = getWritePermissionErrorMsg(err);
-    notify(msg ?? '删除失败', { type: 'error' });
+  } catch (err: any) {
+    notify(err.response?.data?.error || '创建 Candidate 失败', { type: 'error' });
   }
   };
 
@@ -713,11 +790,12 @@ ${usageGuide_en}`;
   setUserInput('');
   setIsAiThinking(true);
   try {
-    const res = await axios.post('/api/ai/chat', {
-    prompt: userInput,
-    history: chatHistory.map(h => ({ role: h.role, content: h.text }))
-    }, { signal: controller.signal });
-    setChatHistory(prev => [...prev, { role: 'model', text: res.data.text }]);
+    const chatResult = await api.chat(
+    userInput,
+    chatHistory.map(h => ({ role: h.role, content: h.text })),
+    controller.signal,
+    );
+    setChatHistory(prev => [...prev, { role: 'model', text: chatResult.text }]);
   } catch (err: any) {
     if (axios.isCancel(err)) return;
     setChatHistory(prev => [...prev, { role: 'model', text: 'Error' }]);
@@ -730,15 +808,6 @@ ${usageGuide_en}`;
   };
 
   // Filters
-  const filteredSnippets = data?.rootSpec.list.filter(s => {
-  const title = s.title || '';
-  const completionKey = s.completionKey || '';
-  const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) || completionKey.toLowerCase().includes(searchQuery.toLowerCase());
-  if (selectedCategory === 'All') return matchesSearch;
-  const category = s.category || 'Utility';
-  return matchesSearch && category === selectedCategory;
-  }) || [];
-
   const filteredRecipes = (data?.recipes || []).filter(s => {
   // 语义搜索结果优先
   if (semanticResults) {
@@ -787,6 +856,10 @@ ${usageGuide_en}`;
     handleRefreshProject={handleRefreshProject} 
     candidateCount={candidateCount}
     isDarkMode={isDarkMode}
+    currentUser={auth.authEnabled ? auth.user?.username : (permission.user !== 'anonymous' ? permission.user : undefined)}
+    currentRole={permission.role}
+    permissionMode={permission.mode}
+    onLogout={auth.authEnabled ? auth.logout : undefined}
     />
 
     <main className="flex-1 flex flex-col overflow-hidden relative">
@@ -801,13 +874,13 @@ ${usageGuide_en}`;
       isDarkMode={isDarkMode}
       onSemanticSearchResults={(results) => {
       setSemanticResults(results);
-      if (activeTab !== 'recipes' && activeTab !== 'snippets') {
+      if (activeTab !== 'recipes') {
         navigateToTab('recipes');
       }
       }}
     />
 
-    {(activeTab === 'snippets' || activeTab === 'recipes') && (
+    {activeTab === 'recipes' && (
       <CategoryBar 
       selectedCategory={selectedCategory} 
       setSelectedCategory={setSelectedCategory} 
@@ -819,12 +892,6 @@ ${usageGuide_en}`;
       <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
-      ) : activeTab === 'snippets' ? (
-      <SnippetsView 
-        snippets={filteredSnippets} 
-        openSnippetEdit={openSnippetEdit} 
-        handleDeleteSnippet={handleDeleteSnippet}
-      />
       ) : activeTab === 'recipes' ? (
       <RecipesView 
         recipes={filteredRecipes} 
@@ -846,6 +913,8 @@ ${usageGuide_en}`;
         isPendingTarget={isPendingTarget}
         handleDeleteCandidate={handleDeleteCandidate} 
         onEditRecipe={openRecipeEdit}
+        onColdStart={handleScanProject}
+        onRefresh={fetchData}
         onAuditCandidate={(cand, targetName) => {
         setScanResults([{ 
           ...cand, 
@@ -885,9 +954,12 @@ ${usageGuide_en}`;
         scanProgress={scanProgress}
         scanFileList={scanFileList}
         scanResults={scanResults}
+        guardAudit={guardAudit}
         handleScanTarget={handleScanTarget}
+        handleScanProject={handleScanProject}
         handleUpdateScanResult={handleUpdateScanResult}
         handleSaveExtracted={handleSaveExtracted}
+        handlePromoteToCandidate={handlePromoteToCandidate}
         handleDeleteCandidate={handleDeleteCandidate}
         onEditRecipe={openRecipeEdit}
         isShellTarget={isShellTarget}
@@ -908,15 +980,6 @@ ${usageGuide_en}`;
       />
       )}
     </div>
-
-    {editingSnippet && (
-      <SnippetEditor 
-      editingSnippet={editingSnippet} 
-      setEditingSnippet={setEditingSnippet} 
-      handleSaveSnippet={handleSaveSnippet} 
-      closeSnippetEdit={closeSnippetEdit} 
-      />
-    )}
 
     {editingRecipe && (
       <RecipeEditor 

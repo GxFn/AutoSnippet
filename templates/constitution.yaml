@@ -1,0 +1,134 @@
+# ═══════════════════════════════════════════════════════════
+# AutoSnippet Constitution — 权限宪法
+# ═══════════════════════════════════════════════════════════
+#
+# 三层权限架构:
+#   ① 能力层 (capabilities) — git push --dry-run 探测物理写权限
+#   ② 角色层 (roles)        — 角色权限矩阵 (action:resource)
+#   ③ 治理层 (priorities)   — 业务规则引擎
+#
+# 双路径模式:
+#   AUTH_ENABLED=false → 子仓库探针自动决定角色（能力层驱动）
+#   AUTH_ENABLED=true  → 登录后根据用户配置角色（角色层驱动）
+# ═══════════════════════════════════════════════════════════
+
+version: "2.0"
+effective_date: "2026-02-10"
+
+# ─── 能力探测 ─────────────────────────────────────────────
+capabilities:
+  git_write:
+    description: "子仓库 git push 权限"
+    probe: "git push --dry-run"
+    # 无子仓库 → 个人项目, 视为 admin (全权限)
+    no_subrepo: "allow"
+    # 有子仓库但无 remote → 本地开发, 视为 admin
+    no_remote: "allow"
+    cache_ttl: 86400
+
+# ─── 治理优先级 ───────────────────────────────────────────
+priorities:
+  - id: 1
+    name: "Data Integrity"
+    description: "保护用户项目数据不被破坏"
+    rules:
+      - "所有写操作必须经过备份"
+      - "删除操作必须有确认步骤"
+      - "关键文件修改需要记录审计日志"
+
+  - id: 2
+    name: "Human Oversight"
+    description: "保持人类对 AI 决策的监督"
+    rules:
+      - "AI 生成的 Candidate 必须经人工审核"
+      - "Guard 规则修改需要人工批准"
+      - "批量操作需要明确授权"
+
+  - id: 3
+    name: "AI Transparency"
+    description: "AI 决策过程必须可追溯"
+    rules:
+      - "Candidate 必须包含 Reasoning 信息"
+      - "Guard 规则必须关联来源 Recipe"
+      - "所有 AI 操作记录到审计日志"
+
+  - id: 4
+    name: "Helpfulness"
+    description: "在保证安全前提下尽可能帮助用户"
+    rules:
+      - "提供充分的错误信息和修复建议"
+      - "优先推荐高质量 Recipe"
+      - "自动优化常见操作"
+
+roles:
+  - id: "cursor_agent"
+    name: "Cursor / Copilot Agent"
+    description: "在 IDE 中运行的 AI 助手"
+    permissions:
+      - "read:recipes"
+      - "read:guard_rules"
+      - "create:candidates"
+      - "submit:candidates"
+      - "read:audit_logs:self"
+      - "knowledge:bootstrap"
+    constraints:
+      - "不能直接修改 Recipe"
+      - "不能修改 Guard 规则"
+      - "不能删除任何数据"
+
+  - id: "asd_ais"
+    name: "ASD AI审查"
+    description: "AutoSnippet 内置的 AI 审查系统"
+    permissions:
+      - "read:recipes"
+      - "read:candidates"
+      - "create:candidates"
+      - "read:guard_rules"
+    constraints:
+      - "生成的 Candidate 必须包含完整 Reasoning"
+      - "不能绕过 Guard 检查"
+
+  - id: "guard_engine"
+    name: "Guard 检查引擎"
+    description: "代码质量检查系统"
+    permissions:
+      - "read:candidates"
+      - "read:guard_rules"
+      - "write:audit_logs"
+    constraints:
+      - "只能读取，不能修改数据"
+
+  - id: "developer_admin"
+    name: "开发者（管理员）"
+    description: "项目管理员"
+    permissions:
+      - "*"  # 全部权限
+    requires_capability:
+      - "git_write"
+
+  - id: "developer_contributor"
+    name: "开发者（贡献者）"
+    description: "项目贡献者"
+    permissions:
+      - "read:*"
+      - "approve:candidates"
+      - "reject:candidates"
+      - "create:recipes"
+    constraints:
+      - "不能删除 Recipe"
+      - "不能禁用 Guard 规则"
+    requires_capability:
+      - "git_write"
+
+  - id: "visitor"
+    name: "访问者"
+    description: "只读访问（无子仓库写权限或未登录）"
+    permissions:
+      - "read:recipes"
+      - "read:snippets"
+      - "read:candidates"
+      - "read:guard_rules"
+      - "search:query"
+    constraints:
+      - "只能查看，不能修改任何数据"
+      - "不能创建 Candidate 或 Recipe"

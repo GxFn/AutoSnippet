@@ -54,7 +54,7 @@ The knowledge base has **context storage** capability: Recipes, docs, etc. are e
 
 **Prerequisites**: `asd embed` run, `asd ui` started, MCP configured.
 
-**Usage guidance for Cursor**: Assume `asd ui` is kept running when calling MCP tools (`autosnippet_context_search`, `autosnippet_open_create`). If a call fails (e.g. connection refused, API error), do **not** retry within the current agent cycle; fall back to static context (`references/project-recipes-context.md`) or in-context lookup instead.
+**Usage guidance for Cursor**: Assume `asd ui` is kept running when calling MCP tools (`autosnippet_context_search`, `autosnippet_search`, etc.). If a call fails (e.g. connection refused, API error), do **not** retry within the current agent cycle; fall back to static index (`references/project-recipes-context.md` 轻量索引) or in-context lookup instead.
 
 **Envelope reading guidance**:
 - Parse Envelope fields:
@@ -78,20 +78,29 @@ This is a conceptual map. Skills stay semantic; MCP provides capability.
 
 | Intent | Primary tool(s) |
 |---|---|
+| 统合搜索 | `autosnippet_search`（auto 模式融合 BM25+语义） |
 | 语义检索 | `autosnippet_context_search` |
-| 结果分析 | `autosnippet_context_analyze` |
+| 精确检索 | `autosnippet_keyword_search` |
+| 向量搜索 | `autosnippet_semantic_search` |
+| 知识浏览 | `autosnippet_list_recipes`, `autosnippet_get_recipe`, `autosnippet_list_rules`, `autosnippet_list_patterns`, `autosnippet_list_facts` |
 | 结构发现 | `autosnippet_get_targets`, `autosnippet_get_target_files`, `autosnippet_get_target_metadata` |
+| 知识图谱 | `autosnippet_graph_query`, `autosnippet_graph_impact`, `autosnippet_graph_path`, `autosnippet_graph_stats` |
 | 候选预检 | `autosnippet_validate_candidate` |
 | 去重建议 | `autosnippet_check_duplicate` |
-| 候选提交 | `autosnippet_submit_candidates`, `autosnippet_submit_draft_recipes` |
-| 反馈闭环 | `autosnippet_confirm_recipe_usage`, `autosnippet_request_recipe_rating` |
+| 候选提交 | `autosnippet_submit_candidate`, `autosnippet_submit_candidates`, `autosnippet_submit_draft_recipes` |
+| AI 补全 | `autosnippet_enrich_candidates` |
+| Guard 检查 | `autosnippet_guard_check`, `autosnippet_guard_audit_files` |
+| 合规报告 | `autosnippet_compliance_report`, `autosnippet_recipe_insights` |
+| 使用确认 | `autosnippet_confirm_usage` |
+| 项目扫描 | `autosnippet_scan_project` |
+| 冷启动 | `autosnippet_bootstrap_knowledge` |
 | 自检/能力 | `autosnippet_health`, `autosnippet_capabilities` |
 
 ### Failure Handling (Examples)
 - 检索失败（`SEARCH_FAILED`）：改用静态 Recipe 目录或缩小关键词后再试（下一轮）。
 - 目标文件获取失败（`GET_TARGET_FILES_FAILED`）：提示检查 `asd ui` 与 `targetName`，改为从本地源路径列举（下一轮）。
-- 打开创建页失败（`OPEN_CREATE_FAILED`）：提示用户手动打开 Dashboard 并复制代码；继续收集上下文。
-- 采纳或评分表单失败（`ELICIT_FAILED`）：记录失败原因；建议在 Dashboard 中手动完成，或稍后重试。
+- 候选提交失败（`SUBMIT_FAILED`）：检查必填字段是否齐全；缩小批次后重试（下一轮）。
+- Guard 检查失败（`GUARD_ERROR`）：提示检查 `asd ui` 运行状态；降级到静态 Recipe 比对。
 
 ---
 
@@ -366,15 +375,15 @@ When `asd ui` is running in the project root, use the HTTP API for on-demand sem
 
 | Capability | Description | Skill |
 |------------|-------------|-------|
-| **Recipe lookup** | Read `references/project-recipes-context.md` or MCP `autosnippet_context_search`. Recipe over source | autosnippet-recipes |
-| **Create Recipe** | Dashboard Use Copied Code / Scan File; or write to `_draft_recipe.md` | autosnippet-create |
+| **Recipe lookup** | Read `references/project-recipes-context.md` 轻量索引，需全文调 MCP `autosnippet_get_recipe(id)` / `autosnippet_context_search`. Recipe over source | autosnippet-recipes |
+| **Create Recipe** | Dashboard New Recipe; or write to `_draft_recipe.md` and watch auto-adds; or MCP `autosnippet_submit_draft_recipes` | autosnippet-create |
 | **Search & insert** | `ass` shortcut or `// as:search`, `asd search`, Dashboard search | autosnippet-search |
 | **Audit review** | `// as:audit`; watch runs AI review against knowledge base | autosnippet-guard |
-| **Dependency graph** | `AutoSnippet/AutoSnippet.spmmap.json`; `asd spm-map` to update | autosnippet-dep-graph |
+| **Dependency graph** | `AutoSnippet/AutoSnippet.spmmap.json`; `asd spm-map` to update; MCP graph tools for querying | autosnippet-structure |
 | **Vector store** | Built by `asd embed`; `autosnippet_context_search` for on-demand lookup. Use as context storage to save space | autosnippet-concepts / autosnippet-recipes |
-| **MCP tools** | `autosnippet_context_search` (semantic search), `autosnippet_open_create` (open New Recipe page) | — |
+| **MCP tools** | `autosnippet_search` (统合搜索), `autosnippet_context_search` (智能语义搜索), `autosnippet_guard_check` (Guard 检查) | — |
 
-**Principles**: Recipe is project standard, over project implementation; do not modify AutoSnippet/ directly, submit via Dashboard. Context storage is safe; Skills express semantics, MCP provides capability; Cursor calls on demand to save space.
+**Principles**: Recipe is project standard, over project implementation; do not modify AutoSnippet/ directly, submit via Dashboard or MCP candidate submission. Context storage is safe; Skills express semantics, MCP provides capability; Cursor calls on demand to save space.
 
 ---
 
@@ -584,15 +593,15 @@ authority: 3
 
 ### How to add new knowledge
 
-1. **Single code / single Recipe**: Copy to clipboard → call **`autosnippet_open_create`** to open Dashboard → Use Copied Code, paste, review, save; or write `_draft_recipe.md` and let watch auto-add to Candidates.
+1. **Single code / single Recipe**: Copy to clipboard → open Dashboard (run `asd ui` if not running) → Use Copied Code, paste, review, save; or write `_draft_recipe.md` and let watch auto-add to Candidates. Or use `autosnippet_submit_draft_recipes` via MCP.
 2. **Multiple drafts (recommended)**: Create a **draft folder** (e.g. `.autosnippet-drafts`), **one .md file per Recipe**—do not put everything in one big file. Call MCP **`autosnippet_submit_draft_recipes`** with those file paths to submit to Candidates, then review in Dashboard **Candidates**. **After submit, delete the draft folder** (use `deleteAfterSubmit: true` or `rm -rf .autosnippet-drafts`).
 3. **Intro-only docs**: Recipe candidates can be intro-only (frontmatter + usage guide, no code); after approval they become Recipes and **do not generate a Snippet**—used only for search and Guard context.
 
 ### How to use knowledge once it’s in the base
 
-- **Search**: MCP `autosnippet_context_search`, or terminal `asd search`, Dashboard search, `ass` shortcut or `// as:search`.
-- **Audit**: `// as:audit` runs Guard against Recipe standards.
-- **Record adoption**: When the user confirms use, call `autosnippet_confirm_recipe_usage` to record human usage (affects authority and ranking).
+- **Search**: MCP `autosnippet_context_search` / `autosnippet_search`, or terminal `asd search`, Dashboard search, `ass` shortcut or `// as:search`.
+- **Audit**: `// as:audit` runs Guard against Recipe standards. Or call `autosnippet_guard_check` / `autosnippet_guard_audit_files` via MCP for on-demand checking.
+- **Record adoption**: When the user confirms use, call `autosnippet_confirm_usage` to record human usage (affects authority and ranking).
 
 ---
 
@@ -600,6 +609,6 @@ authority: 3
 
 - **autosnippet-recipes**: Read project context, search recipes, find code on demand.
 - **autosnippet-create**: Creation flow (Dashboard, CLI, `// as:create`).
-- **autosnippet-dep-graph**: SPM dependency structure (`AutoSnippet/AutoSnippet.spmmap.json`).
+- **autosnippet-structure**: SPM dependency structure and knowledge graph.
 
 ```

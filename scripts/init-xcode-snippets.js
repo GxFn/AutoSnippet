@@ -9,10 +9,10 @@
  *   npm run init-snippets
  */
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { execSync } = require('child_process');
+import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 
 class XcodeSnippetInitializer {
   constructor() {
@@ -293,7 +293,7 @@ async function main() {
 }
 
 // 导出供其他脚本使用
-module.exports = {
+export default {
   XcodeSnippetInitializer,
   initialize: async () => {
   const initializer = new XcodeSnippetInitializer();
@@ -302,7 +302,8 @@ module.exports = {
 };
 
 // 如果直接执行此文件
-if (require.main === module) {
+const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+if (isMain) {
   main().catch(err => {
   console.error('❌ 初始化失败:', err.message);
   process.exit(1);

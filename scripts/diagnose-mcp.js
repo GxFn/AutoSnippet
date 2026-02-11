@@ -8,9 +8,9 @@
  * - 给出下一步建议（能力自检、限流与提交）
  */
 
-const http = require('http');
-const https = require('https');
-const Defaults = require('../lib/infrastructure/config/Defaults');
+import http from 'node:http';
+import https from 'node:https';
+import * as Defaults from '../lib/infrastructure/config/Defaults.js';
 
 function getBaseUrl() {
   return process.env.ASD_UI_URL || Defaults.DEFAULT_ASD_UI_URL || 'http://localhost:3000';

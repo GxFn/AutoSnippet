@@ -1,139 +1,156 @@
 ---
 name: autosnippet-recipes
-description: Provides this project's Recipe-based context to the agent. Recipes are the project's standard usage docs (code snippets + usage guides). Use when answering about project standards, Guard, conventions, or when suggesting code—always align with the project context below. Supports in-context lookup, terminal search (asd search), and on-demand semantic search via MCP tool autosnippet_context_search when configured.
+description: Provides this project's Recipe-based context to the agent. Recipes are the project's standard knowledge (code patterns + usage guides + structured relations). Use when answering about project standards, Guard, conventions, or when suggesting code. Supports in-context lookup, terminal search (asd search), and on-demand semantic search via MCP tool autosnippet_context_search.
 ---
 
 # AutoSnippet Recipe Context (Project Context)
 
-> Self-check & Fallback: MCP 工具返回统一 JSON Envelope（{ success, errorCode?, message?, data?, meta }）。重操作前调用 autosnippet_health/autosnippet_capabilities；失败时不在同一轮重试，转用静态上下文或缩小范围后再试。
+> Self-check and Fallback: MCP tools return unified JSON Envelope. Before heavy ops call autosnippet_health/autosnippet_capabilities. On failure do not retry in same turn; use static context or narrow scope.
 
-This skill **provides the agent with this project's context** from [AutoSnippet](https://github.com/GxFn/AutoSnippet) Recipes. Recipes are the project's standard usage docs: code snippets plus usage guides. Use this context for standards, Guard, and code suggestions.
+This skill provides the agent with this project's context from AutoSnippet Recipes. Recipes are the project's standard knowledge base: code patterns, usage guides, and structured relations.
 
-## Instructions for the agent (read this first)
+---
 
-1. **Project context**  
-   This project's Recipe content is in **`references/project-recipes-context.md`** in this skill folder. Read it when you need project standards, patterns, or Guard context. If that file is missing, read `AutoSnippet/recipes/` under the project root (directory with `AutoSnippet/AutoSnippet.boxspec.json`).
+## Core Rule: Agent Permission Boundary
 
-2. **Finding code on demand**  
-   When the user asks for code or "how to do X", look up the matching Recipe in `references/project-recipes-context.md` by title, summary, or usage guide, then use that Recipe's **Snippet / Code Reference** (the fenced code block) as the standard code to suggest. Cite the Recipe title.
+**Agent CANNOT directly produce or modify Recipes.** Agent's role is:
 
-3. **Recipe over code search results**  
-   When both Recipe content and direct code search find matching implementations, **prefer Recipe** as the source of truth. Recipe is the curated project standard; source code may be legacy, incomplete, or non-standard. Use Recipe's Snippet/Code Reference over raw code search results.
+| Allowed | Forbidden |
+|---------|-----------|
+| Submit Recipe candidates (submit_candidate / submit_candidates / submit_draft_recipes) | Directly create Recipe |
+| Validate candidates (validate_candidate / check_duplicate) | Modify existing Recipe content |
+| Search/query Recipes (list_recipes / get_recipe / context_search / list_facts) | Publish/deprecate/delete Recipe |
+| Confirm usage (confirm_usage) - record adoption/application telemetry | Modify Recipe quality scores |
+| Enhance candidate info (add rationale/steps/codeChanges etc.) | Bypass candidate review to write to recipes/ |
 
-4. **Search — three ways**  
-   - **In-context**: Use `references/project-recipes-context.md` and match by title/summary. No extra tool.  
-   - **Terminal**: In the project root run `asd search <keyword>` (keyword) or `asd search --semantic <keyword>` (semantic; requires `asd embed` + AI). Use the output to find the right recipe/code.  
-   - **On-demand semantic search**: When you need to find project standards, Recipes, or docs relevant to the current task, and references are long or need semantic filtering, **use `autosnippet_context_search`** (MCP). Pass `query` (natural language) and optional `limit`. Connection is provided by AutoSnippet MCP; Skills only describe semantics.
+Recipe creation, review, publish, update, deprecate, delete are **human-only via Dashboard or HTTP API**.
 
-5. **Updating context**  
-   After the user adds or changes Recipes in `AutoSnippet/recipes/`, tell them to run `asd install:cursor-skill` from the project root to regenerate `references/project-recipes-context.md`.
+---
 
-## Project context (read this first)
+## V2 Recipe Model
 
-**This project's Recipe content is in `references/project-recipes-context.md` in this skill folder.**  
-That file is generated when you run `asd install:cursor-skill` from the project root and contains the current project's Recipes. **Read it first** whenever you need project standards, patterns, or Guard context.
+Recipe is the core knowledge unit. V2 uses a unified structured model:
 
-If `references/project-recipes-context.md` is missing (e.g. skill was not installed via `asd install:cursor-skill`, or the project has no recipes yet), read the project's Recipe files directly: resolve the project root (directory containing `AutoSnippet/AutoSnippet.boxspec.json`), then read all `.md` files under `AutoSnippet/recipes/` (or the `recipes.dir` path from that spec file).
+- **kind**: rule (mandatory norm, Guard enforced) | pattern (best practice) | fact (structural knowledge)
+- **knowledgeType**: code-pattern | architecture | best-practice | naming | error-handling | performance | security | testing | api-usage | workflow | dependency | rule
+- **complexity**: beginner | intermediate | advanced
+- **scope**: universal | project-specific | target-specific
+- **content**: { pattern, rationale, steps[], codeChanges[], verification, markdown }
+- **relations**: { inherits[], implements[], calls[], dependsOn[], dataFlow[], conflicts[], extends[], related[] }
+- **constraints**: { boundaries[], preconditions[], sideEffects[], guards[] }
+- **status**: draft -> active -> deprecated
 
-## What is a Recipe?
+---
 
-- **Concept**: A Recipe is a single "how to use this module/pattern correctly" doc: standard code + usage guide.
-- **Format**: One Markdown file per Recipe, with YAML frontmatter and body (snippet code block + usage guide).
-- **In this skill**: The aggregated content is in `references/project-recipes-context.md` so you have project context without reading the repo ad hoc.
+## Instructions for the agent
+
+1. **Project context**: Read `references/project-recipes-context.md` in this skill folder for **Recipe 轻量索引**（title/trigger/category/summary 表格）。如需 Recipe 全文，调用 MCP `autosnippet_get_recipe(id)` 或 `autosnippet_search(query)`。索引缺失时，可直接读 `AutoSnippet/recipes/` 目录。
+
+2. **Finding code on demand**: Look up matching Recipe by title/summary/usage guide, use its code as standard to suggest. Cite the Recipe title.
+
+3. **Recipe over code search**: When both Recipe and code search find matches, prefer Recipe as source of truth.
+
+4. **Search - three ways**:
+   - In-context: `references/project-recipes-context.md` 轻量索引按 title/trigger/summary 匹配
+   - Terminal: `asd search <keyword>` or `asd search --semantic <keyword>`
+   - MCP: `autosnippet_context_search` with query and optional limit
+
+5. **Browsing Recipes via MCP**:
+   - `autosnippet_list_recipes` - list with kind/language/category/knowledgeType/status/complexity filters
+   - `autosnippet_get_recipe` - get single Recipe by ID (full content/relations/constraints)
+   - `autosnippet_list_facts` - list kind=fact structural knowledge
+
+6. **Confirming usage**: Call `autosnippet_confirm_usage` with recipeId and usageType (adoption/application) when user adopts a Recipe. Telemetry only.
+
+7. **Updating context**: After user changes Recipes, tell them to run `asd install:cursor-skill` to regenerate references.
+
+---
 
 ## How to use this context
 
-1. **When answering about project standards, Guard, or conventions**: Use the content in `references/project-recipes-context.md` (or the project’s `AutoSnippet/recipes/`) as the source of truth. Prefer suggesting code that aligns with those Recipes.
+1. For project standards/Guard/conventions: Use Recipe content as source of truth.
+2. Recipe priority: Prefer Recipe over codebase implementations. Cite Recipe code.
+3. For "how we do X here": Base answer on Recipe content.
+4. For drafting candidates: Follow autosnippet-candidates flow. Never write to `AutoSnippet/recipes/`.
+5. For Audit/as:audit: Suggestions should match Recipe content.
+6. Usage Guide depth: Include deps, steps, error handling, perf, security, pitfalls, related Recipes.
+7. Placeholders: Prefer Xcode placeholders (e.g. `<#URL#>`, `<#Token#>`).
 
-2. **Recipe priority**: When both Recipe and codebase have relevant implementations, use Recipe. Recipe is the agreed project standard; source code may be legacy or non-standard. Cite Recipe's code block when answering, not code search results.
-3. **When the user asks "how we do X here" or "project patterns"**: Base your answer on the Recipe content provided.
-4. **When drafting Recipe content**: Follow **autosnippet-create** flow: prefer writing to project root `_draft_recipe.md` (avoids copy issues for long content), then user submits via Dashboard. If the user wants **candidates**, submit structured items via MCP **`autosnippet_submit_candidates`**.
-5. **When the user mentions Audit or as:audit**: The same Recipe content is what code audit uses; your suggestions should match it.
-6. **Usage Guide depth**: Do not limit to “何时用/关键点”; include dependencies, steps/config, error handling, performance, security, pitfalls, and related Recipes when applicable.
-7. **Placeholders**: Prefer Xcode placeholders in snippets (e.g. `<#URL#>`, `<#Token#>`), and explain their meaning in Usage Guide.
+---
 
-## Finding relevant code on demand
+## MCP Tools Reference (31 tools)
 
-When the user asks for **code** or **how to do X** (e.g. "how to do network request", "WebView load URL", "how to use Alamofire"), **look up the matching Recipe** in `references/project-recipes-context.md`:
+### Query (Agent can freely use)
 
-1. **Read** `references/project-recipes-context.md` (or the relevant part of it). Each Recipe is under a heading like `## Recipe: <filename>.md`.
-2. **Match** the user's intent to a Recipe by **title**, **summary**, or **AI Context / Usage Guide** (e.g. "network" → network request recipe; "WebView" → WebView load URL recipe).
-3. **Use** that Recipe's **Snippet / Code Reference** (the fenced code block) as the standard code to suggest or paste. Cite the Recipe title so the user knows which standard you followed.
-4. If no Recipe matches, say so and suggest adding one or writing code that follows existing Recipe style.
+| Tool | Description |
+|------|-------------|
+| autosnippet_health | Health check |
+| autosnippet_capabilities | List all tool capabilities |
+| autosnippet_search | Unified search (auto: BM25+semantic fusion) |
+| autosnippet_context_search | Smart context retrieval (intent → multi-agent → 4-layer funnel) |
+| autosnippet_keyword_search | SQL LIKE exact keyword search |
+| autosnippet_semantic_search | Vector semantic search |
+| autosnippet_list_rules | List kind=rule |
+| autosnippet_list_patterns | List kind=pattern |
+| autosnippet_list_facts | List kind=fact |
+| autosnippet_list_recipes | General list (multi-filter) |
+| autosnippet_get_recipe | Get Recipe details |
+| autosnippet_recipe_insights | Recipe quality insights (scores, usage stats, relations summary) |
+| autosnippet_compliance_report | Compliance assessment report |
+| autosnippet_graph_query | Knowledge graph query |
+| autosnippet_graph_impact | Graph impact analysis |
+| autosnippet_graph_path | Graph path finding (BFS shortest path between Recipes) |
+| autosnippet_graph_stats | Graph global statistics (edge count, relation distribution) |
+| autosnippet_get_targets | List project Targets |
+| autosnippet_get_target_files | Get Target file list |
+| autosnippet_get_target_metadata | Get Target metadata |
 
-This way you **find the right code on demand** from the project's Recipe context instead of inventing or guessing.
+### Candidate Submit/Validate (Agent core capability)
 
-## Search support
+| Tool | Description |
+|------|-------------|
+| autosnippet_submit_candidate | Submit single candidate (supports structured content) |
+| autosnippet_submit_candidates | Batch submit candidates |
+| autosnippet_submit_draft_recipes | Submit draft .md files as candidates |
+| autosnippet_validate_candidate | Validate candidate quality |
+| autosnippet_check_duplicate | Dedup check |
+| autosnippet_enrich_candidates | AI semantic field enrichment for candidates |
 
-You can **search** recipes in three ways:
+### Guard & Scan
 
-1. **In-context (default)**  
-   Use `references/project-recipes-context.md` and match by title/summary/usage guide as above. No extra tool needed.
+| Tool | Description |
+|------|-------------|
+| autosnippet_guard_check | Single code Guard rule check |
+| autosnippet_guard_audit_files | Multi-file batch Guard audit |
+| autosnippet_scan_project | Lightweight project scan + Guard audit |
+| autosnippet_bootstrap_knowledge | Cold-start knowledge base initialization (9 dimensions) |
 
-2. **Terminal (no Dashboard required)**  
-   Run in the project root:
-   - `asd search <keyword>` — keyword search in snippets and recipes.
-   - `asd search --semantic <keyword>` — semantic search (requires `asd embed` and AI config).  
-   Use the command output to find the right recipe/code.
+### Usage Telemetry
 
-3. **On-demand semantic search (MCP tool)**  
-   When you need to fetch Recipe/docs relevant to the task on demand, use **`autosnippet_context_search`**. Pass `query` (natural language, e.g. "network request", "WebView load URL") and optional `limit`. Tool provided by AutoSnippet MCP; requires `asd ui` running and MCP configured.
+| Tool | Description |
+|------|-------------|
+| autosnippet_confirm_usage | Confirm Recipe adopted/applied |
+
+---
 
 ## How Recipes are used in the project
 
 | Use | How |
 |-----|-----|
-| **Audit** | User adds `// as:audit` (or `// as:audit keyword`) in source and saves; `asd watch` runs AI review against Recipes. |
-| **Search** | `ass` shortcut (AutoSnippet Search) or `// as:search keyword` or `asd search` to find Recipes/Snippets and insert. |
-| **AI Assistant** | Dashboard RAG and AI chat use Recipes as context. |
-| **Xcode** | Recipes can be linked to Snippets; Snippets sync to Xcode CodeSnippets. |
-
-## AutoSnippet 目录能力（语义接口）
-
-Skills provide Cursor with **semantic interface** only, like CRUD; expose only necessary capabilities:
-
-| Capability | Usage | Description |
-|------------|-------|-------------|
-| **On-demand semantic search** | Use MCP tool `autosnippet_context_search`, pass `query`, `limit?` | Returns relevant Recipe/docs by natural language query. Silent retrieval only; does not trigger any adoption form. Requires AutoSnippet MCP configured and `asd ui` running. |
-| **Context analysis** | Use MCP tool `autosnippet_context_analyze` with recipe ids | Multi-dimensional analysis (quality / similarity / relationships) for audit or consolidation decisions. |
-| **Confirm adoption** | Call `autosnippet_confirm_recipe_usage` with the recipe file name(s) when you decide to offer the adoption form | **Meaning**: Pops a "confirm use?" dialog; on confirm, records one human usage (humanUsageCount +1) for that recipe and affects usage stats and authority ranking. **When to show**: You may decide when to show it (e.g. when the user explicitly says they adopt, or when you infer they have adopted the recipe). Do not show it right after presenting recipe or when the user only asks "should I adopt?"—then just answer. Requires Cursor to support MCP Elicitation. |
-| **Static context** | Read `references/project-recipes-context.md`, `by-category/*.md` | No extra connection needed. |
-| **Terminal search** | `asd search <keyword>`, `asd search --semantic <keyword>` | Keyword or semantic search. |
-
-**When to use `autosnippet_context_search`**: When you need to find project standards, Recipes, or docs relevant to the current task, and `references` is long or needs semantic filtering. Connection (URL, HTTP) is encapsulated by MCP; Skills do not expose hard links. Search is silent—return only the Recipe content, no adoption form.
-
-**Adoption form (`autosnippet_confirm_recipe_usage`)**: **Meaning**—Shows a "confirm use?" dialog; on confirm, records one human usage (humanUsageCount +1) for the recipe and affects usage stats and authority ranking. **When to show**—You may decide when to offer it (e.g. when the user explicitly says they adopt, or when you infer they have adopted). Do not show it right after presenting recipe or when the user only asks "should I adopt?"; then just answer.
-
-## Updating project context
-
-After adding or changing Recipes in `AutoSnippet/recipes/`, run **`asd install:cursor-skill`** again from the project root to regenerate `references/project-recipes-context.md` so Cursor has the latest project context.
+| Audit | `// as:audit` in source; `asd watch` runs AI review against Recipes. Or MCP `autosnippet_guard_check` / `autosnippet_guard_audit_files` |
+| Search | `asd search keyword` or MCP `autosnippet_search` / `autosnippet_context_search` |
+| AI Assistant | Dashboard RAG and AI chat use Recipes as context |
+| Xcode | Recipes linked to Snippets; synced to Xcode CodeSnippets |
+| Guard | kind=rule Recipes enforced by Guard checks during audit |
+| Insights | `autosnippet_recipe_insights` for quality scores, usage stats, and relation summary |
+| Graph | `autosnippet_graph_query` / `autosnippet_graph_impact` / `autosnippet_graph_path` for relationship analysis |
 
 ---
 
-## Auto-Extracting Headers for New Recipes
+## Auto-Extracting Headers for New Candidates
 
-When you (Cursor) are creating a new Recipe and need to fill the `headers` field with complete import statements:
+1. From code (Recommended): Extract all import statements from user's code
+2. From existing Recipes: Check `references/project-recipes-context.md` index for matching modules, then call MCP `autosnippet_get_recipe(id)` for full content
+3. Via semantic search: Call `autosnippet_context_search` with query like "import ModuleName headers"
 
-**Option 1: Look at existing Recipes (Static)**
-- Read `references/project-recipes-context.md` (in `.cursor/skills/autosnippet-recipes/references/`)
-- Find Recipes that use the same module (e.g. if the new code uses `BDNetworkControl`, find recipes with `BDNetworkControl` in their content)
-- Copy the exact `headers` format from those Recipes
-- Example: If Recipe "BDBaseRequest 响应与错误处理" has `headers: ["#import <BDNetworkControl/BDBaseRequest.h>"]`, use that same format
-
-**Option 2: Semantic search for similar patterns (Dynamic)**
-- Call MCP **`autosnippet_context_search`** with query like `"import BDNetworkControl headers"` or `"BDBaseRequest headers"`
-- Returns Recipes that use this module
-- Extract the `headers` array from matching Recipes
-- Use as template for your new Recipe's headers
-
-**Option 3: Infer from code analysis (Recommended)**
-- Read the user's code (the code being submitted)
-- Extract all `#import` or `import` statements
-- Use those directly in the `headers` field (copy them as-is)
-- This is the most reliable method when user code is already written
-
-**Best practice**: Use **Option 3** first (extract from actual code), then verify with **Option 1** (check existing recipes) to ensure consistency with project standards. If headers seem incomplete, use **Option 2** (semantic search) to find related Recipes.
-
-This ensures Cursor can auto-populate headers without manual lookup, and they are complete and consistent with project standards.
-
-```
+Use Option 1 first, then verify with Option 2 for consistency.

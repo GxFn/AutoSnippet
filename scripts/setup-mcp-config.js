@@ -8,10 +8,12 @@
  *   node scripts/setup-mcp-config.js [--editor vscode|cursor] [--path /path/to/project]
  */
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { execSync } = require('child_process');
+import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
 
 const args = require('minimist')(process.argv.slice(2));
 
@@ -24,7 +26,7 @@ const isCursor = editor === 'cursor';
 const isQuiet = process.env.ASD_QUIET === 'true';
 
 // 检测是否在 AutoSnippet 仓库内执行
-const isAutoSnippetRepo = fs.existsSync(path.join(projectPath, 'scripts/mcp-server.js')) &&
+const isAutoSnippetRepo = fs.existsSync(path.join(projectPath, 'bin/mcp-server.js')) &&
   fs.existsSync(path.join(projectPath, 'bin/asd')) &&
   fs.existsSync(path.join(projectPath, 'package.json'));
 
@@ -40,7 +42,7 @@ if (isAutoSnippetRepo && !args.path) {
 // ============ 检查环境 ============
 
 // 检查 MCP Server
-const mcpServerPath = path.join(projectPath, 'scripts/mcp-server.js');
+const mcpServerPath = path.join(projectPath, 'bin/mcp-server.js');
 if (!fs.existsSync(mcpServerPath)) {
   if (!isQuiet) console.error(`✗ MCP Server 未找到: ${mcpServerPath}`);
   process.exit(1);
@@ -127,7 +129,7 @@ function configureCursor() {
     autosnippet: {
     command: 'node',
     args: [
-      path.relative(projectPath, mcpServerPath) || './scripts/mcp-server.js'
+      path.relative(projectPath, mcpServerPath) || './bin/mcp-server.js'
     ],
     env: {
       ASD_UI_URL: 'http://localhost:3000'

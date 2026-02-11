@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Plus, RefreshCw, BrainCircuit, Loader2, Cpu, ChevronDown } from 'lucide-react';
-import axios from 'axios';
+import api from '../../api';
 import { ICON_SIZES } from '../../constants/icons';
 
 interface AiProvider {
@@ -30,7 +30,7 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCre
 
   useEffect(() => {
   if (aiDropdownOpen && aiProviders.length === 0) {
-    axios.get<AiProvider[]>('/api/ai/providers').then((res) => setAiProviders(res.data)).catch(() => {});
+    api.getAiProviders().then((providers) => setAiProviders(providers)).catch(() => {});
   }
   }, [aiDropdownOpen, aiProviders.length]);
 
@@ -46,8 +46,8 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCre
   if (!searchQuery) return;
   setIsSemanticSearching(true);
   try {
-    const res = await axios.post('/api/search/semantic', { keyword: searchQuery });
-    if (onSemanticSearchResults) onSemanticSearchResults(res.data);
+    const results = await api.semanticSearch(searchQuery);
+    if (onSemanticSearchResults) onSemanticSearchResults(results);
   } catch (e) {
     console.error('Semantic search failed', e);
     alert('语义搜索失败。请确保已运行 asd embed 构建索引。');
@@ -60,7 +60,7 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCre
   setAiSwitching(true);
   try {
     onBeforeAiSwitch?.();
-    await axios.post('/api/ai/config', { provider: provider.id, model: provider.defaultModel });
+    await api.setAiConfig(provider.id, provider.defaultModel);
     setAiDropdownOpen(false);
     if (onAiConfigChange) onAiConfigChange();
   } catch (e) {

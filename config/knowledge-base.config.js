@@ -3,7 +3,7 @@
  * 向量数据库、检索、内存等系统配置
  */
 
-module.exports = {
+export default {
   // Vector Database 配置
   vectorDb: {
   type: 'milvus',

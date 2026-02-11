@@ -26,11 +26,36 @@ export interface RecipeStats {
 }
 
 export interface Recipe {
+  id?: string;
   name: string;
+  trigger?: string;
   content: string;
+  category?: string;
+  language?: string;
+  description?: string;
+  status?: string;
+  kind?: 'rule' | 'pattern' | 'fact';
   metadata?: any;
   /** 使用统计与权威分（来自 recipe-stats.json） */
   stats?: RecipeStats | null;
+  // ── V2 structured fields (passed through by v1-compat) ──
+  knowledgeType?: string;
+  v2Content?: {
+    pattern?: string;
+    rationale?: string;
+    steps?: Array<{ title?: string; description?: string; code?: string }>;
+    codeChanges?: Array<{ file: string; before: string; after: string; explanation: string }>;
+    verification?: { method?: string; expectedResult?: string; testCode?: string } | null;
+    markdown?: string;
+  } | null;
+  relations?: Record<string, any[]> | null;
+  constraints?: {
+    guards?: Array<{ pattern: string; severity: string; message?: string }>;
+    boundaries?: string[];
+    preconditions?: string[];
+    sideEffects?: string[];
+  } | null;
+  tags?: string[];
 }
 
 export interface ProjectData {
@@ -44,7 +69,7 @@ export interface ProjectData {
   candidates: Record<string, {
   targetName: string;
   scanTime: number;
-  items: (ExtractedRecipe & { id: string; status: string })[];
+  items: CandidateItem[];
   }>;
   projectRoot: string;
   watcherStatus?: string;
@@ -83,10 +108,86 @@ export interface ExtractedRecipe {
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
   /** 权威分 1～5，审核人员可设置初始值 */
   authority?: number;
+  /** 知识类型 */
+  knowledgeType?: 'code-pattern' | 'architecture' | 'best-practice' | 'rule';
+  /** 复杂度 */
+  complexity?: 'beginner' | 'intermediate' | 'advanced';
+  /** 适用范围 */
+  scope?: 'universal' | 'project-specific' | 'target-specific';
+  /** 设计原理（英文） */
+  rationale?: string;
+  /** 实施步骤 */
+  steps?: string[];
+  /** 前置条件 */
+  preconditions?: string[];
+  /** 质量评分 (0-1) */
+  qualityScore?: number;
+  /** 质量等级 (A-F) */
+  qualityGrade?: string;
+  /** 自由标签 */
+  tags?: string[];
   /** 版本号 */
   version?: string;
   /** 更新时间戳（毫秒） */
   updatedAt?: number;
+}
+
+// ── V2 Candidate 扩展字段 ──
+
+export interface CandidateQuality {
+  overallScore?: number;
+  codeQuality?: number;
+  documentation?: number;
+  reusability?: number;
+  [key: string]: number | undefined;
+}
+
+export interface CandidateReviewNotes {
+  priority?: 'high' | 'medium' | 'low';
+  notes?: string;
+  reviewer?: string;
+  reviewedAt?: string;
+}
+
+export interface CandidateReasoning {
+  whyStandard: string;
+  sources: string[];
+  confidence: number | null;
+}
+
+export interface CandidateRelatedRecipe {
+  id?: string;
+  title?: string;
+  similarity: number;
+}
+
+/** V1+V2 融合的候选项类型 */
+export type CandidateItem = ExtractedRecipe & {
+  id: string;
+  status: string;
+  source?: string;
+  createdAt?: string | number;
+  quality?: CandidateQuality | null;
+  reviewNotes?: CandidateReviewNotes | null;
+  relatedRecipes?: CandidateRelatedRecipe[];
+  reasoning?: CandidateReasoning | null;
+};
+
+/** Guard 审计摘要（全项目扫描返回） */
+export interface GuardAuditSummary {
+  totalFiles: number;
+  totalViolations: number;
+  errors: number;
+  warnings: number;
+}
+
+export interface GuardAuditResult {
+  summary: GuardAuditSummary;
+  files?: Array<{
+    filePath: string;
+    violations: Array<{ rule: string; severity: string; message: string; line?: number }>;
+    summary: { errors: number; warnings: number };
+  }>;
 }
 
 /** 候选池中的候选项（含 id）或 SPM 审核页中的项（含 candidateId/candidateTargetName） */
@@ -97,4 +198,6 @@ export type ScanResultItem = ExtractedRecipe & {
   id?: string;
   candidateId?: string;
   candidateTargetName?: string;
+  /** 标识此结果来自 target 扫描还是全项目扫描 */
+  scanMode?: 'target' | 'project';
 };

@@ -22,15 +22,22 @@
  *   --quiet            安静模式（无输出）
  */
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
 
 const args = require('minimist')(process.argv.slice(2));
 const projectPath = args.path || args.p || process.cwd();
 
 // 检测是否在 AutoSnippet 仓库内执行
-const isAutoSnippetRepo = fs.existsSync(path.join(projectPath, 'scripts/mcp-server.js')) &&
+const isAutoSnippetRepo = fs.existsSync(path.join(projectPath, 'bin/mcp-server.js')) &&
   fs.existsSync(path.join(projectPath, 'bin/asd')) &&
   fs.existsSync(path.join(projectPath, 'package.json'));
 
@@ -105,7 +112,7 @@ function writeJsonFile(filePath, data) {
 // ============ 获取 MCP 服务器路径 ============
 
 function getMcpServerPath() {
-  const scriptPath = path.join(projectPath, 'scripts/mcp-server.js');
+  const scriptPath = path.join(projectPath, 'bin/mcp-server.js');
   if (!fs.existsSync(scriptPath)) {
   error(`✗ MCP Server 不存在: ${scriptPath}`);
   error(`  请确保在 AutoSnippet 项目目录下运行此脚本`);

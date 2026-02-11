@@ -6,8 +6,8 @@
  * 或: ASD_UI_URL=http://localhost:3001 node scripts/verify-context-api.js
  */
 
-const http = require('http');
-const https = require('https');
+import http from 'node:http';
+import https from 'node:https';
 
 const baseUrl = process.env.ASD_UI_URL || 'http://localhost:3000';
 const url = new URL('/api/context/search', baseUrl);

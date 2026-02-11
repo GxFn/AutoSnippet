@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
-import { X, Save, Eye, Edit3, Loader2 } from 'lucide-react';
+import { X, Save, Eye, Edit3, Loader2, Shield, Lightbulb, BookOpen } from 'lucide-react';
 import { Recipe } from '../../types';
+import api from '../../api';
 import MarkdownWithHighlight from '../Shared/MarkdownWithHighlight';
 import HighlightedCodeEditor from '../Shared/HighlightedCodeEditor';
+import CodeBlock from '../Shared/CodeBlock';
 import { ICON_SIZES } from '../../constants/icons';
 
 interface RecipeEditorProps {
@@ -37,7 +38,7 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
 
   const handleSetAuthority = async (authority: number) => {
     try {
-      await axios.post('/api/recipes/set-authority', { name: editingRecipe.name, authority });
+      await api.setRecipeAuthority(editingRecipe.name, authority);
       if (isMountedRef.current) {
         const stats = editingRecipe.stats ? { ...editingRecipe.stats, authority } : { ...defaultStats, authority };
         setEditingRecipe({ ...editingRecipe, stats });
@@ -135,7 +136,33 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
   <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl flex flex-col h-[85vh]">
     <div className="p-6 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
+      <div className="flex items-center gap-3">
       <h2 className="text-xl font-bold">Edit Recipe</h2>
+      {/* V2 Kind badge */}
+      {editingRecipe.kind && (() => {
+        const kc: Record<string, { label: string; color: string; bg: string; border: string; icon: React.ElementType }> = {
+        rule: { label: 'Rule', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', icon: Shield },
+        pattern: { label: 'Pattern', color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-200', icon: Lightbulb },
+        fact: { label: 'Fact', color: 'text-cyan-700', bg: 'bg-cyan-50', border: 'border-cyan-200', icon: BookOpen },
+        };
+        const cfg = kc[editingRecipe.kind];
+        if (!cfg) return null;
+        const KindIcon = cfg.icon;
+        return (
+        <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase flex items-center gap-1 border ${cfg.bg} ${cfg.color} ${cfg.border}`}>
+          <KindIcon size={ICON_SIZES.sm} />{cfg.label}
+        </span>
+        );
+      })()}
+      {/* V2 Status badge */}
+      {editingRecipe.status && editingRecipe.status !== 'active' && editingRecipe.status !== 'published' && (
+        <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase border ${
+        editingRecipe.status === 'draft' ? 'bg-slate-50 text-slate-500 border-slate-200' :
+        editingRecipe.status === 'archived' ? 'bg-orange-50 text-orange-600 border-orange-200' :
+        'bg-slate-50 text-slate-500 border-slate-200'
+        }`}>{editingRecipe.status}</span>
+      )}
+      </div>
       <div className="flex items-center gap-4">
       <div className="flex items-center gap-2">
         <span className="text-xs font-medium text-slate-500">权威分</span>
@@ -221,45 +248,90 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Recipe Metadata</h3>
           <div className="space-y-4">
-            {/* 元数据网格（排除 summary、summary_cn、summary_en） */}
-            {Object.keys(metadata).filter(k => !['summary', 'summary_cn', 'summary_en'].includes(k)).length > 0 && (
+            {/* 核心字段：固定布局 */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-8">
-              {Object.entries(metadata).filter(([k]) => !['summary', 'summary_cn', 'summary_en'].includes(k)).map(([key, value]) => (
+            {['title', 'trigger', 'language', 'category', 'knowledge_type', 'complexity', 'scope', 'difficulty', 'authority', 'status', 'version', 'updatedAt'].filter(k => metadata[k]).map(key => (
               <div key={key} className="flex flex-col">
-                <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">{key}</span>
-                <span className="text-sm text-slate-700 break-all font-medium">
-                {key === 'updatedAt' ? (
-                  formatTimestamp(parseInt(value))
-                ) : value.startsWith('[') && value.endsWith(']') ? (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                  {value.slice(1, -1).split(',').map((v, i) => (
-                    <span key={i} className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">{v.trim()}</span>
-                  ))}
-                  </div>
-                ) : (
-                  value
-                )}
-                </span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">{key}</span>
+              <span className="text-sm text-slate-700 break-all font-medium">
+                {key === 'updatedAt' ? formatTimestamp(parseInt(metadata[key])) : metadata[key]}
+              </span>
               </div>
-              ))}
+            ))}
             </div>
-            )}
-            
-            {/* summary_cn - 在 Metadata 层级最底部独立一行 */}
-            {metadata.summary_cn && (
-            <div className="mt-4 pt-4 border-t border-slate-200">
-              <span className="text-[10px] text-slate-400 font-bold uppercase mb-2 block">Summary (Chinese)</span>
-              <p className="text-sm text-slate-700 leading-relaxed">{metadata.summary_cn}</p>
+
+            {/* Tags */}
+            {metadata.tags && (
+            <div className="pt-3 border-t border-slate-200">
+              <span className="text-[10px] text-slate-400 font-bold uppercase mb-2 block">Tags</span>
+              <div className="flex flex-wrap gap-1.5">
+              {(() => {
+                try {
+                const parsed = JSON.parse(metadata.tags);
+                return (Array.isArray(parsed) ? parsed : [metadata.tags]).map((t: string, i: number) => (
+                  <span key={i} className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-xs font-medium">{t}</span>
+                ));
+                } catch {
+                return <span className="text-sm text-slate-700">{metadata.tags}</span>;
+                }
+              })()}
+              </div>
             </div>
             )}
 
-            {/* summary_en - 在 Metadata 层级最底部独立一行 */}
+            {/* Headers */}
+            {metadata.headers && (
+            <div className="pt-3 border-t border-slate-200">
+              <span className="text-[10px] text-slate-400 font-bold uppercase mb-2 block">Headers (Import)</span>
+              <div className="flex flex-wrap gap-1.5">
+              {(() => {
+                try {
+                const parsed = JSON.parse(metadata.headers);
+                return (Array.isArray(parsed) ? parsed : [metadata.headers]).map((h: string, i: number) => (
+                  <code key={i} className="px-2.5 py-1 bg-violet-50 text-violet-700 border border-violet-100 rounded-lg text-xs font-mono">{h}</code>
+                ));
+                } catch {
+                return <code className="text-sm text-slate-700 font-mono">{metadata.headers}</code>;
+                }
+              })()}
+              </div>
+            </div>
+            )}
+            
+            {/* summary_cn */}
+            {(metadata.summary_cn || metadata.summary) && (
+            <div className="pt-3 border-t border-slate-200">
+              <span className="text-[10px] text-slate-400 font-bold uppercase mb-2 block">Summary (Chinese)</span>
+              <p className="text-sm text-slate-700 leading-relaxed">{metadata.summary_cn || metadata.summary}</p>
+            </div>
+            )}
+
+            {/* summary_en */}
             {metadata.summary_en && (
-            <div className="mt-3 pt-3 border-t border-slate-200">
+            <div className="pt-3 border-t border-slate-200">
               <span className="text-[10px] text-slate-400 font-bold uppercase mb-2 block">Summary (English)</span>
               <p className="text-sm text-slate-700 leading-relaxed">{metadata.summary_en}</p>
             </div>
             )}
+
+            {/* 其余未知字段 */}
+            {(() => {
+            const knownKeys = new Set(['title', 'trigger', 'language', 'category', 'knowledge_type', 'complexity', 'scope', 'difficulty', 'authority', 'status', 'version', 'updatedAt', 'tags', 'headers', 'summary', 'summary_cn', 'summary_en', 'id']);
+            const extra = Object.entries(metadata).filter(([k]) => !knownKeys.has(k));
+            if (extra.length === 0) return null;
+            return (
+              <div className="pt-3 border-t border-slate-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-3 gap-x-8">
+                {extra.map(([key, value]) => (
+                <div key={key} className="flex flex-col">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">{key}</span>
+                  <span className="text-sm text-slate-700 break-all font-medium">{value}</span>
+                </div>
+                ))}
+              </div>
+              </div>
+            );
+            })()}
           </div>
           </div>
         )}
@@ -272,6 +344,105 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
           <div className="flex items-center justify-center h-full text-slate-300 italic">No content body</div>
           )}
         </div>
+
+        {/* V2 Tags (from Recipe object, not frontmatter) */}
+        {editingRecipe.tags && editingRecipe.tags.length > 0 && !metadata.tags && (
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">标签 (Tags)</h3>
+            <div className="flex flex-wrap gap-1.5">
+              {editingRecipe.tags.map((tag, i) => (
+                <span key={i} className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-xs font-medium">{tag}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* V2 Constraints — 仅在有实际数据时显示 */}
+        {!!(editingRecipe.constraints && (
+          editingRecipe.constraints.guards?.length || editingRecipe.constraints.boundaries?.length || editingRecipe.constraints.preconditions?.length || editingRecipe.constraints.sideEffects?.length
+        )) && (
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">约束条件 (Constraints)</h3>
+            {editingRecipe.constraints.guards && editingRecipe.constraints.guards.length > 0 && (
+              <div>
+                <span className="text-xs font-semibold text-slate-500 block mb-1.5">Guard 规则</span>
+                <ul className="text-sm text-slate-600 space-y-1">
+                  {editingRecipe.constraints.guards.map((g, i) => (
+                    <li key={i} className="flex gap-2 items-start">
+                      <span className={`text-xs mt-0.5 ${g.severity === 'error' ? 'text-red-500' : 'text-yellow-500'}`}>●</span>
+                      <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">{g.pattern}</code>
+                      {g.message && <span className="text-xs text-slate-400">— {g.message}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {editingRecipe.constraints.boundaries && editingRecipe.constraints.boundaries.length > 0 && (
+              <div>
+                <span className="text-xs font-semibold text-slate-500 block mb-1.5">边界约束</span>
+                <ul className="text-sm text-slate-600 space-y-1">
+                  {editingRecipe.constraints.boundaries.map((b, i) => (
+                    <li key={i} className="flex gap-2"><span className="text-orange-400">●</span>{b}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {editingRecipe.constraints.preconditions && editingRecipe.constraints.preconditions.length > 0 && (
+              <div>
+                <span className="text-xs font-semibold text-slate-500 block mb-1.5">前置条件</span>
+                <ul className="text-sm text-slate-600 space-y-1">
+                  {editingRecipe.constraints.preconditions.map((p, i) => (
+                    <li key={i} className="flex gap-2"><span className="text-blue-400">◆</span>{p}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {editingRecipe.constraints.sideEffects && editingRecipe.constraints.sideEffects.length > 0 && (
+              <div>
+                <span className="text-xs font-semibold text-slate-500 block mb-1.5">副作用</span>
+                <ul className="text-sm text-slate-600 space-y-1">
+                  {editingRecipe.constraints.sideEffects.map((s, i) => (
+                    <li key={i} className="flex gap-2"><span className="text-pink-400">⚡</span>{s}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* V2 Relations */}
+        {editingRecipe.relations && Object.entries(editingRecipe.relations).some(([, v]) => Array.isArray(v) && v.length > 0) && (
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">关系图 (Relations)</h3>
+            <div className="space-y-2">
+              {([
+                { key: 'inherits', label: '继承', color: 'text-green-600', icon: '↑' },
+                { key: 'implements', label: '实现', color: 'text-blue-600', icon: '◇' },
+                { key: 'calls', label: '调用', color: 'text-cyan-600', icon: '→' },
+                { key: 'dependsOn', label: '依赖', color: 'text-yellow-600', icon: '⊕' },
+                { key: 'dataFlow', label: '数据流', color: 'text-purple-600', icon: '⇢' },
+                { key: 'conflicts', label: '冲突', color: 'text-red-600', icon: '✕' },
+                { key: 'extends', label: '扩展', color: 'text-teal-600', icon: '⊃' },
+                { key: 'related', label: '关联', color: 'text-slate-500', icon: '∼' },
+              ] as const).map(({ key, label, color, icon }) => {
+                const items = (editingRecipe.relations as any)?.[key];
+                if (!items || !Array.isArray(items) || items.length === 0) return null;
+                return (
+                  <div key={key} className="flex items-start gap-3">
+                    <span className={`text-xs font-mono ${color} w-16 shrink-0 pt-0.5`}>{icon} {label}</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {items.map((r: any, i: number) => (
+                        <span key={i} className="px-2 py-0.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-mono">
+                          {typeof r === 'string' ? r : r.id || r.title || JSON.stringify(r)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         </div>
       )}
       </div>

@@ -5,11 +5,16 @@
  * 若不存在或构建失败，bin/asd 将回退到 node bin/asd-cli.js。
  */
 
-if (process.platform !== 'darwin') process.exit(0);
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-const path = require('path');
-const fs = require('fs');
-const { execSync } = require('child_process');
+import { execSync } from 'node:child_process';
+import path from 'node:path';
+import fs from 'node:fs';
+
+if (process.platform !== 'darwin') process.exit(0);
 
 const root = path.resolve(__dirname, '..');
 const src = path.join(root, 'resources', 'asd-entry', 'main.swift');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
-import { Box, Zap, Edit3, Cpu, CheckCircle, Pencil, Check, GitCompare, X, Copy, Loader2, Search } from 'lucide-react';
-import { SPMTarget, ExtractedRecipe, ScanResultItem, Recipe } from '../../types';
+import { Box, Zap, Edit3, Cpu, CheckCircle, Pencil, Check, GitCompare, X, Copy, Loader2, Search, Inbox, Layers, Shield, AlertTriangle } from 'lucide-react';
+import { SPMTarget, ExtractedRecipe, ScanResultItem, Recipe, GuardAuditResult } from '../../types';
+import api from '../../api';
 import { notify } from '../../utils/notification';
 import { categories } from '../../constants';
 import { ICON_SIZES } from '../../constants/icons';
@@ -20,9 +20,12 @@ interface SPMExplorerViewProps {
   scanProgress: { current: number; total: number; status: string };
   scanFileList: { name: string; path: string }[];
   scanResults: ScanResultItem[];
+  guardAudit?: GuardAuditResult | null;
   handleScanTarget: (target: SPMTarget) => void;
+  handleScanProject?: () => void;
   handleUpdateScanResult: (index: number, updates: any) => void;
   handleSaveExtracted: (res: any) => void;
+  handlePromoteToCandidate?: (res: ScanResultItem, index: number) => void;
   handleDeleteCandidate?: (targetName: string, candidateId: string) => void;
   onEditRecipe?: (recipe: Recipe) => void;
   isShellTarget: (name: string) => boolean;
@@ -38,9 +41,12 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
   scanProgress,
   scanFileList,
   scanResults,
+  guardAudit,
   handleScanTarget,
+  handleScanProject,
   handleUpdateScanResult,
   handleSaveExtracted,
+  handlePromoteToCandidate,
   handleDeleteCandidate,
   onEditRecipe,
   isShellTarget,
@@ -80,8 +86,8 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
     const body = opts.candidateId && opts.targetName
     ? { targetName: opts.targetName, candidateId: opts.candidateId }
     : { candidate: opts.candidate || {} };
-    const resp = await axios.post<{ similar: SimilarRecipe[] }>('/api/candidates/similarity', body);
-    setSimilarityMap(prev => ({ ...prev, [key]: resp.data.similar || [] }));
+    const resp = await api.getCandidateSimilarityEx(body);
+    setSimilarityMap(prev => ({ ...prev, [key]: resp.similar || [] }));
   } catch (_) {
     setSimilarityMap(prev => ({ ...prev, [key]: [] }));
   } finally {
@@ -99,8 +105,8 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
     recipeContent = existing.content;
   } else {
     try {
-    const resp = await axios.get<{ content: string }>(`/api/recipes/get?name=${encodeURIComponent(normalizedRecipeName)}`);
-    recipeContent = resp.data.content;
+    const recipeData = await api.getRecipeContentByName(normalizedRecipeName);
+    recipeContent = recipeData.content;
     } catch (err: any) {
     const status = err.response?.status;
     const message = err.response?.data?.message || err.message;
@@ -138,7 +144,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
   
   // 没有完整英文版本，进行翻译
   const cnSummary = res.summary_cn ?? res.summary ?? '';
-  const cnUsage = res.usageGuide_cn ?? res.usageGuide ?? '';
+  const cnUsage = String(res.usageGuide_cn ?? res.usageGuide ?? '');
   const needSummary = !hasEnSummary && cnSummary.trim().length > 0;
   const needUsage = !hasEnUsage && cnUsage.trim().length > 0;
   
@@ -152,21 +158,27 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
   translateInFlightRef.current = true;
   setTranslatingIndex(i);
   try {
-    const resp = await axios.post<{ summary_en?: string; usageGuide_en?: string }>('/api/ai/translate', {
-    summary: needSummary ? cnSummary : undefined,
-    usageGuide: needUsage ? cnUsage : undefined
-    });
+    const resp = await api.translate(
+    needSummary ? cnSummary : '',
+    needUsage ? cnUsage : '',
+    );
+    
+    if (resp?.warning) {
+    // AI 翻译降级（provider 不可用、超时等），不切换语言
+    notify(resp.warning, { type: 'error' });
+    return;
+    }
     
     const updates: any = { lang: 'en' };
     
     // 设置或保留翻译后的内容
-    if (resp.data?.summary_en) {
-    updates.summary_en = resp.data.summary_en;
-    updates.summary = resp.data.summary_en;
+    if (resp?.summary_en) {
+    updates.summary_en = resp.summary_en;
+    updates.summary = resp.summary_en;
     }
-    if (resp.data?.usageGuide_en) {
-    updates.usageGuide_en = resp.data.usageGuide_en;
-    updates.usageGuide = resp.data.usageGuide_en;
+    if (resp?.usageGuide_en) {
+    updates.usageGuide_en = resp.usageGuide_en;
+    updates.usageGuide = resp.usageGuide_en;
     }
     
     handleUpdateScanResult(i, updates);
@@ -200,7 +212,26 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
   return (
   <div className="flex gap-8 h-full">
     <div className="w-80 bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden shrink-0">
-    <div className="p-4 bg-slate-50 border-b border-slate-200 font-bold text-sm">项目 Target ({targets.length})</div>
+    <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+      <span className="font-bold text-sm">项目 Target ({targets.length})</span>
+      {handleScanProject && (
+      <button
+        onClick={handleScanProject}
+        disabled={isScanning}
+        className={`text-xs px-2 py-1 rounded transition-colors disabled:opacity-50 ${
+        selectedTargetName === '__project__'
+          ? 'bg-indigo-700 text-white ring-2 ring-indigo-300 shadow-sm'
+          : 'bg-indigo-600 text-white hover:bg-indigo-700'
+        }`}
+        title="扫描整个项目：AI 提取 + Guard 审计"
+      >
+        <span className="flex items-center gap-1">
+        <Layers size={12} />
+        全项目扫描
+        </span>
+      </button>
+      )}
+    </div>
     <div className="flex-1 overflow-y-auto p-2 space-y-1">
       {filteredTargets.map(t => {
       const isShell = isShellTarget(t.name);
@@ -234,8 +265,29 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
     <div className="flex-1 bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden relative">
     <div className="p-4 bg-slate-50 border-b border-slate-200 font-bold text-sm flex justify-between items-center">
       <div className="flex items-center gap-2">
-      <Edit3 size={ICON_SIZES.md} className="text-slate-400" />
-      <span>审核提取结果 {scanResults.length > 0 && <span className="text-blue-600 ml-1">[{scanResults[0].trigger ? 'Candidate' : 'New'}]</span>}</span>
+      {selectedTargetName === '__project__' ? (
+        <>
+        <Layers size={ICON_SIZES.md} className="text-indigo-500" />
+        <span>全项目扫描结果</span>
+        {scanResults.length > 0 && (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">PROJECT</span>
+        )}
+        </>
+      ) : selectedTargetName ? (
+        <>
+        <Zap size={ICON_SIZES.md} className="text-blue-500" />
+        <span>Target: {selectedTargetName}</span>
+        {scanResults.length > 0 && (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">TARGET</span>
+        )}
+        </>
+      ) : (
+        <>
+        <Edit3 size={ICON_SIZES.md} className="text-slate-400" />
+        <span>审核提取结果</span>
+        </>
+      )}
+      {scanResults.length > 0 && <span className="text-slate-400 font-normal text-xs ml-1">({scanResults.length} 条{scanResults[0]?.trigger ? ' Candidate' : ''})</span>}
       </div>
       <button
       onClick={() => {
@@ -257,7 +309,9 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
         <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
         <Cpu size={ICON_SIZES.xxl} className="absolute inset-0 m-auto text-blue-600 animate-pulse" />
         </div>
-        <p className="font-bold text-lg animate-pulse mb-1">文件扫描与识别</p>
+        <p className="font-bold text-lg animate-pulse mb-1">
+        {selectedTargetName === '__project__' ? '全项目扫描中' : `Target 扫描: ${selectedTargetName || '...'}`}
+        </p>
         <p className="text-sm text-slate-500 mb-4">{scanProgress.status}</p>
         {scanFileList.length > 0 && (
         <div className="w-full max-w-lg mb-4 text-left">
@@ -285,7 +339,9 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
       <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center">
         <Box size={ICON_SIZES.xxxl} className="mb-4 opacity-20" />
         <p className="font-medium text-slate-600">深度扫描与提取</p>
-        <p className="text-xs mt-2">从左侧选择一个模块，让 AI 识别可复用的代码片段和最佳实践。</p>
+        <p className="text-xs mt-2 max-w-xs">
+        从左侧选择一个 <span className="font-bold text-blue-600">Target</span> 进行单模块扫描，或点击 <span className="font-bold text-indigo-600">全项目扫描</span> 对所有模块进行 AI 提取 + Guard 审计。
+        </p>
       </div>
       )}
 
@@ -299,118 +355,176 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
         </div>
       </div>
       )}
+
+      {/* Guard 审计摘要 — 仅全项目扫描模式显示 */}
+      {!isScanning && selectedTargetName === '__project__' && guardAudit?.summary && (
+      <div className={`rounded-xl border p-4 ${guardAudit.summary.totalViolations > 0 ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
+        <div className="flex items-center gap-2 mb-2">
+        <Shield size={ICON_SIZES.md} className={guardAudit.summary.totalViolations > 0 ? 'text-amber-600' : 'text-emerald-600'} />
+        <span className="text-sm font-bold text-slate-700">Guard 审计摘要</span>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">PROJECT SCAN</span>
+        </div>
+        <div className="flex gap-6 text-sm">
+        <div className="flex items-center gap-1.5">
+          <span className="text-slate-500">已审计文件:</span>
+          <span className="font-bold text-slate-700">{guardAudit.summary.totalFiles}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-slate-500">违反总数:</span>
+          <span className={`font-bold ${guardAudit.summary.totalViolations > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>{guardAudit.summary.totalViolations}</span>
+        </div>
+        {guardAudit.summary.errors > 0 && (
+          <div className="flex items-center gap-1.5">
+          <AlertTriangle size={ICON_SIZES.sm} className="text-red-500" />
+          <span className="font-bold text-red-700">{guardAudit.summary.errors} 错误</span>
+          </div>
+        )}
+        {guardAudit.summary.warnings > 0 && (
+          <div className="flex items-center gap-1.5">
+          <AlertTriangle size={ICON_SIZES.sm} className="text-amber-500" />
+          <span className="font-bold text-amber-700">{guardAudit.summary.warnings} 警告</span>
+          </div>
+        )}
+        </div>
+      </div>
+      )}
       
       {scanResults.map((res, i) => {
       const isExpanded = expandedEditIndex === i;
       const headers = res.headers || [];
       return (
         <div key={i} className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center">
-        <div className="flex items-center gap-4 flex-1">
-           <div className="flex flex-col w-[480px]">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 mb-0.5">Recipe Title</label>
-            <input className="font-bold bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none px-1 text-base w-full" value={res.title} onChange={e => handleUpdateScanResult(i, { title: e.target.value })} />
-           </div>
-           <div className="flex flex-col w-48">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 mb-0.5">Triggers</label>
-            <input className="font-mono font-bold text-blue-600 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-lg outline-none text-xs focus:ring-2 focus:ring-blue-500 w-full" value={res.trigger} placeholder="@cmd" onChange={e => handleUpdateScanResult(i, { trigger: e.target.value })} />
-           </div>
-           <div className="flex flex-col">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 mb-0.5">Category</label>
-            <select 
-            className="font-bold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-1.5 rounded-lg outline-none text-[10px] focus:ring-2 focus:ring-blue-500"
-            value={res.category}
-            onChange={e => handleUpdateScanResult(i, { category: e.target.value })}
-            >
-            {categories.filter(c => c !== 'All').map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-            </select>
-           </div>
-           <div className="flex flex-col">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 mb-0.5">Language</label>
-            <div className="flex bg-slate-100 p-1 rounded-lg">
-            <button onClick={() => handleUpdateScanResult(i, { language: 'swift' })} className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${res.language === 'swift' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}>Swift</button>
-            <button onClick={() => handleUpdateScanResult(i, { language: 'objectivec' })} className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${res.language === 'objectivec' || res.language === 'objc' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}>ObjC</button>
+        <div className="px-5 pt-4 pb-3 bg-gradient-to-b from-white to-slate-50/50 border-b border-slate-100">
+        {/* 第一行：Title 突出 + 操作按钮 */}
+        <div className="flex items-start justify-between gap-4 mb-3">
+           <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5">Recipe Title</label>
+              {res.scanMode === 'project' ? (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                <Layers size={10} /> PROJECT
+              </span>
+              ) : res.scanMode === 'target' ? (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200 flex items-center gap-1">
+                <Zap size={10} /> {res.candidateTargetName || 'TARGET'}
+              </span>
+              ) : null}
             </div>
+            <input className="font-semibold bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-blue-500 outline-none px-0.5 text-lg w-full text-slate-800 placeholder:text-slate-300" value={res.title} onChange={e => handleUpdateScanResult(i, { title: e.target.value })} />
            </div>
-           <div className="flex flex-col">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 mb-0.5">Content Lang</label>
-            <div className="flex bg-slate-100 p-1 rounded-lg items-center gap-1">
-            <button onClick={() => handleContentLangChange(i, 'cn', res)} disabled={translatingIndex !== null} className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${res.lang === 'cn' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>CN</button>
-            <button onClick={() => handleContentLangChange(i, 'en', res)} disabled={translatingIndex !== null} className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all flex items-center gap-1 ${res.lang === 'en' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>
-            {translatingIndex === i ? <Loader2 size={ICON_SIZES.xs} className="animate-spin" /> : null}
-            EN
+           <div className="flex gap-2 shrink-0 pt-3">
+            {handlePromoteToCandidate && (
+            <button onClick={() => handlePromoteToCandidate(res, i)} className="text-xs px-4 py-2 rounded-lg font-bold transition-all shadow-sm flex items-center gap-1.5 active:scale-95 bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50 whitespace-nowrap">
+              <Inbox size={ICON_SIZES.md} />
+              Candidate
             </button>
+            )}
+            <button onClick={() => handleSaveExtracted(res)} disabled={isSavingRecipe} className={`text-xs px-4 py-2 rounded-lg font-bold transition-all shadow-sm flex items-center gap-1.5 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap ${res.mode === 'full' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-amber-600 text-white hover:bg-amber-700'}`}>
+              {isSavingRecipe ? <Loader2 size={ICON_SIZES.md} className="animate-spin" /> : <CheckCircle size={ICON_SIZES.md} />}
+              {isSavingRecipe ? '保存中...' : '保存为 Recipe'}
+            </button>
+           </div>
+        </div>
+        {/* 第二行：所有控制项水平排列 */}
+        <div className="flex items-end gap-4 flex-wrap">
+           <div className="flex flex-col">
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5 mb-1">Trigger</label>
+            <input className="font-mono font-bold text-blue-600 bg-blue-50/80 border border-blue-100 px-2.5 py-1 rounded-md outline-none text-xs focus:ring-2 focus:ring-blue-500/20 w-40" value={res.trigger} placeholder="@cmd" onChange={e => handleUpdateScanResult(i, { trigger: e.target.value })} />
+           </div>
+           <div className="flex flex-col">
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5 mb-1">Category</label>
+            <select className="font-bold text-slate-600 bg-white border border-slate-200 px-2 py-1 rounded-md outline-none text-[11px] focus:ring-2 focus:ring-blue-500/20" value={res.category} onChange={e => handleUpdateScanResult(i, { category: e.target.value })}>
+              {categories.filter(c => c !== 'All').map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+           </div>
+           <div className="w-px h-6 bg-slate-200 self-end mb-0.5" />
+           <div className="flex flex-col">
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5 mb-1">Language</label>
+            <div className="flex bg-slate-100 p-0.5 rounded-md">
+              <button onClick={() => handleUpdateScanResult(i, { language: 'swift' })} className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition-all ${res.language === 'swift' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-500'}`}>Swift</button>
+              <button onClick={() => handleUpdateScanResult(i, { language: 'objectivec' })} className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition-all ${res.language === 'objectivec' || res.language === 'objc' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-500'}`}>ObjC</button>
             </div>
            </div>
            <div className="flex flex-col">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 mb-0.5">Mode</label>
-            <div className="flex bg-slate-100 p-1 rounded-lg">
-            <button onClick={() => handleUpdateScanResult(i, { mode: 'full' })} className={`px-4 py-1 rounded-md text-[9px] font-bold transition-all ${res.mode === 'full' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}>SNIPPET + RECIPE</button>
-            <button onClick={() => handleUpdateScanResult(i, { mode: 'preview' })} className={`px-4 py-1 rounded-md text-[9px] font-bold transition-all ${res.mode === 'preview' ? 'bg-white shadow-sm text-amber-600' : 'text-slate-400'}`}>RECIPE ONLY</button>
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5 mb-1">Lang</label>
+            <div className="flex bg-slate-100 p-0.5 rounded-md items-center">
+              <button onClick={() => handleContentLangChange(i, 'cn', res)} disabled={translatingIndex !== null} className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition-all ${res.lang === 'cn' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-500'} disabled:opacity-50 disabled:cursor-not-allowed`}>CN</button>
+              <button onClick={() => handleContentLangChange(i, 'en', res)} disabled={translatingIndex !== null} className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-0.5 ${res.lang === 'en' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-500'} disabled:opacity-50 disabled:cursor-not-allowed`}>
+                {translatingIndex === i ? <Loader2 size={10} className="animate-spin" /> : null}
+                EN
+              </button>
             </div>
            </div>
            <div className="flex flex-col">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 mb-0.5">Difficulty</label>
-            <select 
-            className="font-bold text-purple-600 bg-purple-50 border border-purple-100 px-2 py-1.5 rounded-lg outline-none text-[10px] focus:ring-2 focus:ring-purple-500"
-            value={res.difficulty || 'intermediate'}
-            onChange={e => handleUpdateScanResult(i, { difficulty: e.target.value as any })}
-            >
-            <option value="beginner">Beginner</option>
-            <option value="intermediate">Intermediate</option>
-            <option value="advanced">Advanced</option>
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5 mb-1">Mode</label>
+            <div className="flex bg-slate-100 p-0.5 rounded-md">
+              <button onClick={() => handleUpdateScanResult(i, { mode: 'full' })} className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition-all ${res.mode === 'full' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-500'}`}>Snippet+Recipe</button>
+              <button onClick={() => handleUpdateScanResult(i, { mode: 'preview' })} className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition-all ${res.mode === 'preview' ? 'bg-white shadow-sm text-amber-600' : 'text-slate-400 hover:text-slate-500'}`}>Recipe Only</button>
+            </div>
+           </div>
+           <div className="w-px h-6 bg-slate-200 self-end mb-0.5" />
+           <div className="flex flex-col">
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5 mb-1">Difficulty</label>
+            <select className="font-bold text-slate-600 bg-white border border-slate-200 px-2 py-1 rounded-md outline-none text-[11px] focus:ring-2 focus:ring-purple-500/20" value={res.difficulty || 'intermediate'} onChange={e => handleUpdateScanResult(i, { difficulty: e.target.value as any })}>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
             </select>
            </div>
            <div className="flex flex-col">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 mb-0.5">Authority</label>
-            <select 
-            className="font-bold text-amber-600 bg-amber-50 border border-amber-100 px-2 py-1.5 rounded-lg outline-none text-[10px] focus:ring-2 focus:ring-amber-500"
-            value={res.authority || 3}
-            onChange={e => handleUpdateScanResult(i, { authority: parseInt(e.target.value) })}
-            >
-            <option value="1">⭐ 1 - Basic</option>
-            <option value="2">⭐⭐ 2 - Good</option>
-            <option value="3">⭐⭐⭐ 3 - Solid</option>
-            <option value="4">⭐⭐⭐⭐ 4 - Great</option>
-            <option value="5">⭐⭐⭐⭐⭐ 5 - Excellent</option>
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5 mb-1">Authority</label>
+            <select className="font-bold text-amber-600 bg-amber-50/60 border border-amber-100 px-2 py-1 rounded-md outline-none text-[11px] focus:ring-2 focus:ring-amber-500/20" value={res.authority || 3} onChange={e => handleUpdateScanResult(i, { authority: parseInt(e.target.value) })}>
+              <option value="1">⭐ 1</option>
+              <option value="2">⭐⭐ 2</option>
+              <option value="3">⭐⭐⭐ 3</option>
+              <option value="4">⭐⭐⭐⭐ 4</option>
+              <option value="5">⭐⭐⭐⭐⭐ 5</option>
             </select>
            </div>
         </div>
-        <div className="ml-4 flex flex-col gap-2">
-           <button onClick={() => handleSaveExtracted(res)} disabled={isSavingRecipe} className={`text-xs px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${res.mode === 'full' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-amber-600 text-white hover:bg-amber-700'}`}>
-          {isSavingRecipe ? <Loader2 size={ICON_SIZES.md} className="animate-spin" /> : <CheckCircle size={ICON_SIZES.md} />}
-          {isSavingRecipe ? '保存中...' : '保存为 Recipe'}
-           </button>
         </div>
-        </div>
-        <div className="p-6 space-y-4">
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Summary (摘要) - {res.lang === 'cn' ? '中文' : 'EN'}</label>
-            <textarea rows={1} className="w-full text-sm text-slate-600 bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none resize-none leading-relaxed focus:ring-2 focus:ring-blue-500/10" value={res.summary} onChange={e => handleUpdateScanResult(i, { summary: e.target.value })} />
+        <div className="px-6 pt-5 pb-0 space-y-3">
+        {/* 属性行: Knowledge Type / Scope / Module / Headers */}
+        <div className="flex flex-wrap gap-x-4 gap-y-2 items-end">
+          <div className="flex flex-col">
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5 mb-1">Knowledge Type</label>
+            <select className="font-bold text-slate-600 bg-white border border-slate-200 px-2 py-1 rounded-md outline-none text-[11px] focus:ring-2 focus:ring-blue-500/20" value={res.knowledgeType || 'code-pattern'} onChange={e => handleUpdateScanResult(i, { knowledgeType: e.target.value as any })}>
+              <option value="code-pattern">Code Pattern</option>
+              <option value="architecture">Architecture</option>
+              <option value="best-practice">Best Practice</option>
+              <option value="rule">Rule</option>
+            </select>
           </div>
-        </div>
-        
-        {/* 元信息展示 - 不可编辑 */}
-        <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex flex-col">
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5 mb-1">Scope</label>
+            <select className="font-bold text-slate-600 bg-white border border-slate-200 px-2 py-1 rounded-md outline-none text-[11px] focus:ring-2 focus:ring-blue-500/20" value={res.scope || 'project-specific'} onChange={e => handleUpdateScanResult(i, { scope: e.target.value as any })}>
+              <option value="universal">Universal</option>
+              <option value="project-specific">Project Specific</option>
+              <option value="target-specific">Target Specific</option>
+            </select>
+          </div>
+          <div className="w-px h-6 bg-slate-200 self-end mb-0.5" />
           {res.moduleName && (
-          <div className="flex items-center gap-1.5">
-            <label className="text-[9px] font-bold text-slate-400 uppercase">Module</label>
-            <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-mono">{res.moduleName}</span>
+          <div className="flex flex-col">
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5 mb-1">Module</label>
+            <span className="text-[11px] bg-purple-50 text-purple-700 border border-purple-100 px-2 py-1 rounded-md font-mono font-bold">{res.moduleName}</span>
           </div>
           )}
           {headers.length > 0 && (
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <div className="flex items-end gap-2">
+            <div className="flex flex-col">
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5 mb-1">Headers</label>
             <button
-            onClick={() => setExpandedEditIndex(expandedEditIndex === i ? null : i)}
-            className="text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded"
+              onClick={() => setExpandedEditIndex(expandedEditIndex === i ? null : i)}
+              className={`text-[11px] font-bold px-2 py-1 rounded-md transition-colors border ${isExpanded ? 'text-blue-700 bg-blue-100 border-blue-300' : 'text-blue-600 bg-blue-50 border-blue-100 hover:bg-blue-100'}`}
             >
-            编辑 Headers ({headers.length})
+              {isExpanded ? '收起' : '编辑'} ({headers.length})
             </button>
-            <div className="flex items-center gap-2 border-l border-slate-200 pl-2">
-            <span className="text-[9px] text-slate-500">引入到 Snippet:</span>
+            </div>
+            <div className="flex items-center gap-1.5 mb-0.5">
+            <span className="text-[9px] text-slate-400">Snippet:</span>
             <button
               onClick={() => handleUpdateScanResult(i, { includeHeaders: !(res.includeHeaders !== false) })}
               className={`w-7 h-4 rounded-full relative transition-colors ${res.includeHeaders !== false ? 'bg-blue-600' : 'bg-slate-300'}`}
@@ -418,56 +532,71 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
             >
               <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${res.includeHeaders !== false ? 'right-0.5' : 'left-0.5'}`} />
             </button>
-            <span className="text-[9px] font-bold text-slate-700">{res.includeHeaders !== false ? 'ON' : 'OFF'}</span>
+            <span className="text-[9px] font-bold text-slate-600">{res.includeHeaders !== false ? 'ON' : 'OFF'}</span>
             </div>
           </div>
           )}
-          {res.difficulty && (
-          <div className="flex items-center gap-1.5">
-            <label className="text-[9px] font-bold text-slate-400 uppercase">Difficulty</label>
-            <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-semibold">{res.difficulty}</span>
+          <div className="w-px h-6 bg-slate-200 self-end mb-0.5" />
+          <div className="flex flex-col flex-1 min-w-[160px]">
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5 mb-1">Tags</label>
+            <div className="flex flex-wrap gap-1 items-center bg-white border border-slate-200 rounded-md px-1.5 py-0.5 min-h-[28px] focus-within:ring-2 focus-within:ring-blue-500/20">
+              {(res.tags || []).map((tag: string, ti: number) => (
+              <span key={ti} className="flex items-center gap-0.5 text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0 rounded">
+                {tag}
+                <button onClick={() => { const newTags = [...(res.tags || [])]; newTags.splice(ti, 1); handleUpdateScanResult(i, { tags: newTags }); }} className="text-blue-400 hover:text-red-500 transition-colors leading-none text-[10px]" title="移除">&times;</button>
+              </span>
+              ))}
+              <input
+              className="flex-1 min-w-[80px] text-[11px] text-slate-600 outline-none bg-transparent py-0.5"
+              placeholder={(res.tags || []).length === 0 ? '按 Enter/逗号添加...' : ''}
+              onKeyDown={e => {
+                const input = e.currentTarget;
+                const val = input.value.trim();
+                if ((e.key === 'Enter' || e.key === ',' || e.key === '，') && val) {
+                e.preventDefault();
+                const newTag = val.replace(/[,，]/g, '').trim();
+                if (newTag && !(res.tags || []).includes(newTag)) {
+                  handleUpdateScanResult(i, { tags: [...(res.tags || []), newTag] });
+                }
+                input.value = '';
+                } else if (e.key === 'Backspace' && !input.value && (res.tags || []).length > 0) {
+                const newTags = [...(res.tags || [])];
+                newTags.pop();
+                handleUpdateScanResult(i, { tags: newTags });
+                }
+              }}
+              onBlur={e => {
+                const val = e.currentTarget.value.trim().replace(/[,，]/g, '').trim();
+                if (val && !(res.tags || []).includes(val)) {
+                handleUpdateScanResult(i, { tags: [...(res.tags || []), val] });
+                }
+                e.currentTarget.value = '';
+              }}
+              />
+            </div>
           </div>
-          )}
-          {res.authority && (
-          <div className="flex items-center gap-1.5">
-            <label className="text-[9px] font-bold text-slate-400 uppercase">Authority</label>
-            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-bold">{'⭐'.repeat(res.authority)} {res.authority}/5</span>
-          </div>
-          )}
-          {res.version && (
-          <div className="flex items-center gap-1.5">
-            <label className="text-[9px] font-bold text-slate-400 uppercase">Version</label>
-            <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-mono">{res.version}</span>
-          </div>
-          )}
-          {res.updatedAt && (
-          <div className="flex items-center gap-1.5">
-            <label className="text-[9px] font-bold text-slate-400 uppercase">Updated</label>
-            <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded">{new Date(res.updatedAt).toLocaleDateString('zh-CN')}</span>
-          </div>
-          )}
         </div>
-        
-        {/* 展开的 Headers 编辑区域 */}
+
+        {/* Headers 展开编辑 — 紧跟属性行 */}
         {isExpanded && headers.length > 0 && (
-          <div className="space-y-2 bg-slate-50 rounded-xl p-4 border border-slate-200">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">编辑具体导入</label>
+          <div className="space-y-2 bg-slate-50/80 rounded-lg p-3 border border-slate-200">
+          <div className="flex items-center justify-between">
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">导入头文件</label>
             <button
             onClick={() => {
               const newHeaders = [...headers, res.language === 'objectivec' ? '#import <Module/Header.h>' : 'import ModuleName'];
               handleUpdateScanResult(i, { headers: newHeaders });
             }}
-            className="text-[9px] px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 font-bold"
+            className="text-[9px] px-2 py-0.5 bg-green-500 text-white rounded hover:bg-green-600 font-bold"
             >
             + 添加
             </button>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {headers.map((h, hi) => (
             <div key={hi} className="flex items-center gap-2">
               <input
-              className="flex-1 text-xs font-mono bg-white border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-blue-400"
+              className="flex-1 text-xs font-mono bg-white border border-slate-200 rounded px-2 py-1 outline-none focus:border-blue-400"
               value={h}
               onChange={e => {
                 const newHeaders = [...headers];
@@ -481,7 +610,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
                 const newHeaders = headers.filter((_, idx) => idx !== hi);
                 handleUpdateScanResult(i, { headers: newHeaders });
               }}
-              className="px-2 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 text-[9px] font-bold"
+              className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-[9px] font-bold"
               >
               删除
               </button>
@@ -490,6 +619,21 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
           </div>
           </div>
         )}
+        </div>
+
+        {/* 文本内容区 */}
+        <div className="px-6 pb-6 pt-3 space-y-3">
+        {/* Summary 摘要 */}
+        <div>
+          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Summary (摘要) - {res.lang === 'cn' ? '中文' : 'EN'}</label>
+          <textarea rows={1} className="w-full text-sm text-slate-600 bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none resize-none leading-relaxed focus:ring-2 focus:ring-blue-500/10" value={res.summary} onChange={e => handleUpdateScanResult(i, { summary: e.target.value })} />
+        </div>
+
+        {/* Usage Guide 使用指南 */}
+        <div>
+          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Usage Guide (使用指南) - {res.lang === 'cn' ? '中文' : 'EN'}</label>
+          <textarea rows={3} className="w-full text-sm text-slate-600 bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none resize-y leading-relaxed focus:ring-2 focus:ring-blue-500/10" value={typeof res.usageGuide === 'object' ? JSON.stringify(res.usageGuide) : (res.usageGuide || '')} onChange={e => handleUpdateScanResult(i, { usageGuide: e.target.value })} placeholder="何时用 / 关键点 / 依赖..." />
+        </div>
         
         {/* 相似度提示 */}
         {(() => {
@@ -497,24 +641,52 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
           const similar = similarityMap[simKey];
           const loading = similarityLoading === simKey;
           const hasSimilar = (similar?.length ?? 0) > 0;
+          const highSimilar = (similar || []).filter(s => s.similarity >= 0.85);
+          const hasHighSimilar = highSimilar.length > 0;
           return (hasSimilar || loading) ? (
-          <div className="flex flex-wrap gap-1.5 items-center">
+          <div className="space-y-1.5">
+            {/* 高相似度警告 */}
+            {hasHighSimilar && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <span className="text-red-500 text-sm">⚠️</span>
+              <span className="text-[11px] font-bold text-red-700">高重复风险：</span>
+              {highSimilar.map(s => (
+              <button
+                key={s.recipeName}
+                onClick={() => openCompare(res, s.recipeName, similar || [])}
+                className="text-[11px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-800 border border-red-300 hover:bg-red-200 transition-colors"
+              >
+                {s.recipeName.replace(/\.md$/i, '')} {(s.similarity * 100).toFixed(0)}%
+              </button>
+              ))}
+              <span className="text-[10px] text-red-500">建议先对比再保存</span>
+            </div>
+            )}
+            {/* 一般相似度列表 */}
+            <div className="flex flex-wrap gap-1.5 items-center">
             <span className="text-[10px] text-slate-400 font-bold">相似 Recipe：</span>
             {loading ? (
-            <span className="text-[10px] text-slate-400">加载中...</span>
+              <span className="text-[10px] text-slate-400">加载中...</span>
             ) : (
-            (similar || []).slice(0, 3).map(s => (
+              (similar || []).slice(0, 5).map(s => (
               <button
-              key={s.recipeName}
-              onClick={() => openCompare(res, s.recipeName, similar || [])}
-              className="text-[10px] font-bold px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors flex items-center gap-1"
-              title={`与 ${s.recipeName} 相似 ${(s.similarity * 100).toFixed(0)}%，点击对比`}
+                key={s.recipeName}
+                onClick={() => openCompare(res, s.recipeName, similar || [])}
+                className={`text-[10px] font-bold px-2 py-1 rounded border transition-colors flex items-center gap-1 ${
+                s.similarity >= 0.85
+                  ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                  : s.similarity >= 0.6
+                  ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+                title={`与 ${s.recipeName} 相似 ${(s.similarity * 100).toFixed(0)}%，点击对比`}
               >
-              <GitCompare size={ICON_SIZES.xs} />
-              {s.recipeName.replace(/\.md$/i, '')} {(s.similarity * 100).toFixed(0)}%
+                <GitCompare size={ICON_SIZES.xs} />
+                {s.recipeName.replace(/\.md$/i, '')} {(s.similarity * 100).toFixed(0)}%
               </button>
-            ))
+              ))
             )}
+            </div>
           </div>
           ) : null;
         })()}
@@ -545,12 +717,6 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
           ) : (
           <CodeBlock code={res.code} language={codeLang(res)} showLineNumbers />
           )}
-        </div>
-        
-        {/* Usage Guide */}
-        <div>
-        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Usage Guide (使用指南) - {res.lang === 'cn' ? '中文' : 'EN'}</label>
-          <textarea className="w-full text-xs text-slate-500 bg-blue-50 p-4 rounded-xl border border-blue-100 outline-none min-h-[140px] leading-relaxed" value={res.usageGuide} onChange={e => handleUpdateScanResult(i, { usageGuide: e.target.value })} />
         </div>
         </div>
       </div>
@@ -583,8 +749,8 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
       if (existing?.content) content = existing.content;
       else {
         try {
-        const resp = await axios.get<{ content: string }>(`/api/recipes/get?name=${encodeURIComponent(newName)}`);
-        content = resp.data.content;
+        const recipeData = await api.getRecipeContentByName(newName);
+        content = recipeData.content;
         } catch (_) { return; }
       }
       setCompareModal(prev => prev ? { ...prev, recipeName: newName, recipeContent: content, recipeContents: { ...prev.recipeContents, [newName]: content } } : null);

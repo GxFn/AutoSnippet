@@ -1,12 +1,15 @@
 #!/usr/bin/env node
+
 /**
  * 清除向量数据库缓存
  * 用于解决向量维度不匹配问题
  */
 
-const fs = require('fs');
-const path = require('path');
+import { fileURLToPath } from 'node:url';
+const __filename = fileURLToPath(import.meta.url);
 
+import fs from 'node:fs';
+import path from 'node:path';
 console.log('🧹 清理向量数据库缓存');
 console.log('   原因: 向量维度不匹配 (Vectors must have the same length)');
 console.log('   操作: 删除旧的向量索引，让系统重新生成 768 维向量');

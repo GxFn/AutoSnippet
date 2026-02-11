@@ -3,12 +3,13 @@
 title: Your Recipe Title Here (English, ≤50 chars, verb-based)
 trigger: @my_trigger
 category: Network  # MUST be one of: View, Service, Tool, Model, Network, Storage, UI, Utility
-language: swift  # swift or objectivec
+language: swift  # swift, objectivec, javascript, typescript, etc.
 summary_cn: 中文概述，≤100 字，描述该 Recipe 的用途
 summary_en: English summary, ≤100 words
-headers: ["import Foundation"]  # 完整 import 语句数组（Swift: "import X"; ObjC: "#import <X/Y.h>"）
+headers: ["import Foundation"]  # 完整 import 语句数组
 
-# 可选字段
+# 可选字段（强烈推荐）
+knowledgeType: code-pattern  # code-pattern, architecture, best-practice, boundary-constraint, code-relation, etc.
 keywords: ["关键词1", "关键词2", "关键词3"]
 tags: [tag1, tag2]
 whenToUse: |
@@ -29,7 +30,7 @@ deprecated: false
 
 ## Snippet / Code Reference
 
-```swift
+```
 // 在此粘贴或编写代码片段（建议可运行、含必要错误处理与注释）
 ```
 

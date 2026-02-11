@@ -5,8 +5,13 @@
  * 用于避免触发 npm 安全警告
  */
 
-const path = require('path');
-const fs = require('fs');
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+import path from 'node:path';
+import fs from 'node:fs';
 
 const root = path.resolve(__dirname, '..');
 

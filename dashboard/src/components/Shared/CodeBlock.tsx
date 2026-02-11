@@ -29,6 +29,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
   showLineNumbers = false,
 }) => {
   const lang = LANGUAGE_MAP[language?.toLowerCase()] || language?.toLowerCase() || 'text';
+  const noRadius = className.includes('!rounded-none');
   return (
   <div className={`rounded-xl overflow-hidden text-sm ${className}`}>
     <SyntaxHighlighter
@@ -40,7 +41,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
       padding: '1rem 1.25rem',
       fontSize: '0.8125rem',
       lineHeight: 1.5,
-      borderRadius: '0.75rem',
+      borderRadius: noRadius ? 0 : '0.75rem',
     }}
     codeTagProps={{ style: { fontFamily: 'ui-monospace, monospace' } }}
     PreTag="div"

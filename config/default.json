@@ -1,0 +1,51 @@
+{
+  "database": {
+    "type": "sqlite",
+    "path": "./.autosnippet/autosnippet.db",
+    "verbose": false
+  },
+  "server": {
+    "port": 3000,
+    "host": "localhost",
+    "cors": {
+      "enabled": true,
+      "origin": "*"
+    }
+  },
+  "cache": {
+    "mode": "memory",
+    "ttl": 300
+  },
+  "monitoring": {
+    "enabled": true,
+    "slowRequestThreshold": 1000
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "console": true,
+    "file": {
+      "enabled": true,
+      "path": "./logs"
+    }
+  },
+  "constitution": {
+    "path": "./config/constitution.yaml",
+    "strictMode": true
+  },
+  "features": {
+    "USE_NEW_GATEWAY": true,
+    "REASONING_QUALITY_SCORE": true
+  },
+  "ai": {
+    "provider": "openai",
+    "model": "gpt-4",
+    "temperature": 0.7,
+    "maxTokens": 2000
+  },
+  "vector": {
+    "enabled": true,
+    "dimensions": 1536,
+    "indexPath": "./data/vector-index"
+  }
+}

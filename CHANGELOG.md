@@ -4,6 +4,101 @@
 
 ---
 
+## [2.0.0] - 2026-02-12
+
+### 重大变更
+
+- **Node.js 运行时要求** ≥ 20（原 ≥ 18），package.json `engines` 字段已更新
+- **V2 统一架构**：Gateway 控制平面 + Constitution 宪法体系 + 6 角色权限模型全面上线
+
+### 架构
+
+- **Gateway 控制平面**：324 行，完整流水线 validate → permission → constitution → plugin → dispatch → audit
+- **GatewayActionRegistry**：27 个 Action（candidate 9 / recipe 12 / guard_rule 9 / search 1）
+- **ConstitutionValidator**：P1-P4 四优先级逐级验证
+- **PermissionManager**：3-tuple (actor, action, resource) 权限模型
+- **SessionManager**：4 作用域 (project/target/file/developer) SQLite 持久化
+- **CapabilityProbe**：`git push --dry-run` 写权限探测，24h TTL 缓存
+
+### 新增
+
+- **SaveEventFilter (3 层保存事件过滤)**：区分用户手动保存与 Xcode 自动保存，避免误触发自动化流程 (`lib/service/automation/SaveEventFilter.js`, ~160 行)
+- **Header 格式自动解析**：
+  - `_parseHeaderString()` — 解析 `#import "..."` / `#import <...>` / `@import` / `import` 等各种格式
+  - `_resolveHeaderFormat()` — 根据当前文件 target 与 header 所属模块关系，自动选择 quote (`#import "Header.h"`) 或 angle bracket (`#import <Module/Header.h>`) 格式
+- **同 target 相对路径计算**：
+  - `_findHeaderRelativePath()` — 在磁盘上搜索头文件物理位置，计算相对于当前文件的路径（如 `../SubDir/Foo.h`）
+  - `_findFileRecursive()` — 递归查找，深度限制 6，跳过隐藏目录/build/DerivedData
+- **SPM 跨 Package 依赖支持**：
+  - `#targetPackageMap` / `#packageDepGraph` 数据结构，`getPackageForTarget()` 查询
+  - `#buildPackageDepGraph()` — 构建 Package 级依赖关系图
+  - `_canReachPackage()` — 跨 Package 循环依赖检测
+  - `addDependency()` 增强：跨 Package 时自动生成 `.product(name:, package:)` 语法并调用 `#ensurePackageDependency()`
+- **依赖审查对话框增强**：新增 "提示操作插入"（第 3 按钮）和 "自动修复依赖"（第 4 按钮），在 `insertHeaders` 和 `_preflightDeps` 中同步实现
+- **Fix Mode 配置**：`getFixMode()` 返回 `'fix'` / `'suggest'` / `'off'`（默认 `'suggest'`），控制依赖检查行为
+- **窗口上下文验证**：`insertCodeToXcode` 中检查 Xcode 前台窗口是否匹配目标文件
+
+- **Recipe .md Source of Truth**：
+  - RecipeFileWriter (457 行)：领域对象 → YAML frontmatter + Markdown body 落盘
+  - SyncService：增量同步 `.md` → DB，`_contentHash` 完整性校验
+  - CLI `asd sync` 命令：手动触发同步
+
+- **MCP Server 工具扩展**：31 个工具（原 15+），7 个写操作通过 Gateway Gating 保护
+  - 工具编号统一为 1-31 顺序编号（修复原 10.1/10.2 子编号混乱）
+
+- **Skills 体系重组**：10 个（原 13 个）
+  - 删除废弃：autosnippet-when、autosnippet-search、autosnippet-batch-scan
+  - 扩展 guard/structure/recipes Skill 能力
+
+- **CLI 新命令**：`asd compliance`（合规评估）、`asd sync`（.md 同步）、`asd upgrade`（IDE 集成升级）
+
+- **Service 层单元测试**（+70 测试）：
+  - `CandidateService.test.js`（16 测试）
+  - `RecipeService.test.js`（27 测试）
+  - `SearchEngine.test.js`（27 测试）
+
+- **ComplianceEvaluator** (327 行)：P1-P4 加权合规评分
+- **RoleDriftMonitor** (260 行)：角色漂移检测
+- **ReasoningLogger** (270 行)：AI 推理过程透明记录
+
+### 修复
+
+- **Paste 行号偏移 Bug**：`_computePasteLineNumber` 使用实际已插入的 `headerInsertCount` 而非 `headersToInsert.length`
+- **搜索空结果不再跳转 Dashboard**：`SearchHandler` 搜索出错或无结果时仅打印 `未找到「${query}」的相关结果`，移除 `_openDashboard()` 调用
+- **tokenize() 大写前缀切分**：camelCase 展开移至 toLowerCase 之前；新增 `([A-Z]+)([A-Z][a-z])` 正则处理 URLSession → `['url','session']` 等全大写前缀
+- **auth.js 默认凭证警告**：使用 admin/autosnippet 默认凭证时打印 `console.warn`
+- **BaseRepository tableName 校验**：构造器中添加 `SAFE_IDENTIFIER_RE` 防 SQL 注入
+- **BaseError.js**：移除未使用的 `export default` 对象
+
+### 改进
+
+- **Header 去重增强**：同时检查原始格式和 resolved 格式，避免 `#import "Foo.h"` 与 `#import <Module/Foo.h>` 重复插入
+- **依赖审查逻辑 DRY**：提取 `_handleDepReview()` 公共函数，消除 `insertHeaders` 和 `_preflightDeps` 中的重复代码
+- **避免冗余 SPM 加载**：`spmService.load()` 结果缓存传递给 `insertHeaders`，避免二次加载
+- **Package 依赖图构建优化**：使用 `dirname→pkgPath` Map 索引替代逐文件遍历
+- **Header 模块推断缓存**：`_inferModulesFromHeaders` 结果缓存复用
+- **VectorStore 并行 batchUpsert**：从逐条 `for await` 改为 `Promise.all` 批量（batch size=50），大幅提升批量写入性能
+- **SearchEngine DRY 优化**：内联 BM25 content_json 补充逻辑抽取为 `_supplementDetails(items)` 复用
+- **错误可观测性**（6 个文件 silent catch → Logger.warn）：
+  - ExclusionManager、RuleLearner、MemoryManager、RecipeStatsTracker、FileWatcher、ErrorRecovery
+- **代码清理**：
+  - 删除空目录 `lib/external/api/`、`lib/external/cli/`
+  - 清理死代码 Feature Flags：`RECIPE_KNOWLEDGE_GRAPH`、`COMPLIANCE_EVALUATOR_V2`
+  - 删除 20 个 V1 遗留死文件、36 个 V1 废弃测试
+  - 删除根目录死文件：`index.js`（空）、`format-indent.js`（一次性脚本）、`import-guard-data.mjs`（V1 迁移脚本）、`ecosystem.config.cjs`（PM2 失效配置）
+  - 删除失效脚本：`generate-checksums.js`、`verify-checksums.js`、`check-paths.js`（V1 路径）
+  - 删除死代码：`SnippetRepository.impl.js`、`ContextAnalyzer.js`、`RecallEngine.js`（零引用，共 414 行）
+  - 清理 git 索引中 345 个 V1 幽灵文件
+  - 测试目录扁平化：`test/v2/` → `test/`
+
+### 测试
+
+- 测试基线：**16 套件 / 307 测试**（原 12/210）
+- Jest + `--experimental-vm-modules` ESM 支持
+- 单元测试 11 个 + 集成测试 4 个（Jest）+ 2 个（node:test）
+
+---
+
 ## [1.7.3] - 2026-02-06
 
 ### 修复

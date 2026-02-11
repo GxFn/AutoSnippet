@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
 import { RefreshCw, Layers } from 'lucide-react';
+import api from '../../api';
 import { ICON_SIZES } from '../../constants/icons';
 
 interface DepGraphNode {
@@ -27,11 +27,13 @@ interface DepGraphData {
 
 const NODE_R = 20;
 const LAYER_HEIGHT = 72;
-const NODE_GAP = 48;
+const SUB_ROW_HEIGHT = 52;
+const NODE_GAP = 24;
 const PADDING = 40;
 const LAYER_SIDE_PADDING = 36;
 const NODE_WIDTH = 140;
 const NODE_HEIGHT = 40;
+const MAX_PER_ROW = 8;
 
 /** 按依赖关系计算层级：tier 0 = 不依赖任何人（顶层），tier 越大越往下（被依赖的基础层）；遇环则按 0 处理避免栈溢出 */
 function computeTiers(nodes: DepGraphNode[], edges: DepGraphEdge[]): Map<string, number> {
@@ -63,11 +65,16 @@ function computeTiers(nodes: DepGraphNode[], edges: DepGraphEdge[]): Map<string,
   return tier;
 }
 
-/** 金字塔分层布局：顶层（根包）在上，底层（基础依赖）在下；同层水平居中分布 */
+/** 计算每层需要多少子行 */
+function subRowCount(count: number): number {
+  return Math.ceil(count / MAX_PER_ROW);
+}
+
+/** 金字塔分层布局：顶层（根包）在上，底层（基础依赖）在下；同层节点过多时自动换行 */
 function pyramidLayout(
   nodes: DepGraphNode[],
   edges: DepGraphEdge[]
-): { positions: Map<string, { x: number; y: number }>; tiers: Map<string, number>; tierOrder: number[] } {
+): { positions: Map<string, { x: number; y: number }>; tiers: Map<string, number>; tierOrder: number[]; tierYRanges: Map<number, { y: number; h: number }> } {
   const tiers = computeTiers(nodes, edges);
   const tierToIds = new Map<number, string[]>();
   for (const n of nodes) {
@@ -76,26 +83,32 @@ function pyramidLayout(
   tierToIds.get(t)!.push(n.id);
   }
   const tierOrder = [...new Set(tiers.values())].sort((a, b) => a - b);
-  // 显示顺序：tier 大（根包）在上，tier 小（基础依赖）在下
   const displayOrder = [...tierOrder].reverse();
   const positions = new Map<string, { x: number; y: number }>();
-  // 金字塔内容宽度（最宽一层）
-  const maxW = tierOrder.reduce((acc, t) => {
-  const ids = tierToIds.get(t) ?? [];
-  const w = (ids.length - 1) * NODE_GAP + ids.length * NODE_WIDTH;
-  return Math.max(acc, w);
-  }, 0);
-  displayOrder.forEach((tier, displayIndex) => {
+  const tierYRanges = new Map<number, { y: number; h: number }>();
+  // 每行最多 MAX_PER_ROW 个节点，计算最宽行的宽度
+  const effectivePerRow = Math.min(MAX_PER_ROW, Math.max(...tierOrder.map(t => (tierToIds.get(t) ?? []).length), 1));
+  const maxW = (effectivePerRow - 1) * NODE_GAP + effectivePerRow * NODE_WIDTH;
+  let currentY = PADDING;
+  displayOrder.forEach((tier) => {
   const ids = tierToIds.get(tier) ?? [];
-  const tierW = (ids.length - 1) * NODE_GAP + ids.length * NODE_WIDTH;
-  const offset = (maxW - tierW) / 2;
-  ids.forEach((id, i) => {
+  const rows = subRowCount(ids.length);
+  const tierStartY = currentY;
+  for (let row = 0; row < rows; row++) {
+    const rowIds = ids.slice(row * MAX_PER_ROW, (row + 1) * MAX_PER_ROW);
+    const rowW = (rowIds.length - 1) * NODE_GAP + rowIds.length * NODE_WIDTH;
+    const offset = (maxW - rowW) / 2;
+    rowIds.forEach((id, i) => {
     const x = PADDING + LAYER_SIDE_PADDING + offset + i * (NODE_WIDTH + NODE_GAP) + NODE_WIDTH / 2;
-    const y = PADDING + displayIndex * LAYER_HEIGHT + NODE_HEIGHT / 2;
+    const y = currentY + NODE_HEIGHT / 2;
     positions.set(id, { x, y });
+    });
+    currentY += row < rows - 1 ? SUB_ROW_HEIGHT : LAYER_HEIGHT;
+  }
+  const tierH = currentY - tierStartY;
+  tierYRanges.set(tier, { y: tierStartY, h: tierH });
   });
-  });
-  return { positions, tiers, tierOrder };
+  return { positions, tiers, tierOrder, tierYRanges };
 }
 
 const DepGraphView: React.FC = () => {
@@ -109,8 +122,7 @@ const DepGraphView: React.FC = () => {
   setLoading(true);
   setError(null);
   try {
-    const res = await axios.get<DepGraphData>(`/api/dep-graph?level=${graphLevel}`);
-    const raw = res.data;
+    const raw = await api.getDepGraph(graphLevel);
     setData({
     nodes: Array.isArray(raw?.nodes) ? raw.nodes : [],
     edges: Array.isArray(raw?.edges) ? raw.edges : [],
@@ -131,7 +143,7 @@ const DepGraphView: React.FC = () => {
   const nodes = Array.isArray(data?.nodes) ? data.nodes : [];
   const edges = Array.isArray(data?.edges) ? data.edges : [];
 
-  const { positions, tiers, tierOrder } = useMemo(
+  const { positions, tiers, tierOrder, tierYRanges } = useMemo(
   () => pyramidLayout(nodes, edges),
   [nodes, edges]
   );
@@ -158,12 +170,13 @@ const DepGraphView: React.FC = () => {
   return { dependsOn: out, dependedBy: by };
   }, [edges]);
 
-  const numLayers = tierOrder.length;
-  const maxTierCount = Math.max(...tierOrder.map((t) => (tierToIds.get(t) ?? []).length), 1);
-  const contentWidth = (maxTierCount - 1) * NODE_GAP + maxTierCount * NODE_WIDTH;
+  const effectivePerRow = Math.min(MAX_PER_ROW, Math.max(...tierOrder.map((t) => (tierToIds.get(t) ?? []).length), 1));
+  const contentWidth = (effectivePerRow - 1) * NODE_GAP + effectivePerRow * NODE_WIDTH;
   const graphWidth = contentWidth + LAYER_SIDE_PADDING * 2;
   const svgW = Math.max(600, PADDING * 2 + graphWidth);
-  const svgH = Math.max(420, PADDING * 2 + numLayers * LAYER_HEIGHT);
+  // 总高度：取所有节点最大 y + 余量
+  const maxY = Math.max(...[...positions.values()].map(p => p.y), 0);
+  const svgH = Math.max(420, maxY + NODE_HEIGHT / 2 + PADDING + 20);
 
   const tierColors = [
   { bg: 'rgb(239 246 255)', border: 'rgb(147 197 253)', text: 'rgb(30 64 175)' },
@@ -254,14 +267,15 @@ const DepGraphView: React.FC = () => {
       {/* 层背景条：相对背景居中 */}
       {displayOrder.map((tier, displayIndex) => {
       const style = getTierStyle(displayIndex);
-      const y = PADDING + displayIndex * LAYER_HEIGHT;
+      const range = tierYRanges.get(tier);
+      if (!range) return null;
       return (
         <rect
         key={tier}
         x={PADDING}
-        y={y - NODE_HEIGHT / 2 - 4}
+        y={range.y - NODE_HEIGHT / 2 - 4}
         width={graphWidth}
-        height={LAYER_HEIGHT + 8}
+        height={range.h + 8}
         rx={8}
         fill={style.bg}
         stroke={style.border}

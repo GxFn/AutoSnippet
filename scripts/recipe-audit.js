@@ -8,9 +8,8 @@
  * - 输出 reports/recipe-audit.json 与 reports/recipe-audit.md
  */
 
-const fs = require('fs');
-const path = require('path');
-
+import fs from 'node:fs';
+import path from 'node:path';
 const REQUIRED_FIELDS = [
   'title',
   'trigger',

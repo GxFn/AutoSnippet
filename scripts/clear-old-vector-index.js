@@ -1,12 +1,12 @@
 #!/usr/bin/env node
+
 /**
  * 清除旧的向量索引（含 AutoSnippet/recipes 前缀的形式）
  * 使用源头修复后，需要重新生成新的索引（无前缀形式）
  */
 
-const fs = require('fs');
-const path = require('path');
-
+import fs from 'node:fs';
+import path from 'node:path';
 const args = process.argv.slice(2);
 const projectRoot = args[0] || '/Users/gaoxuefeng/Documents/github/BiliDemo';
 

@@ -1,84 +1,98 @@
-/**
- * API Server 启动脚本
- * 
- * 用法：
- *   node bin/api-server.js [options]
- * 
- * 选项：
- *   --port <port>     API 服务器端口 (默认: 8080)
- *   --host <host>     API 服务器主机 (默认: localhost)
- *   --config <path>   配置文件路径
- */
-
-const { APIGateway } = require('../lib/api/APIGateway');
-const { Agent } = require('../lib/agent/Agent');
-const { RecipeHub } = require('../lib/business/recipe/RecipeHub');
-const { SearchHub } = require('../lib/business/search/SearchHub');
-const { MetricsHub } = require('../lib/business/metrics/MetricsHub');
+#!/usr/bin/env node
 
 /**
- * 解析命令行参数
+ * HTTP API 服务器启动脚本
+ * 用于开发和测试 REST API
  */
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const options = {
-  port: 8080,
-  host: 'localhost',
-  };
 
-  for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--port') {
-    options.port = parseInt(args[++i], 10);
-  } else if (args[i] === '--host') {
-    options.host = args[++i];
-  }
-  }
+import HttpServer from '../lib/http/HttpServer.js';
+import Bootstrap from '../lib/bootstrap.js';
+import Logger from '../lib/infrastructure/logging/Logger.js';
+import { getServiceContainer } from '../lib/injection/ServiceContainer.js';
 
-  return options;
-}
+async function main() {
+  const logger = Logger.getInstance();
+  const port = process.env.PORT || 3000;
+  const host = process.env.HOST || 'localhost';
 
-/**
- * 启动 API 服务器
- */
-async function startServer() {
-  const options = parseArgs();
-
-  // 创建 Agent
-  const agent = new Agent({ name: 'APIAgent' });
-
-  // 注册 Hub
-  agent.registerHub('recipe', new RecipeHub());
-  agent.registerHub('search', new SearchHub());
-  agent.registerHub('metric', new MetricsHub());
-
-  // 创建 API Gateway
-  const gateway = new APIGateway(agent, {
-  port: options.port,
-  host: options.host,
-  });
-
-  // 启动服务器
   try {
-  await gateway.start();
-  console.log(`✨ API 服务器运行中...`);
-  console.log(`📝 API 文档: http://${options.host}:${options.port}/api/docs`);
-  console.log(`🏥 健康检查: http://${options.host}:${options.port}/api/health`);
-  console.log(`\n按 Ctrl+C 停止服务器`);
-  } catch (error) {
-  console.error('❌ 启动服务器失败:', error);
-  process.exit(1);
-  }
+    logger.info('Initializing AutoSnippet HTTP API Server...', {
+      port,
+      host,
+      timestamp: new Date().toISOString(),
+    });
 
-  // 处理信号
-  process.on('SIGINT', async () => {
-  console.log('\n🛑 停止服务器...');
-  await gateway.stop();
-  console.log('✅ 服务器已停止');
-  process.exit(0);
-  });
+    // 初始化应用程序引导
+    const bootstrap = new Bootstrap({ env: process.env.NODE_ENV || 'development' });
+    const components = await bootstrap.initialize();
+    logger.info('Bootstrap initialized successfully');
+
+    // 初始化 DI 容器，注入 Bootstrap 组件
+    const container = getServiceContainer();
+    await container.initialize({
+      db: components.db,
+      auditLogger: components.auditLogger,
+      gateway: components.gateway,
+      reasoningLogger: components.reasoningLogger,
+      roleDriftMonitor: components.roleDriftMonitor,
+      complianceEvaluator: components.complianceEvaluator,
+      sessionManager: components.sessionManager,
+    });
+    logger.info('Service container initialized successfully');
+
+    // 创建和启动 HTTP 服务器
+    const httpServer = new HttpServer({ port, host });
+    await httpServer.initialize(); // 改为 async 调用
+    await httpServer.start();
+
+    logger.info('HTTP API Server is running', {
+      url: `http://${host}:${port}`,
+      documentation: `http://${host}:${port}/api-spec`,
+      health: `http://${host}:${port}/api/v1/health`,
+    });
+
+    // 优雅关闭
+    const handleShutdown = async (signal) => {
+      logger.info(`Received ${signal}, shutting down gracefully...`, {
+        timestamp: new Date().toISOString(),
+      });
+
+      await httpServer.stop();
+      await bootstrap.shutdown();
+
+      logger.info('HTTP API Server shut down successfully', {
+        timestamp: new Date().toISOString(),
+      });
+
+      process.exit(0);
+    };
+
+    process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+    process.on('SIGINT', () => handleShutdown('SIGINT'));
+
+    // 处理未捕获的异常
+    process.on('uncaughtException', (error) => {
+      logger.error('Uncaught Exception', {
+        message: error.message,
+        stack: error.stack,
+      });
+      process.exit(1);
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+      logger.error('Unhandled Rejection', {
+        reason,
+        promise,
+      });
+      process.exit(1);
+    });
+  } catch (error) {
+    logger.error('Failed to start HTTP API Server', {
+      message: error.message,
+      stack: error.stack,
+    });
+    process.exit(1);
+  }
 }
 
-startServer().catch(error => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+main();

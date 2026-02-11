@@ -8,7 +8,8 @@ summary_cn: 使用 URLSession 发起 GET 请求并解析 JSON 的标准写法，
 summary_en: Standard URLSession GET request with JSON parsing. No third-party dependencies.
 headers: ["import Foundation"]
 
-# 可选字段
+# 可选字段（强烈推荐）
+knowledgeType: code-pattern
 keywords: ["网络请求", "URLSession", "async", "JSON", "GET", "HTTP"]
 tags: [network, template, production-ready]
 whenToUse: |

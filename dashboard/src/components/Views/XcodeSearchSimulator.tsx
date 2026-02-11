@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { Search, X, Zap, FileText, Loader2, ChevronRight } from 'lucide-react';
+import api from '../../api';
 import { ICON_SIZES } from '../../constants/icons';
 import CodeBlock from '../Shared/CodeBlock';
 
@@ -35,22 +35,16 @@ const XcodeSearchSimulator: React.FC<XcodeSearchSimulatorProps> = ({ isOpen, onC
 
   setIsSearching(true);
   try {
-    const response = await axios.post<{
-    success: boolean;
-    keyword: string;
-    targetName: string | null;
-    results: XcodeSearchResult[];
-    total: number;
-    }>('/api/search/trigger-from-code', {
+    const response = await api.xcodeSimulateSearch({
     filePath,
     lineNumber: 1,
     keyword: searchInput,
     projectName: 'ByteDance'
     });
 
-    if (response.data.success) {
-    setResults(response.data.results || []);
-    setTargetName(response.data.targetName);
+    if (response.results) {
+    setResults(response.results || []);
+    setTargetName(response.targetName);
     }
   } catch (error) {
     alert('搜索失败: ' + (error instanceof Error ? error.message : '未知错误'));

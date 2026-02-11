@@ -22,6 +22,8 @@
 
 ### 1. 安装 AutoSnippet
 
+> **要求**：Node.js ≥ 20
+
 ```bash
 npm install -g autosnippet
 ```
@@ -48,13 +50,14 @@ asd ui                     # 启动 Dashboard + watch
 
 `asd ui` 会启动 Web 管理后台并后台 watch；首次运行若前端不存在会自动构建。浏览器会自动打开 Dashboard。
 
-![Dashboard 概览](./images/20260205232116_66_167.png)
+![Dashboard 概览](https://cdn.jsdelivr.net/gh/GxFn/blog-images@main/2026-02-09-autosnippet-manual/20260205232116_66_167.png)
+
 
 ## 核心流程
 
 **智能 AI 优先 → 前端操作 → 命令行补充**
 
-1. **Cursor AI 快捷扫描**（推荐）：在 Cursor 中输入自然语言（如「扫描这个 Target」、「批量提取代码候选」），AI 智能触发 `autosnippet-batch-scan` 等 Skill，通过 MCP 工具 `autosnippet_get_targets` → `autosnippet_get_target_files` → 按文件提取 → `autosnippet_submit_candidates` 一键批量扫描，自动提交候选到 Dashboard Candidates
+1. **Cursor AI 智能扫描**（推荐）：在 Cursor 中输入自然语言（如「扫描这个 Target」、「批量提取代码候选」），AI 智能触发 `autosnippet-candidates` Skill，通过 MCP 工具 `autosnippet_get_targets` → `autosnippet_get_target_files` → 按文件提取 → `autosnippet_submit_candidates` 一键批量扫描，自动提交候选到 Dashboard Candidates
 2. **前端审核与入库**：Dashboard Candidates 页面人工审核 → 保存 Recipe 入库（优先前端操作，无需命令行）
 3. **依赖关系**（可选）：Dashboard 刷新自动分析，或使用 `asd spm-map` 命令行更新
 4. **语义索引**（自动）：`asd ui` 启动时自动 embed；也可手动 `asd embed`
@@ -96,6 +99,9 @@ Cursor 在编辑器内通过自然语言交互触发 Skill，使用 MCP 工具�
 | `asd ais [Target]` | AI 扫描 Target → Candidates |
 | `asd search [keyword] --copy` | 搜索并复制第一条到剪贴板 |
 | `asd search [keyword] --pick` | 交互选择后复制/插入 |
+| `asd sync` | 增量同步 `recipes/*.md` → DB（.md = Source of Truth） |
+| `asd compliance` | 生成宪法合规评估报告（P1-P4 加权评分） |
+| `asd upgrade` | 升级 IDE 集成文件（MCP/Skills/Cursor Rules/Copilot） |
 | `asd install:cursor-skill --mcp` | 安装 Skills、Cursor 规则（`.cursor/rules/*.mdc`）并配置 MCP。配置时可运行；MCP 工具使用时需 `asd ui` 已启动 |
 | `asd install:full` | 全量安装；`--parser` 含 Swift 解析器 |
 | `asd embed` | 手动构建语义向量索引（`asd ui` 启动时也会自动执行） |
@@ -131,9 +137,11 @@ asd install:full --parser    # 全量安装（含 Swift 解析器）
 | **watch** | 文件监听进程（`asd ui` 或 `asd watch` 启动），保存时触发 `as:create`、`as:audit`、`as:search` |
 | **Guard** | 按 Recipe 知识库对代码做 AI 审查；`// as:audit` 触发 |
 | **embed** | 语义向量索引构建；`asd embed` 或 `asd ui` 启动时自动执行，供语义检索与 MCP 使用 |
-| **MCP** | Model Context Protocol；Cursor 通过 MCP 调用 `autosnippet_context_search` 等工具 |
+| **MCP** | Model Context Protocol；Cursor 通过 MCP 调用 31 个工具（7 个写操作经 Gateway 权限保护） |
 | **Skills** | Cursor Agent Skills（`.cursor/skills/`），描述何时用、如何用 AutoSnippet 能力 |
 | **trigger** | Snippet 触发前缀，默认 `@`，输入后 Xcode 联想补全 |
+| **Gateway** | V2 控制平面，统一调度 27 个 Action：validate → permission → constitution → plugin → dispatch → audit |
+| **Constitution** | 宪法体系：6 角色、P1-P4 四优先级、能力探测，见 `config/constitution.yaml` |
 | **项目根** | 含 `AutoSnippetRoot.boxspec.json` 的目录 |
 | **Target** | SPM 模块/编译单元；`asd ais <Target>` 扫描该 Target 下的源码提取候选 |
 

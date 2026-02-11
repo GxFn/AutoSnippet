@@ -5,9 +5,8 @@
  * 默认输出到 <projectRoot>/autosnippet-drafts/recipes
  */
 
-const fs = require('fs');
-const path = require('path');
-
+import fs from 'node:fs';
+import path from 'node:path';
 function parseArgs(argv) {
   const args = {};
   for (let i = 2; i < argv.length; i++) {

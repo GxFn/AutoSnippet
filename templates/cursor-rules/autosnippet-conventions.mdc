@@ -12,31 +12,71 @@ These rules are written when installing AutoSnippet Skills (`asd install:cursor-
 ## Semantics vs capabilities
 
 - **Skills provide semantics**: When to use, workflows, and comparisons are described in Skills. Use natural language prompts in Cursor (e.g. "scan targets", "find recipe examples", "batch extract candidates") to trigger the appropriate Skill; AI intelligently interprets your request and activates the corresponding Skill logic.
-- **MCP provides capabilities**: Connection and tools are provided by MCP (`autosnippet_context_search`, `autosnippet_confirm_recipe_usage`, `autosnippet_open_create`, `autosnippet_get_targets`, `autosnippet_get_target_files`, `autosnippet_submit_candidates`). Do not hardcode URLs/HTTP in Skills.
+- **MCP provides capabilities**: Connection and tools are provided by MCP. Do not hardcode URLs/HTTP in Skills.
 
 ## Project basics (for AI)
 
-- **Project root**: directory containing `*.boxspec.json` (this repo: `AutoSnippet.boxspec.json`).
+- **Project root**: directory containing `boxspec.json`.
 - **Knowledge base**: `AutoSnippet/` (read-only for AI).
-- **Recipes**: `AutoSnippet/recipes/*.md` (Markdown + Frontmatter + Snippet/Usage Guide; path is fixed).
-  - **Frontmatter required fields (7)**: `title` (English, ≤50 chars, verb-based), `trigger` (MUST start with `@`), `category` (MUST be one of: `View`, `Service`, `Tool`, `Model`, `Network`, `Storage`, `UI`, `Utility`), `language` (`swift` or `objectivec`), `summary_cn` (≤100 chars), `summary_en` (≤100 words), `headers` (complete import statements like `["import Foundation"]` or `["#import <UIKit/UIKit.h>"]`).
+- **Recipes**: `AutoSnippet/recipes/*.md` (Markdown + Frontmatter + Snippet + Usage Guide).
+  - **Frontmatter required fields (7)**: `title` (English, ≤50 chars, verb-based), `trigger` (MUST start with `@`), `category` (MUST be one of: `View`, `Service`, `Tool`, `Model`, `Network`, `Storage`, `UI`, `Utility`), `language`, `summary_cn` (≤100 chars), `summary_en` (≤100 words), `headers` (complete import statements like `["import Foundation"]` or `["#import <UIKit/UIKit.h>"]`).
   - **Placeholders**: Prefer Xcode placeholders in snippets (e.g. `<#URL#>`, `<#Token#>`) and explain them in Usage Guide.
-  - **Usage Guide depth**: Go beyond “When/Key Points”; include dependencies, steps/config, error handling, performance, security, pitfalls, and related Recipes when applicable.
-- **Snippets**: `AutoSnippet/snippets/*.json` or root spec `list`.
-- **Candidates**: `AutoSnippet/.autosnippet/candidates.json` (reviewed in Dashboard).
-- **Vector index**: `AutoSnippet/.autosnippet/context/` (`asd embed`).
-- **Recipe stats**: `AutoSnippet/.autosnippet/recipe-stats.json` (usage + authority).
-- **Weights**: `AutoSnippet/.autosnippet/recipe-stats-weights.json` or boxspec `recipes.statsWeights`.
+  - **Usage Guide depth**: Go beyond "When/Key Points"; include dependencies, steps/config, error handling, performance, security, pitfalls, and related Recipes when applicable. MUST use `###` headings and list format.
+- **Constitution**: `AutoSnippet/constitution.yaml` (权限宪法: roles + capabilities + governance rules).
+- **Runtime DB**: `.autosnippet/autosnippet.db` (SQLite index cache for recipes/candidates/snippets).
+- **Vector index**: `.autosnippet/context/` (`asd embed`).
+- **Recipe stats**: `.autosnippet/recipe-stats.json` (usage + authority).
+
+## Knowledge categories (kind)
+
+Recipes are classified into three kinds:
+- **rule** — Guard rules (boundary-constraint), used for code quality checks
+- **pattern** — Reusable code patterns (code-pattern, architecture, best-practice, etc.)
+- **fact** — Structural knowledge (code-relation, inheritance, call-chain, data-flow, etc.)
 
 ## Knowledge base and submission
 
-- **Do not edit** `AutoSnippet/recipes/` or `AutoSnippet/snippets/` directly; all Recipe/Snippet changes go through Dashboard and are saved after human review.
-- **Path is fixed**: Recipes are always stored in `AutoSnippet/recipes/`; this path cannot be customized.
-- **Search**: When you need Recipe/docs on demand, use MCP tool `autosnippet_context_search` (pass `query`, `limit?`) or read `.cursor/skills/autosnippet-recipes/references/project-recipes-context.md`. Search returns content only; it does not trigger any adoption form.
+- **Do not edit** `AutoSnippet/recipes/` or `.autosnippet/` directly; all Recipe/Snippet changes go through Dashboard or MCP tools and are saved after human review.
+- **Search**: Use MCP tools `autosnippet_search` (recommended, auto mode BM25 + semantic fusion) or `autosnippet_context_search` (context-aware with session history). Also available: `autosnippet_keyword_search` (exact match) and `autosnippet_semantic_search` (vector).
 - **Retry policy**: If an MCP call fails, do not retry within the same agent turn; fall back to static docs or already-read context.
-- **Adoption form**: Tool `autosnippet_confirm_recipe_usage` shows a “confirm use?” dialog. **Meaning**: On confirm, it records one human usage (humanUsageCount +1) for the recipe and affects usage stats and authority ranking. You may **decide when to show it** (e.g. when the user explicitly says they adopt, or when you infer they have adopted the recipe). Do not show it right after presenting a recipe or when the user only asks “should I adopt?”—then just answer. Pass the recipe file name(s) (e.g. from sourcePath basename).
+- **Adoption tracking**: Tool `autosnippet_confirm_usage` records that a Recipe was adopted or applied (affects usage stats and authority ranking). Show it when the user explicitly adopts a recipe, not immediately after presenting one.
 - **Batch scan**: Ask Cursor in natural language (e.g. "scan all targets in this project", "batch extract candidates") to trigger the batch-scan workflow. The workflow calls `autosnippet_get_targets` → `autosnippet_get_target_files` → extract per file → `autosnippet_submit_candidates` automatically.
+- **Cold start**: Use `autosnippet_bootstrap_knowledge` for full project knowledge initialization covering 9 dimensions (project norms, usage patterns, architecture, code patterns, best practices, bug fixes, knowledge graph, library characteristics, agent dev notes).
+
+## MCP tools (31 total)
+
+### Search (prefer search / context_search)
+- `autosnippet_search` — Unified search (auto: BM25 + semantic fusion)
+- `autosnippet_context_search` — Context-aware retrieval (intent recognition + 4-layer funnel + session continuity)
+- `autosnippet_keyword_search` — SQL LIKE exact keyword
+- `autosnippet_semantic_search` — Vector semantic search
+
+### Knowledge lists & details
+- `autosnippet_list_recipes` / `autosnippet_get_recipe` / `autosnippet_recipe_insights`
+- `autosnippet_list_rules` / `autosnippet_list_patterns` / `autosnippet_list_facts`
+
+### Knowledge graph
+- `autosnippet_graph_query` / `autosnippet_graph_impact` / `autosnippet_graph_path` / `autosnippet_graph_stats`
+
+### Candidate submission & validation
+- `autosnippet_validate_candidate` — Pre-validate (5 layers)
+- `autosnippet_check_duplicate` — Similarity detection
+- `autosnippet_submit_candidate` — Single submission (reasoning required)
+- `autosnippet_submit_candidates` — Batch submission (dedup + rate limit)
+- `autosnippet_submit_draft_recipes` — Parse draft Markdown files
+- `autosnippet_enrich_candidates` — AI-fill missing semantic fields
+
+### Project scanning
+- `autosnippet_get_targets` / `autosnippet_get_target_files` / `autosnippet_get_target_metadata`
+- `autosnippet_scan_project` — Lightweight probe (file list + Guard audit)
+- `autosnippet_bootstrap_knowledge` — Cold-start knowledge initialization
+
+### Guard & governance
+- `autosnippet_guard_check` / `autosnippet_guard_audit_files` / `autosnippet_compliance_report`
+
+### Other
+- `autosnippet_health` / `autosnippet_capabilities` / `autosnippet_confirm_usage`
 
 ## Recipe over code
 
-When both a Recipe and the codebase have relevant implementations, prefer the Recipe. Recipes are the project’s agreed standard; source code may be legacy or non-standard.
+When both a Recipe and the codebase have relevant implementations, prefer the Recipe. Recipes are the project's agreed standard; source code may be legacy or non-standard.

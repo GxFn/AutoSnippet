@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import { X, Search, CheckCircle } from 'lucide-react';
+import api from '../../api';
 import { ICON_SIZES } from '../../constants/icons';
 
 interface SearchResult {
@@ -36,10 +36,10 @@ const SearchModal: React.FC<SearchModalProps> = ({ searchQ, insertPath, onClose 
     const q = searchQ ? encodeURIComponent(searchQ) : '';
     abortControllerRef.current = new AbortController();
     
-    axios.get<{ results: SearchResult[]; total: number }>(`/api/recipes/search?q=${q}`, { signal: abortControllerRef.current.signal })
-      .then(res => {
+    api.searchRecipesForModal(searchQ || '', abortControllerRef.current.signal)
+      .then(data => {
         if (isMountedRef.current) {
-          setResults(res.data.results || []);
+          setResults(data.results || []);
         }
       })
       .catch((err) => {
@@ -65,7 +65,7 @@ const SearchModal: React.FC<SearchModalProps> = ({ searchQ, insertPath, onClose 
     setInserting(result.name);
     try {
       const content = extractFirstCodeBlock(result.content);
-      await axios.post('/api/insert-at-search-mark', { path: insertPath, content });
+      await api.insertAtSearchMark({ path: insertPath, content });
       if (isMountedRef.current) {
         alert('✅ 已插入到 ' + insertPath);
         onClose();

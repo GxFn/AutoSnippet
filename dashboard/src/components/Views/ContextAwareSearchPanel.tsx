@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Search, X, Zap, Target, Code, AlertCircle, Loader2, ChevronRight } from 'lucide-react';
+import api from '../../api';
 import CodeBlock from '../Shared/CodeBlock';
 import { ICON_SIZES } from '../../constants/icons';
 
@@ -67,12 +67,7 @@ const ContextAwareSearchPanel: React.FC<ContextAwareSearchPanelProps> = ({
   
   setIsSearching(true);
   try {
-    const response = await axios.post<{
-    results: SearchResult[];
-    context: ContextInfo;
-    total: number;
-    searchTime: number;
-    }>('/api/search/context-aware', {
+    const response = await api.contextAwareSearch({
     keyword: searchQuery,
     targetName,
     currentFile,
@@ -80,8 +75,8 @@ const ContextAwareSearchPanel: React.FC<ContextAwareSearchPanelProps> = ({
     limit: 10
     });
 
-    setSearchResults(response.data.results || []);
-    setContextInfo(response.data.context);
+    setSearchResults(response.results || []);
+    setContextInfo(response.context);
   } catch (error) {
     console.error('Context-aware search failed:', error);
     alert('搜索失败。请重试。');
