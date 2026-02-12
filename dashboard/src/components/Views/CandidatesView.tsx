@@ -241,9 +241,9 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
     try {
       const result = await api.enrichCandidates([candidateId]);
       if (result.enriched > 0) {
-        notify(`已补齐 ${result.results?.[0]?.filledFields?.length || 0} 个字段`);
+        notify(`已补齐 ${result.results?.[0]?.filledFields?.length || 0} 个结构字段`);
       } else {
-        notify('所有语义字段已完整，无需补齐');
+        notify('所有结构字段已完整，无需补齐');
       }
       onRefresh?.();
     } catch (err: any) {
@@ -266,10 +266,10 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
         const result = await api.enrichCandidates(batch);
         total += result.enriched;
       }
-      notify(`AI 补齐完成: ${total}/${items.length} 条候选已更新`);
+      notify(`① 结构补齐完成: ${total}/${items.length} 条候选已更新`);
       onRefresh?.();
     } catch (err: any) {
-      notify(`AI 批量补齐失败: ${err.response?.data?.error || err.message}`, { type: 'error' });
+      notify(`① 结构补齐失败: ${err.response?.data?.error || err.message}`, { type: 'error' });
     } finally {
       setEnrichingAll(false);
     }
@@ -281,10 +281,10 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
     setRefining(true);
     try {
       const result = await api.bootstrapRefine();
-      notify(`AI 润色完成: ${result.refined}/${result.total} 条候选已更新${result.errors.length > 0 ? `（${result.errors.length} 条失败）` : ''}`);
+      notify(`② 内容润色完成: ${result.refined}/${result.total} 条候选已更新${result.errors.length > 0 ? `（${result.errors.length} 条失败）` : ''}`);
       onRefresh?.();
     } catch (err: any) {
-      notify(`AI 润色失败: ${err.response?.data?.error || err.message}`, { type: 'error' });
+      notify(`② 内容润色失败: ${err.response?.data?.error || err.message}`, { type: 'error' });
     } finally {
       setRefining(false);
     }
@@ -320,36 +320,36 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
               {isScanning ? '初始化中...' : '冷启动'}
             </button>
           )}
-          {/* 批量 AI 补齐 */}
+          {/* ① 结构补齐：填充缺失的语义元数据 */}
           {stats && stats.total > 0 && (
             <button
               onClick={handleEnrichAll}
-              disabled={enrichingAll}
+              disabled={enrichingAll || refining}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                enrichingAll
+                enrichingAll || refining
                   ? 'text-slate-400 bg-slate-100 cursor-not-allowed'
                   : 'text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100'
               }`}
-              title="AI 补齐当前 Target 所有候选的语义字段"
+              title="① 结构补齐：填充缺失的 rationale / knowledgeType / complexity / scope / steps / constraints（只填空不覆盖，建议先于润色执行）"
             >
               {enrichingAll ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
-              {enrichingAll ? 'AI 补齐中...' : 'AI 批量补齐'}
+              {enrichingAll ? '补齐中...' : '① 结构补齐'}
             </button>
           )}
-          {/* Phase 6: AI 润色 Bootstrap 候选 */}
+          {/* ② 内容润色：改善描述质量 + 推断关联 */}
           {stats && stats.total > 0 && (
             <button
               onClick={handleRefineBootstrap}
-              disabled={refining}
+              disabled={refining || enrichingAll}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                refining
+                refining || enrichingAll
                   ? 'text-slate-400 bg-slate-100 cursor-not-allowed'
                   : 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'
               }`}
-              title="Phase 6: AI 精炼 — 改善描述、补充洞察、推断关联"
+              title="② 内容润色：改善 summary 描述、补充架构洞察、推断 relations 关联、调整 confidence 评分（逐条 AI 精炼，建议在结构补齐之后执行）"
             >
               {refining ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              {refining ? 'AI 润色中...' : 'AI 润色'}
+              {refining ? '润色中...' : '② 内容润色'}
             </button>
           )}
           {stats && (
