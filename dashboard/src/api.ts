@@ -600,6 +600,24 @@ export const api = {
     return res.data?.data || { enriched: 0, total: 0, results: [] };
   },
 
+  /** Phase 6 AI 润色 — 对 Bootstrap 候选进行二次精炼 */
+  async bootstrapRefine(candidateIds?: string[], dryRun?: boolean): Promise<{ refined: number; total: number; errors: any[]; results: any[] }> {
+    const res = await http.post('/candidates/bootstrap-refine', { candidateIds, dryRun }, { timeout: 300000 });
+    return res.data?.data || { refined: 0, total: 0, errors: [], results: [] };
+  },
+
+  /** 获取全量知识图谱（边 + 节点标签） */
+  async getKnowledgeGraph(limit = 500): Promise<{ edges: any[]; nodeLabels: Record<string, string> }> {
+    const res = await http.get(`/search/graph/all?limit=${limit}`);
+    return res.data?.data || { edges: [], nodeLabels: {} };
+  },
+
+  /** 获取知识图谱统计 */
+  async getGraphStats(): Promise<{ totalEdges: number; byRelation: Record<string, number>; nodeTypes: any[] }> {
+    const res = await http.get('/search/graph/stats');
+    return res.data?.data || { totalEdges: 0, byRelation: {}, nodeTypes: [] };
+  },
+
   async deleteAllCandidatesInTarget(targetName: string): Promise<{ deleted: number }> {
     const res = await http.post('/candidates/batch-delete', { targetName });
     return res.data?.data || { deleted: 0 };

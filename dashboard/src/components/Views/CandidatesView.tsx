@@ -139,6 +139,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set());
   const [enrichingAll, setEnrichingAll] = useState(false);
+  const [refining, setRefining] = useState(false);
   const [targetPages, setTargetPages] = useState<Record<string, { page: number; pageSize: number }>>({});
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [similarityMap, setSimilarityMap] = useState<Record<string, SimilarRecipe[]>>({});
@@ -274,6 +275,21 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
     }
   }, [enrichingAll, effectiveTarget, data?.candidates, onRefresh]);
 
+  /** Phase 6: AI 润色所有 Bootstrap 候选 */
+  const handleRefineBootstrap = useCallback(async () => {
+    if (refining) return;
+    setRefining(true);
+    try {
+      const result = await api.bootstrapRefine();
+      notify(`AI 润色完成: ${result.refined}/${result.total} 条候选已更新${result.errors.length > 0 ? `（${result.errors.length} 条失败）` : ''}`);
+      onRefresh?.();
+    } catch (err: any) {
+      notify(`AI 润色失败: ${err.response?.data?.error || err.message}`, { type: 'error' });
+    } finally {
+      setRefining(false);
+    }
+  }, [refining, onRefresh]);
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* ── 页面头部 ── */}
@@ -318,6 +334,22 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
             >
               {enrichingAll ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
               {enrichingAll ? 'AI 补齐中...' : 'AI 批量补齐'}
+            </button>
+          )}
+          {/* Phase 6: AI 润色 Bootstrap 候选 */}
+          {stats && stats.total > 0 && (
+            <button
+              onClick={handleRefineBootstrap}
+              disabled={refining}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                refining
+                  ? 'text-slate-400 bg-slate-100 cursor-not-allowed'
+                  : 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'
+              }`}
+              title="Phase 6: AI 精炼 — 改善描述、补充洞察、推断关联"
+            >
+              {refining ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              {refining ? 'AI 润色中...' : 'AI 润色'}
             </button>
           )}
           {stats && (

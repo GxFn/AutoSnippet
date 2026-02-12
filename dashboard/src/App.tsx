@@ -21,6 +21,7 @@ import SPMExplorerView from './components/Views/SPMExplorerView';
 import DepGraphView from './components/Views/DepGraphView';
 import GuardView from './components/Views/GuardView';
 import AiChatView from './components/Views/AiChatView';
+import KnowledgeGraphView from './components/Views/KnowledgeGraphView';
 import XcodeSimulator from './pages/XcodeSimulator';
 import RecipeEditor from './components/Modals/RecipeEditor';
 import CreateModal from './components/Modals/CreateModal';
@@ -1027,6 +1028,8 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
       />
       ) : activeTab === 'depgraph' ? (
       <DepGraphView />
+      ) : activeTab === 'knowledgegraph' ? (
+      <KnowledgeGraphView />
       ) : activeTab === 'spm' ? (
       <SPMExplorerView 
         targets={targets}
