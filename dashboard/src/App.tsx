@@ -458,6 +458,8 @@ const App: React.FC = () => {
   const controller = new AbortController();
   abortControllerRef.current = controller;
 
+  // 自动跳转到 SPM 页面显示扫描进度
+  navigateToTab('spm');
   setSelectedTargetName('__project__');
   setIsScanning(true);
   setScanResults([]);
@@ -914,6 +916,7 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
         handleDeleteCandidate={handleDeleteCandidate} 
         onEditRecipe={openRecipeEdit}
         onColdStart={handleScanProject}
+        isScanning={isScanning}
         onRefresh={fetchData}
         onAuditCandidate={(cand, targetName) => {
         setScanResults([{ 

@@ -24,6 +24,7 @@ interface CandidatesViewProps {
   onAuditAllInTarget: (items: CandidateItem[], targetName: string) => void;
   onEditRecipe?: (recipe: { name: string; content: string; stats?: any }) => void;
   onColdStart?: () => void;
+  isScanning?: boolean;
   onRefresh?: () => void;
 }
 
@@ -133,7 +134,7 @@ const ConfidenceRing: React.FC<{ value: number | null | undefined; size?: number
 const CandidatesView: React.FC<CandidatesViewProps> = ({
   data, isShellTarget, isSilentTarget = () => false, isPendingTarget = () => false,
   handleDeleteCandidate, handleDeleteAllInTarget,
-  onAuditCandidate, onAuditAllInTarget, onEditRecipe, onColdStart, onRefresh,
+  onAuditCandidate, onAuditAllInTarget, onEditRecipe, onColdStart, isScanning, onRefresh,
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set());
@@ -291,11 +292,16 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
           {onColdStart && (
             <button
               onClick={onColdStart}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-sm hover:shadow transition-all"
+              disabled={isScanning}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                isScanning
+                  ? 'text-slate-400 bg-slate-100 cursor-not-allowed'
+                  : 'text-white bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-sm hover:shadow'
+              }`}
               title="AI 全量扫描项目，提取知识候选"
             >
-              <Rocket size={14} />
-              冷启动扫描
+              {isScanning ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}
+              {isScanning ? '扫描中...' : '冷启动扫描'}
             </button>
           )}
           {/* 批量 AI 补齐 */}
@@ -387,10 +393,15 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
             {onColdStart && (
               <button
                 onClick={onColdStart}
-                className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-md hover:shadow-lg transition-all"
+                disabled={isScanning}
+                className={`mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  isScanning
+                    ? 'text-slate-400 bg-slate-100 cursor-not-allowed'
+                    : 'text-white bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-md hover:shadow-lg'
+                }`}
               >
-                <Rocket size={16} />
-                冷启动：AI 全量扫描项目
+                {isScanning ? <Loader2 size={16} className="animate-spin" /> : <Rocket size={16} />}
+                {isScanning ? '正在扫描...' : '冷启动：AI 全量扫描项目'}
               </button>
             )}
             <p className="mt-3 text-[11px] text-slate-400">
