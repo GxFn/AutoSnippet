@@ -371,7 +371,7 @@ export const api = {
   },
 
   async scanTarget(target: SPMTarget, signal?: AbortSignal) {
-    const res = await http.post('/spm/scan', { target }, { signal, timeout: 300000 });
+    const res = await http.post('/spm/scan', { target }, { signal, timeout: 600000 });
     const data = res.data?.data || {};
     // Unify response: could be {recipes, scannedFiles} or {result, scannedFiles}
     const recipes = data.recipes || data.result || [];
@@ -380,13 +380,14 @@ export const api = {
 
   /** 全项目扫描：AI 提取 + Guard 审计 */
   async scanProject(signal?: AbortSignal) {
-    const res = await http.post('/spm/scan-project', {}, { signal, timeout: 300000 });
+    const res = await http.post('/spm/scan-project', {}, { signal, timeout: 600000 });
     const data = res.data?.data || {};
     return {
       targets: data.targets || [],
       recipes: data.recipes || [],
       guardAudit: data.guardAudit || null,
       scannedFiles: data.scannedFiles || [],
+      partial: data.partial || false,
     };
   },
 

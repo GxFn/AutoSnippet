@@ -441,7 +441,11 @@ const App: React.FC = () => {
   } catch (err: any) {
     clearInterval(progressTimer);
     if (axios.isCancel(err)) return;
-    notify(`Scan failed: ${err.response?.data?.error || err.message}`, { type: 'error' });
+    const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
+    const msg = isTimeout
+      ? '扫描超时，请尝试减少 Target 文件数量'
+      : (err.response?.data?.error || err.message);
+    notify(msg, { type: 'error' });
   } finally {
     if (abortControllerRef.current === controller) {
     setIsScanning(false);
@@ -468,22 +472,27 @@ const App: React.FC = () => {
   setScanProgress({ current: 0, total: 100, status: '正在收集所有 Target 文件...' });
 
   const phases = [
-    { status: '正在收集源文件...', percent: 10 },
-    { status: '正在 AI 分析代码模式...', percent: 30 },
-    { status: '正在运行 Guard 审计...', percent: 60 },
-    { status: '正在汇总结果...', percent: 85 },
+    { status: '正在收集源文件...', percent: 5 },
+    { status: '正在 AI 分析代码模式...', percent: 15 },
+    { status: 'AI 提取中（大项目可能需要数分钟）...', percent: 25 },
+    { status: 'AI 提取中...', percent: 35 },
+    { status: 'AI 深度分析中...', percent: 45 },
+    { status: '持续处理中...', percent: 55 },
+    { status: '正在运行 Guard 审计...', percent: 65 },
+    { status: '正在汇总结果...', percent: 75 },
+    { status: '即将完成...', percent: 85 },
   ];
   let phaseIndex = 0;
   const progressTimer = setInterval(() => {
     phaseIndex = Math.min(phaseIndex + 1, phases.length);
     const phase = phases[phaseIndex - 1];
     if (phase) setScanProgress(prev => ({ ...prev, current: phase.percent, status: phase.status }));
-  }, 5000);
+  }, 15000);
 
   try {
     const result = await api.scanProject(controller.signal);
     clearInterval(progressTimer);
-    setScanProgress({ current: 100, total: 100, status: '全项目扫描完成' });
+    setScanProgress({ current: 100, total: 100, status: result.partial ? '扫描部分完成（超时）' : '全项目扫描完成' });
 
     const recipes = result.recipes || [];
     const scannedFiles = result.scannedFiles || [];
@@ -507,14 +516,19 @@ const App: React.FC = () => {
 
     const guardInfo = result.guardAudit?.summary;
     const violationMsg = guardInfo ? `, Guard: ${guardInfo.totalViolations} 处违反` : '';
-    notify(`全项目扫描完成: ${recipes.length} 条候选${violationMsg}`);
+    const partialMsg = result.partial ? '（部分结果，AI 超时）' : '';
+    notify(`全项目扫描完成: ${recipes.length} 条候选${violationMsg}${partialMsg}`);
     } else {
     notify('全项目扫描完成，未发现可提取内容');
     }
   } catch (err: any) {
     clearInterval(progressTimer);
     if (axios.isCancel(err)) return;
-    notify(`Project scan failed: ${err.response?.data?.error || err.message}`, { type: 'error' });
+    const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
+    const msg = isTimeout
+      ? '扫描超时，请尝试减少项目文件数量或分 Target 扫描'
+      : (err.response?.data?.error || err.message);
+    notify(msg, { type: 'error' });
   } finally {
     if (abortControllerRef.current === controller) {
     setIsScanning(false);
