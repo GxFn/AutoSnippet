@@ -93,7 +93,7 @@ Cursor → autosnippet_get_targets → autosnippet_get_target_files → 逐文�
 
 `asd ui` 启动后访问 Web 管理后台：
 
-![Dashboard](https://cdn.jsdelivr.net/gh/GxFn/blog-images@main/autosnippet-manual/20260205232116_66_167.png)
+![Dashboard](./resources/ASImage01.png)
 
 **主要功能**：
 
