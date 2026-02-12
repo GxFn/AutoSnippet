@@ -124,9 +124,57 @@ asd install:cursor-skill --mcp  # 安装 Skills + MCP 配置
 asd install:vscode-copilot      # 配置 MCP 和 Copilot 指令
 ```
 
-### Xcode
+### Xcode（深度原生集成）
 
-通过 Xcode Code Snippet 触发：
+AutoSnippet 不依赖 Xcode 插件，而是通过 **AppleScript + FileWatcher + Native macOS UI** 实现对 Xcode 的深度原生控制。
+
+#### 保存即触发
+
+FileWatcher（chokidar）监听项目源码目录，在 Xcode 中按 `⌘S` 即可触发指令：
+
+```swift
+// as:search networking        ← 保存后自动搜索知识库，弹出原生选择列表
+// as:create                   ← 保存后打开 Dashboard 或从剪贴板静默提交候选
+// as:audit                    ← 保存后按知识库审查当前文件
+```
+
+三层 Save Event Filter 避免误触发：
+1. **Self-write 冷却**：AutoSnippet 自身写入的文件在冷却期内忽略
+2. **内容哈希去重**：文件内容未变时跳过
+3. **Xcode 焦点检测**：Xcode 不在前台时跳过（区分手动保存 vs 切窗口自动保存）
+
+#### AppleScript IDE 自动化
+
+通过 `osascript` 直接驱动 Xcode 编辑器：
+
+| 能力 | 实现 |
+|------|------|
+| 行号跳转 | `⌘L` → 输入行号 → 回车 |
+| 行选中 | `⌘←` 行首 → `⌘⇧→` 选到行尾 |
+| 剪切/粘贴 | `⌘X` / `⌘V`，支持选中替换 |
+| 前台检测 | 检查 Xcode 是否 running / frontmost |
+| 文档保存 | `⌘S` 自动保存活动文档 |
+
+搜索结果插入的完整链路：搜索 → 写入剪贴板 → 跳转到触发行 → 选中原指令 → 粘贴替换。
+
+#### 原生 macOS UI
+
+不依赖终端交互，通过 **Swift 原生二进制**（降级为 AppleScript `choose from list`）弹出系统级 UI：
+
+- **搜索结果列表**：原生弹窗展示匹配 Recipe，键盘选择后自动插入
+- **确认对话框**：头文件注入前弹出预览确认
+- **系统通知**：操作完成后通过 `display notification` 反馈
+
+#### 智能头文件注入
+
+插入代码片段时自动分析所需 `import`：
+
+1. 检查 SPM 模块可达性（当前 Target 是否已声明依赖）
+2. 弹出 NativeUI 确认弹窗，展示待注入的 import 列表
+3. 通过 AppleScript 跳转到文件 import 区域，自动插入头文件
+4. 若 Xcode 自动化失败，降级到文件级直接写入
+
+#### Code Snippet 触发词
 
 | 触发关键词 | 作用 |
 |-----------|------|
