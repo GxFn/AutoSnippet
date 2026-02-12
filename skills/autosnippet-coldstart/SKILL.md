@@ -295,6 +295,142 @@ description: Cold-start knowledge base initialization. Full 9-dimension analysis
 
 ---
 
+## Per-Dimension Industry Reference Templates
+
+> 以下是每个分析维度的**高质量候选模板**，基于业界最佳实践。分析时请以此为参考产出同等质量的候选。
+
+### 维度 1: 代码规范 (code-standard) — 参考模板
+
+```json
+{
+  "title": "命名约定: 类型用 UpperCamelCase, 变量/函数用 lowerCamelCase",
+  "code": "// ✅ 正确\nclass NetworkManager { }\nfunc fetchUserProfile() -> UserProfile { }\nlet currentUser: User\n\n// ❌ 错误\nclass network_manager { }\nfunc FetchUserProfile() -> UserProfile { }\nlet CURRENT_USER: User",
+  "language": "swift",
+  "category": "Tool",
+  "knowledgeType": "code-standard",
+  "scope": "project-specific",
+  "rationale": "遵循 Apple API Design Guidelines 和 Google Swift Style Guide：类型名用 UpperCamelCase，变量/函数/参数用 lowerCamelCase，全局常量用 lowerCamelCase（不用 k 前缀或 SCREAMING_SNAKE_CASE）",
+  "steps": [
+    { "title": "类型命名", "description": "class/struct/enum/protocol 用 UpperCamelCase", "code": "struct UserProfile { }" },
+    { "title": "函数命名", "description": "方法名以动词开头，参数标签读起来像句子", "code": "func insert(_ element: Element, at index: Int)" },
+    { "title": "缩写处理", "description": "缩写作为整体大小写: URL/ID 在首位全大写，其他位置全小写", "code": "let urlString = ...\nclass HTMLParser { }" }
+  ],
+  "antiPattern": {
+    "bad": "let kMaxRetryCount = 3\nclass network_manager { }",
+    "why": "匈牙利命名法 k 前缀和下划线命名不符合 Swift 惯例，降低可读性",
+    "fix": "let maxRetryCount = 3\nclass NetworkManager { }"
+  },
+  "reasoning": {
+    "whyStandard": "统一命名规范是代码可读性的基础，Apple 和 Google 风格指南均以此为核心准则",
+    "sources": ["Apple API Design Guidelines", "Google Swift Style Guide"],
+    "confidence": 0.95
+  }
+}
+```
+
+### 维度 2: 使用习惯 (code-pattern) — 参考模板
+
+```json
+{
+  "title": "单例模式: 使用 static let shared",
+  "code": "// ✅ 推荐模式\nclass CacheManager {\n  static let shared = CacheManager()\n  private init() { }\n  \n  func store(_ data: Data, forKey key: String) { ... }\n}\n\n// 使用\nCacheManager.shared.store(data, forKey: \"user\")",
+  "language": "swift",
+  "category": "Service",
+  "knowledgeType": "code-pattern",
+  "scope": "universal",
+  "rationale": "Swift 的 static let 天然线程安全（dispatch_once 语义）。private init() 防止外部实例化。",
+  "steps": [
+    { "title": "声明", "description": "用 static let shared 暴露唯一实例", "code": "static let shared = MyService()" },
+    { "title": "私有初始化", "description": "用 private init() 防止外部创建", "code": "private init() { }" },
+    { "title": "命名", "description": "属性名通常用 shared 或 default", "code": "" }
+  ],
+  "reasoning": {
+    "whyStandard": "项目中 Manager/Service 类全部采用此模式。static let 在 Swift 中自动 lazy + thread-safe",
+    "sources": ["Google Swift Style Guide - Static and Class Properties"],
+    "confidence": 0.9
+  }
+}
+```
+
+### 维度 3: 最佳实践 (best-practice) — 参考模板
+
+```json
+{
+  "title": "错误处理: 用 typed Error enum + do-catch",
+  "code": "// ✅ 推荐\nenum NetworkError: Error {\n  case invalidURL\n  case timeout\n  case serverError(statusCode: Int)\n}\n\nfunc fetchData(from url: String) throws -> Data {\n  guard let url = URL(string: url) else {\n    throw NetworkError.invalidURL\n  }\n  // ...\n}\n\ndo {\n  let data = try fetchData(from: endpoint)\n} catch NetworkError.timeout {\n  showRetryAlert()\n} catch {\n  log(error)\n}",
+  "language": "swift",
+  "category": "Service",
+  "knowledgeType": "best-practice",
+  "scope": "universal",
+  "rationale": "用 typed enum Error 使调用者能精确 catch 不同错误类型。避免 generic Error string。Google Swift Style Guide 明确推荐 throws 而非 Result 混合模型",
+  "antiPattern": {
+    "bad": "func fetchData() -> String? { return nil /* on error */ }",
+    "why": "返回 nil 丢失错误信息，调用者无法区分'无数据'和'发生错误'",
+    "fix": "func fetchData() throws -> Data { throw NetworkError.timeout }"
+  },
+  "reasoning": {
+    "whyStandard": "Swift 的 throws/catch 机制强制调用者处理错误，编译器保证完整性",
+    "sources": ["Google Swift Style Guide - Error Types", "Swift Language Guide"],
+    "confidence": 0.95
+  }
+}
+```
+
+### 维度 4: 调用链 (call-chain) — 参考模板
+
+```json
+{
+  "title": "用户登录调用链: View → ViewModel → AuthService → API",
+  "code": "// 完整调用链\n// 1. LoginView: Button tap → viewModel.login()\n// 2. LoginViewModel: @MainActor func login()\n//    → authService.authenticate(email, password)\n// 3. AuthService: func authenticate() async throws → Token\n//    → apiClient.post(\"/auth/login\", body)\n// 4. APIClient: func post<T>() async throws → T\n//    → URLSession.shared.data(for: request)\n// 5. 返回链: Token → AuthService 存 Keychain → ViewModel 更新状态 → View 刷新",
+  "language": "swift",
+  "category": "Architecture",
+  "knowledgeType": "call-chain",
+  "scope": "project-specific",
+  "rationale": "登录是最核心的业务流程之一，新人必须理解完整链路才能修改认证逻辑",
+  "constraints": {
+    "boundaries": ["AuthService 不直接 import View 层", "Token 存取只通过 KeychainService"],
+    "preconditions": ["网络可用", "API endpoint 已配置"]
+  },
+  "reasoning": {
+    "whyStandard": "登录流程涉及 4 层，任何一层修改都可能影响整个链路",
+    "sources": ["Sources/Auth/LoginViewModel.swift", "Sources/Service/AuthService.swift"],
+    "confidence": 0.85
+  }
+}
+```
+
+### 维度 7: Bug 修复 (solution + antiPattern) — 参考模板
+
+```json
+{
+  "title": "[Bug] 闭包中循环引用导致内存泄漏",
+  "code": "// ❌ 内存泄漏\nclass ViewModel {\n  var onComplete: (() -> Void)?\n  func start() {\n    service.fetch { result in\n      self.onComplete?()  // strong capture → retain cycle\n    }\n  }\n}\n\n// ✅ 修复\nclass ViewModel {\n  var onComplete: (() -> Void)?\n  func start() {\n    service.fetch { [weak self] result in\n      self?.onComplete?()\n    }\n  }\n}",
+  "language": "swift",
+  "category": "Tool",
+  "knowledgeType": "solution",
+  "scope": "universal",
+  "antiPattern": {
+    "bad": "service.fetch { result in self.handle(result) }",
+    "why": "closure 强引用 self，如果 self 也持有 closure（直接或间接），形成 retain cycle，对象永不释放",
+    "fix": "service.fetch { [weak self] result in self?.handle(result) }"
+  },
+  "reasoning": {
+    "whyStandard": "Swift 使用 ARC，闭包默认 strong capture。任何可能被持有的闭包都应使用 [weak self]",
+    "sources": ["Memory Management Best Practices", "Apple ARC Documentation"],
+    "confidence": 0.95
+  }
+}
+```
+
+### 更多语言参考
+
+> 本 Skill 侧重通用流程。**语言专属的详细最佳实践参考**，请查阅以下 Companion Skills：
+> - **autosnippet-reference-swift** — Swift 专属：Concurrency/SwiftUI/ARC/Protocol 模式/Apple 命名规范
+> - **autosnippet-reference-objc** — Objective-C 专属：ARC/Block/Delegate/Prefix/NSError/GCD 模式
+> - **autosnippet-reference-jsts** — JavaScript/TypeScript 专属：async-await/React/Node.js/ESM/类型系统
+
+---
+
 ## Troubleshooting
 
 | 问题 | 解决 |
@@ -304,6 +440,7 @@ description: Cold-start knowledge base initialization. Full 9-dimension analysis
 | 分析质量不高 | 切换 `aiMode="internal"` 使用内置 AI |
 | Guard 违规太多 | 先处理 Guard 违规，再做知识分析 |
 | 提交后候选在哪里 | Dashboard → Candidates 页面审核 |
+| 不知道该语言的最佳实践 | 查阅 autosnippet-reference-swift/objc/jsts Skill |
 
 ---
 
@@ -325,4 +462,7 @@ description: Cold-start knowledge base initialization. Full 9-dimension analysis
 - **autosnippet-candidates**: 完整候选字段模型 + V2 Schema
 - **autosnippet-structure**: 项目结构发现 (targets / files / dependencies)
 - **autosnippet-guard**: Guard 规则详情
+- **autosnippet-reference-swift**: Swift 业界最佳实践参考（命名/并发/错误处理/内存/设计模式）
+- **autosnippet-reference-objc**: Objective-C 业界最佳实践参考（ARC/Block/Delegate/Prefix/GCD）
+- **autosnippet-reference-jsts**: JavaScript/TypeScript 业界最佳实践参考（async/React/Node/ESM/类型系统）
 ```
