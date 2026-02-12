@@ -620,15 +620,28 @@ export const api = {
   },
 
   /** 获取全量知识图谱（边 + 节点标签） */
-  async getKnowledgeGraph(limit = 500): Promise<{ edges: any[]; nodeLabels: Record<string, string> }> {
+  async getKnowledgeGraph(limit = 500): Promise<{ edges: any[]; nodeLabels: Record<string, string>; nodeTypes: Record<string, string>; nodeCategories: Record<string, string> }> {
     const res = await http.get(`/search/graph/all?limit=${limit}`);
-    return res.data?.data || { edges: [], nodeLabels: {} };
+    return res.data?.data || { edges: [], nodeLabels: {}, nodeTypes: {}, nodeCategories: {} };
   },
 
   /** 获取知识图谱统计 */
   async getGraphStats(): Promise<{ totalEdges: number; byRelation: Record<string, number>; nodeTypes: any[] }> {
     const res = await http.get('/search/graph/stats');
     return res.data?.data || { totalEdges: 0, byRelation: {}, nodeTypes: [] };
+  },
+
+  /** AI 批量发现 Recipe 知识图谱关系（异步启动） */
+  async discoverRelations(batchSize = 20): Promise<{ status: string; startedAt?: string; message?: string; error?: string }> {
+    const res = await http.post('/recipes/discover-relations', { batchSize });
+    if (!res.data?.success) throw new Error(res.data?.error?.message || '启动失败');
+    return res.data?.data || { status: 'unknown' };
+  },
+
+  /** 查询关系发现任务状态 */
+  async getDiscoverRelationsStatus(): Promise<{ status: string; discovered?: number; totalPairs?: number; batchErrors?: number; error?: string; elapsed?: number; message?: string; startedAt?: string }> {
+    const res = await http.get('/recipes/discover-relations/status');
+    return res.data?.data || { status: 'idle' };
   },
 
   async deleteAllCandidatesInTarget(targetName: string): Promise<{ deleted: number }> {

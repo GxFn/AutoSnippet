@@ -4,6 +4,35 @@
 
 ---
 
+## [2.1.0] - 2026-02-13
+
+### 新增
+
+- **知识图谱分组布局**：节点按 Recipe category 自动分组，同组聚拢、异组分离；每组渲染虚线椭圆 hull 背景 + 分组标签；10 色循环配色方案
+- **AI 发现关系**：知识图谱新增「AI 发现关系」按钮，调用 ChatAgent 批量分析 Recipe 间关系（requires / extends / enforces / calls 等）
+- **异步任务模型**：`POST /recipes/discover-relations` 转为非阻塞异步执行，新增 `GET /discover-relations/status` 轮询端点；前端 3s 轮询 + 12 分钟超时保护
+- **编辑器性能优化**：HighlightedCodeEditor 高亮层 debounce（短文件即时、长文件延迟）、行号虚拟化渲染、React.memo 减少重绘
+- **Xcode 模拟器文件树**：后端 `files/tree` 路由改为递归扫描 .h / .m / .swift 源文件；前端支持空状态提示
+- **知识图谱节点交互**：hover 高亮关联节点和边、degree badge、curved 边路径、边标签 tooltip
+
+### 修复
+
+- **知识图谱数据源**：`/graph/all` 默认过滤 `nodeType=recipe`，不再混入 SPM module 依赖边；`/graph/stats` 同步过滤
+- **Recipe not found 错误**：仅对 recipe 类型节点查 recipeService，module 类型直接使用 ID 作为标签
+- **`.substring` 崩溃**：ChatAgent `#taskDiscoverAllRelations` 中 `a.content` 可能为对象，用 `String()` 包裹
+- **Socket hang up**：AI 分析耗时过长导致 Vite 代理断开，改为异步模型彻底解决
+- **滚动条样式冲突**：`.scrollbar-light` 加 `!important` 防止被 Xcode 深色滚动条覆盖；模态对话框滚动条规则排除 `.scrollbar-light`
+
+### 变更
+
+- `KnowledgeGraphService.getAllEdges(limit, nodeType)` 新增可选 `nodeType` 过滤参数
+- `KnowledgeGraphService.getStats(nodeType)` 新增可选 `nodeType` 过滤参数
+- `/search/graph/all` 响应新增 `nodeTypes`、`nodeCategories` 字段
+- `ChatAgent.#taskDiscoverAllRelations` 返回新增 `totalBatches`、`batchErrors` 字段；单批失败不终止整体
+- Dashboard 版本号同步升级至 2.1.0
+
+---
+
 ## [2.0.2] - 2026-02-13
 
 ### 新增

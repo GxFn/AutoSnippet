@@ -44,25 +44,25 @@
 
 /* 浅色系滚动条 — 用于白色/浅色背景面板 */
 .scrollbar-light::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 6px !important;
+  height: 6px !important;
 }
 
 .scrollbar-light::-webkit-scrollbar-track {
-  background: transparent;
+  background: transparent !important;
 }
 
 .scrollbar-light::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.25);
-  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.25) !important;
+  border-radius: 3px !important;
 }
 
 .scrollbar-light::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.45);
+  background: rgba(148, 163, 184, 0.45) !important;
 }
 
 /* Firefox */
 .scrollbar-light {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(148, 163, 184, 0.25) transparent !important;
 }

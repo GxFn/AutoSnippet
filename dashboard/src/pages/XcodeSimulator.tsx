@@ -153,88 +153,22 @@ const XcodeSimulator: React.FC = () => {
       // 尝试从 API 获取
       const response = await fetch('/api/v1/commands/files/tree');
       if (response.ok) {
-        const data = await response.json();
-        const tree = data.tree || data;
-        setFileTree(tree);
-        if (tree?.path) {
-          setExpandedFolders(new Set([tree.path]));
+        const json = await response.json();
+        const tree: FileNode | null = json.data || json.tree || json;
+        if (tree && tree.children && tree.children.length > 0) {
+          setFileTree(tree);
+          if (tree.path) {
+            setExpandedFolders(new Set([tree.path]));
+          }
+          return;
         }
-        return;
       }
     } catch (error) {
       console.error('Failed to load file tree from API:', error);
     }
 
-    // 如果 API 失败，使用本地示例数据
-    const sampleTree: FileNode = {
-      type: 'folder',
-      name: 'src',
-      path: '/src',
-      children: [
-        {
-          type: 'file',
-          name: 'index.ts',
-          path: '/src/index.ts',
-        },
-        {
-          type: 'folder',
-          name: 'components',
-          path: '/src/components',
-          children: [
-            {
-              type: 'file',
-              name: 'Button.tsx',
-              path: '/src/components/Button.tsx',
-            },
-            {
-              type: 'file',
-              name: 'Header.tsx',
-              path: '/src/components/Header.tsx',
-            },
-            {
-              type: 'file',
-              name: 'Footer.tsx',
-              path: '/src/components/Footer.tsx',
-            },
-          ],
-        },
-        {
-          type: 'folder',
-          name: 'hooks',
-          path: '/src/hooks',
-          children: [
-            {
-              type: 'file',
-              name: 'useAuth.ts',
-              path: '/src/hooks/useAuth.ts',
-            },
-            {
-              type: 'file',
-              name: 'useFetch.ts',
-              path: '/src/hooks/useFetch.ts',
-            },
-          ],
-        },
-        {
-          type: 'folder',
-          name: 'utils',
-          path: '/src/utils',
-          children: [
-            {
-              type: 'file',
-              name: 'helpers.ts',
-              path: '/src/utils/helpers.ts',
-            },
-            {
-              type: 'file',
-              name: 'validators.ts',
-              path: '/src/utils/validators.ts',
-            },
-          ],
-        },
-      ],
-    };
-    setFileTree(sampleTree);
+    // API 失败或项目无源文件时显示空状态
+    setFileTree(null);
   };
 
   const openFile = async (filePath: string) => {
@@ -243,9 +177,17 @@ const XcodeSimulator: React.FC = () => {
       if (!response.ok) {
         throw new Error(`Open failed with status ${response.status}`);
       }
-      const data = await response.json();
-      setEditorContent(data.content || '', 0);
-      setCurrentFile(data.path || filePath);
+      const json = await response.json();
+      const fileData = json.data || json;
+      const content = fileData.content || '';
+      setEditorContent(content, 0);
+      setCurrentFile(fileData.path || filePath);
+
+      // 根据文件扩展名设置语言提示
+      const ext = filePath.split('.').pop()?.toLowerCase() || '';
+      const langMap: Record<string, string> = { h: 'objc', m: 'objc', swift: 'swift' };
+      // 可扩展：将 language 传递给编辑器
+
       setExecutionResult('');
     } catch (error) {
       console.error('Open file failed:', error);
@@ -482,7 +424,12 @@ const XcodeSimulator: React.FC = () => {
               <h3>文件浏览</h3>
             </div>
             <div className="file-tree">
-              {fileTree && renderFileTree(fileTree)}
+              {fileTree ? renderFileTree(fileTree) : (
+                <div className="empty-state" style={{ padding: '16px 8px' }}>
+                  <File size={24} />
+                  <small>项目中未找到 .h / .m / .swift 文件</small>
+                </div>
+              )}
             </div>
           </div>
         )}

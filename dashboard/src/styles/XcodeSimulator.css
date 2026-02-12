@@ -935,27 +935,27 @@
   background-color: #053a66;
 }
 
-/* Recipe 和 Snippet 编辑器深色滚动条 - 匹配所有模态对话框 */
-.fixed.inset-0.z-50 *::-webkit-scrollbar {
+/* Recipe 和 Snippet 编辑器深色滚动条 - 匹配所有模态对话框（排除 .scrollbar-light） */
+.fixed.inset-0.z-50 *:not(.scrollbar-light)::-webkit-scrollbar {
   width: 8px !important;
   height: 8px !important;
   background-color: #1e1e1e !important;
 }
 
-.fixed.inset-0.z-50 *::-webkit-scrollbar-track {
+.fixed.inset-0.z-50 *:not(.scrollbar-light)::-webkit-scrollbar-track {
   background: #1e1e1e !important;
 }
 
-.fixed.inset-0.z-50 *::-webkit-scrollbar-thumb {
+.fixed.inset-0.z-50 *:not(.scrollbar-light)::-webkit-scrollbar-thumb {
   background: #3e3e42 !important;
   border-radius: 0 !important;
 }
 
-.fixed.inset-0.z-50 *::-webkit-scrollbar-thumb:hover {
+.fixed.inset-0.z-50 *:not(.scrollbar-light)::-webkit-scrollbar-thumb:hover {
   background: #4e4e52 !important;
 }
 
-.fixed.inset-0.z-50 * {
+.fixed.inset-0.z-50 *:not(.scrollbar-light) {
   scrollbar-width: thin !important;
   scrollbar-color: #3e3e42 #1e1e1e !important;
 }
