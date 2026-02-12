@@ -606,6 +606,18 @@ export const api = {
     return res.data?.data || { refined: 0, total: 0, errors: [], results: [] };
   },
 
+  /** 对话式润色 — 预览：单条候选 dryRun，返回 before/after 对比 */
+  async refinePreview(candidateId: string, userPrompt?: string): Promise<{ candidateId: string; before: Record<string, any>; after: Record<string, any>; preview: Record<string, any> }> {
+    const res = await http.post('/candidates/refine-preview', { candidateId, userPrompt }, { timeout: 120000 });
+    return res.data?.data || {};
+  },
+
+  /** 对话式润色 — 应用：确认写入变更 */
+  async refineApply(candidateId: string, userPrompt?: string): Promise<{ refined: number; total: number; candidate: any }> {
+    const res = await http.post('/candidates/refine-apply', { candidateId, userPrompt }, { timeout: 120000 });
+    return res.data?.data || {};
+  },
+
   /** 获取全量知识图谱（边 + 节点标签） */
   async getKnowledgeGraph(limit = 500): Promise<{ edges: any[]; nodeLabels: Record<string, string> }> {
     const res = await http.get(`/search/graph/all?limit=${limit}`);
