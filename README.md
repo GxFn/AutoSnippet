@@ -126,11 +126,15 @@ asd install:vscode-copilot      # 配置 MCP 和 Copilot 指令
 
 ### Xcode
 
-通过 Code Snippet 触发词（`ass` / `asc` / `asa`）+ 文件保存指令与知识库交互，详见下方 [Xcode 深度集成](#xcode-深度集成)。
+通过 Xcode Code Snippet 触发：
 
-```bash
-asd setup              # 注册 Snippet，重启 Xcode 生效
-```
+| 触发关键词 | 作用 |
+|-----------|------|
+| `ass` | 搜索知识库并插入代码（最快捷的联想方式） |
+| `asc` | 创建候选——打开 Dashboard 或从剪贴板静默提交 |
+| `asa` | 按知识库审查当前代码 |
+
+> 执行 `asd setup` 注册 Snippet 后，需**重启 Xcode** 才生效。
 
 ## CLI 命令参考
 
