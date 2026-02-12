@@ -214,23 +214,6 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
     <div className="w-80 bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden shrink-0">
     <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
       <span className="font-bold text-sm">项目 Target ({targets.length})</span>
-      {handleScanProject && (
-      <button
-        onClick={handleScanProject}
-        disabled={isScanning}
-        className={`text-xs px-2 py-1 rounded transition-colors disabled:opacity-50 ${
-        selectedTargetName === '__project__'
-          ? 'bg-indigo-700 text-white ring-2 ring-indigo-300 shadow-sm'
-          : 'bg-indigo-600 text-white hover:bg-indigo-700'
-        }`}
-        title="扫描整个项目：AI 提取 + Guard 审计"
-      >
-        <span className="flex items-center gap-1">
-        <Layers size={12} />
-        全项目扫描
-        </span>
-      </button>
-      )}
     </div>
     <div className="flex-1 overflow-y-auto p-2 space-y-1">
       {filteredTargets.map(t => {
@@ -289,17 +272,6 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
       )}
       {scanResults.length > 0 && <span className="text-slate-400 font-normal text-xs ml-1">({scanResults.length} 条{scanResults[0]?.trigger ? ' Candidate' : ''})</span>}
       </div>
-      <button
-      onClick={() => {
-        setSelectedContextTarget(selectedTargetName || undefined);
-        setIsContextSearchOpen(true);
-      }}
-      className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors"
-      title="智能搜索相关 Recipes"
-      >
-      <Search size={ICON_SIZES.sm} />
-      智能搜索
-      </button>
     </div>
     
     <div className="flex-1 overflow-y-auto p-6 space-y-8 relative">

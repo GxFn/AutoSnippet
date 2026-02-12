@@ -375,7 +375,7 @@ export const api = {
     const data = res.data?.data || {};
     // Unify response: could be {recipes, scannedFiles} or {result, scannedFiles}
     const recipes = data.recipes || data.result || [];
-    return { recipes, scannedFiles: data.scannedFiles || [] };
+    return { recipes, scannedFiles: data.scannedFiles || [], message: data.message || '' };
   },
 
   /** 全项目扫描：AI 提取 + Guard 审计 */
@@ -393,7 +393,7 @@ export const api = {
 
   /** 冷启动：结构收集 + 9 维度 Candidate 创建（与 MCP bootstrap 一致） */
   async bootstrap(signal?: AbortSignal) {
-    const res = await http.post('/spm/bootstrap', {}, { signal, timeout: 120000 });
+    const res = await http.post('/spm/bootstrap', {}, { signal, timeout: 300000 });
     const data = res.data?.data || {};
     return {
       report: data.report || {},
@@ -406,6 +406,7 @@ export const api = {
       guardViolationFiles: data.guardViolationFiles || [],
       bootstrapCandidates: data.bootstrapCandidates || { created: 0, failed: 0 },
       message: data.message || '',
+      aiEnhancement: data.aiEnhancement || null,
     };
   },
 

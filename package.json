@@ -1,6 +1,6 @@
 {
   "name": "autosnippet",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "AutoSnippet - 连接开发者、AI 与项目知识库的工具",
   "type": "module",
   "main": "lib/bootstrap.js",
@@ -72,6 +72,9 @@
     "ora": "^8.0.1",
     "redis": "^4.7.0",
     "socket.io": "^4.8.1",
+    "tree-sitter": "^0.25.0",
+    "tree-sitter-objc": "^3.0.2",
+    "tree-sitter-swift": "^0.7.1",
     "undici": "^6.23.0",
     "uuid": "^9.0.1",
     "winston": "^3.11.0",

@@ -4,6 +4,30 @@
 
 ---
 
+## [2.0.2] - 2026-02-13
+
+### 新增
+
+- **Tree-sitter AST 分析**：bootstrap 管线新增 Phase 1.5 AST 分析阶段，6 个维度提取器融合 AST 上下文，ChatAgent 提示词注入 AST 结构信息
+- **JSON 截断修复**：`extractJSON` 新增 `_repairTruncatedArray()` 方法，当 AI 输出被 token 限制截断时自动回收已完成的 JSON 对象
+- **bootstrap 分离执行**：`/spm/bootstrap` 路由拆分为同步阶段（结构收集）+ 异步阶段（AI 润色），避免前端超时
+- **AI 提取诊断日志**：`extractRecipes` 新增 3 级日志（空响应 / JSON 解析失败 / 空数组），tool context 注入 logger
+
+### 修复
+
+- **Dashboard 冷启动按钮卡死**：bootstrap 路由同步返回候选列表，AI enrich/refine 后台执行
+- **SPM Target 点击卡死**：`scanTarget` AI 提取添加 120 秒超时，前端透传 `message` 字段并显示错误通知
+- **AI 提取静默返回空**：Gemini 响应被 token 截断时 `extractJSON` 返回 null 被静默吞掉，现在通过截断修复回收已完成条目
+
+### 变更
+
+- `ChatAgent.#getToolContext()` 新增 `logger` 属性
+- `AiProvider` 新增 `_log()` 辅助方法
+- Dashboard `api.scanTarget()` 返回值新增 `message` 字段
+- 前端 axios bootstrap 超时 120s → 300s
+
+---
+
 ## [2.0.1] - 2025-07-25
 
 ### 移除

@@ -242,7 +242,7 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
         />
         </>
       ) : (
-        <div className="flex-1 overflow-y-auto space-y-6">
+        <div className="flex-1 overflow-y-auto space-y-6 scrollbar-light">
         {/* 优化的元数据展示区 */}
         {Object.keys(metadata).length > 0 && (
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">

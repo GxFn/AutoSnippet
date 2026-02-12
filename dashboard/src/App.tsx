@@ -435,6 +435,10 @@ const App: React.FC = () => {
     fetchData();
     if (recipes.length > 0) {
       notify(`AI 提取了 ${recipes.length} 条结果，请在右侧审核`);
+    } else if (scanResult.message) {
+      notify(`AI 扫描未返回结果: ${scanResult.message}`, { type: 'error' });
+    } else {
+      notify(`未发现可提取的代码模式`, { type: 'error' });
     }
     } else {
     notify('Scan failed: No source files.', { type: 'error' });
@@ -500,10 +504,11 @@ const App: React.FC = () => {
     const fileCount = report.totals?.files || 0;
     const graphEdges = report.totals?.graphEdges || 0;
     const guardMsg = guardInfo ? `, Guard: ${guardInfo.totalViolations} 项违规` : '';
+    const aiMsg = result.aiEnhancement === 'pending' ? '，AI 润色正在后台进行' : '';
 
     notify(
       `冷启动完成: ${targetCount} 个 Target, ${fileCount} 个文件, ` +
-      `${graphEdges} 条依赖, ${bs.created} 个维度 Candidate 已创建${guardMsg}`
+      `${graphEdges} 条依赖, ${bs.created} 个维度 Candidate 已创建${guardMsg}${aiMsg}`
     );
   } catch (err: any) {
     clearInterval(progressTimer);
