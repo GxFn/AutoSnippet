@@ -600,9 +600,9 @@ export const api = {
     return res.data?.data || { enriched: 0, total: 0, results: [] };
   },
 
-  /** Phase 6 AI 润色 — 对 Bootstrap 候选进行二次精炼 */
-  async bootstrapRefine(candidateIds?: string[], dryRun?: boolean): Promise<{ refined: number; total: number; errors: any[]; results: any[] }> {
-    const res = await http.post('/candidates/bootstrap-refine', { candidateIds, dryRun }, { timeout: 300000 });
+  /** ② 内容润色 — 对 Bootstrap 候选进行 AI 精炼（支持自定义提示词） */
+  async bootstrapRefine(candidateIds?: string[], userPrompt?: string, dryRun?: boolean): Promise<{ refined: number; total: number; errors: any[]; results: any[] }> {
+    const res = await http.post('/candidates/bootstrap-refine', { candidateIds, userPrompt, dryRun }, { timeout: 300000 });
     return res.data?.data || { refined: 0, total: 0, errors: [], results: [] };
   },
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Zap, FileSearch, Box, Trash2, Edit3, Layers, Eye, EyeOff, GitCompare, X, Copy, Brain, BookOpen, Target, ChevronDown, ChevronUp, Sparkles, Shield, Clock, Code2, Tag, AlertTriangle, CheckCircle2, BarChart3, Filter, ArrowUpDown, Rocket, Wand2, Loader2 } from 'lucide-react';
+import { Zap, FileSearch, Box, Trash2, Edit3, Layers, Eye, EyeOff, GitCompare, X, Copy, Brain, BookOpen, Target, ChevronDown, ChevronUp, Sparkles, Shield, Clock, Code2, Tag, AlertTriangle, CheckCircle2, BarChart3, Filter, ArrowUpDown, Rocket, Wand2, Loader2, MessageSquarePlus } from 'lucide-react';
 import { ProjectData, ExtractedRecipe, CandidateItem } from '../../types';
 import api from '../../api';
 import { notify } from '../../utils/notification';
@@ -138,8 +138,11 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set());
+  const [refiningIds, setRefiningIds] = useState<Set<string>>(new Set());
   const [enrichingAll, setEnrichingAll] = useState(false);
   const [refining, setRefining] = useState(false);
+  const [refineModal, setRefineModal] = useState<{ candidateIds: string[]; mode: 'single' | 'batch' } | null>(null);
+  const [refinePrompt, setRefinePrompt] = useState('');
   const [targetPages, setTargetPages] = useState<Record<string, { page: number; pageSize: number }>>({});
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [similarityMap, setSimilarityMap] = useState<Record<string, SimilarRecipe[]>>({});
@@ -275,20 +278,54 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
     }
   }, [enrichingAll, effectiveTarget, data?.candidates, onRefresh]);
 
-  /** Phase 6: AI 润色所有 Bootstrap 候选 */
-  const handleRefineBootstrap = useCallback(async () => {
-    if (refining) return;
-    setRefining(true);
-    try {
-      const result = await api.bootstrapRefine();
-      notify(`② 内容润色完成: ${result.refined}/${result.total} 条候选已更新${result.errors.length > 0 ? `（${result.errors.length} 条失败）` : ''}`);
-      onRefresh?.();
-    } catch (err: any) {
-      notify(`② 内容润色失败: ${err.response?.data?.error || err.message}`, { type: 'error' });
-    } finally {
-      setRefining(false);
+  /** Phase 6: AI 润色所有 Bootstrap 候选 — 打开提示词弹窗 */
+  const handleRefineBootstrap = useCallback(() => {
+    setRefinePrompt('');
+    setRefineModal({ candidateIds: [], mode: 'batch' });
+  }, []);
+
+  /** 单条候选润色 — 打开提示词弹窗 */
+  const handleRefineSingle = useCallback((candidateId: string) => {
+    setRefinePrompt('');
+    setRefineModal({ candidateIds: [candidateId], mode: 'single' });
+  }, []);
+
+  /** 执行润色（从弹窗确认后调用） */
+  const executeRefine = useCallback(async () => {
+    if (!refineModal) return;
+    const { candidateIds, mode } = refineModal;
+    const prompt = refinePrompt.trim() || undefined;
+    setRefineModal(null);
+
+    if (mode === 'single' && candidateIds.length === 1) {
+      const id = candidateIds[0];
+      setRefiningIds(prev => new Set(prev).add(id));
+      try {
+        const result = await api.bootstrapRefine([id], prompt);
+        if (result.refined > 0) {
+          notify('② 润色完成: 已更新该候选');
+        } else {
+          notify('该候选未发生变化');
+        }
+        onRefresh?.();
+      } catch (err: any) {
+        notify(`② 润色失败: ${err.response?.data?.error || err.message}`, { type: 'error' });
+      } finally {
+        setRefiningIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+      }
+    } else {
+      setRefining(true);
+      try {
+        const result = await api.bootstrapRefine(candidateIds.length > 0 ? candidateIds : undefined, prompt);
+        notify(`② 内容润色完成: ${result.refined}/${result.total} 条候选已更新${result.errors.length > 0 ? `（${result.errors.length} 条失败）` : ''}`);
+        onRefresh?.();
+      } catch (err: any) {
+        notify(`② 内容润色失败: ${err.response?.data?.error || err.message}`, { type: 'error' });
+      } finally {
+        setRefining(false);
+      }
     }
-  }, [refining, onRefresh]);
+  }, [refineModal, refinePrompt, onRefresh]);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -882,7 +919,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                             <button
                               onClick={() => handleEnrichCandidate(cand.id)}
                               disabled={enrichingIds.has(cand.id)}
-                              title="AI 补齐缺失语义字段"
+                              title="① 结构补齐：填充缺失的语义字段（rationale / knowledgeType / complexity 等）"
                               className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 text-[11px] font-medium ${
                                 enrichingIds.has(cand.id)
                                   ? 'text-slate-300 cursor-not-allowed'
@@ -890,6 +927,18 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                               }`}
                             >
                               {enrichingIds.has(cand.id) ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
+                            </button>
+                            <button
+                              onClick={() => handleRefineSingle(cand.id)}
+                              disabled={refiningIds.has(cand.id)}
+                              title="② 内容润色：改善描述、补充洞察、推断关联（支持自定义提示词）"
+                              className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 text-[11px] font-medium ${
+                                refiningIds.has(cand.id)
+                                  ? 'text-slate-300 cursor-not-allowed'
+                                  : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50'
+                              }`}
+                            >
+                              {refiningIds.has(cand.id) ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                             </button>
                             <button
                               onClick={() => handleDeleteCandidate(targetName, cand.id)}
@@ -1062,6 +1111,63 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
           </div>
         );
       })()}
+
+      {/* ── 润色提示词弹窗 ── */}
+      {refineModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-[520px] max-w-[90vw] overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+                  <Sparkles className="text-emerald-600" size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">② 内容润色</h3>
+                  <p className="text-[11px] text-slate-400">
+                    {refineModal.mode === 'single'
+                      ? '为该候选提供润色指导（可选）'
+                      : `将对所有 Bootstrap 候选批量润色`}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setRefineModal(null)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                <X size={16} className="text-slate-400" />
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              <label className="block text-xs font-bold text-slate-600 mb-2">
+                <MessageSquarePlus size={12} className="inline mr-1 text-emerald-500" />
+                润色提示词（可选）
+              </label>
+              <textarea
+                value={refinePrompt}
+                onChange={(e) => setRefinePrompt(e.target.value)}
+                placeholder={'输入自定义指导，例如：\n• 侧重描述线程安全和内存管理注意事项\n• 为每条候选补充具体的使用场景\n• 用更简洁的语言改写 summary\n\n留空则使用默认润色策略'}
+                className="w-full h-32 px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 resize-none placeholder:text-slate-300"
+                autoFocus
+              />
+              <p className="text-[10px] text-slate-400 mt-1.5">
+                AI 将根据你的提示改善 summary、补充 insight 洞察、推断 relations 关联、调整 confidence 评分
+              </p>
+            </div>
+            <div className="px-6 py-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setRefineModal(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={executeRefine}
+                className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-lg shadow-sm hover:shadow transition-all flex items-center gap-1.5"
+              >
+                <Sparkles size={12} />
+                {refinePrompt.trim() ? '按提示润色' : '默认润色'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
