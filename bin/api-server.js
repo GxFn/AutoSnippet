@@ -33,10 +33,7 @@ async function main() {
       db: components.db,
       auditLogger: components.auditLogger,
       gateway: components.gateway,
-      reasoningLogger: components.reasoningLogger,
-      roleDriftMonitor: components.roleDriftMonitor,
-      complianceEvaluator: components.complianceEvaluator,
-      sessionManager: components.sessionManager,
+      constitution: components.constitution,
     });
     logger.info('Service container initialized successfully');
 

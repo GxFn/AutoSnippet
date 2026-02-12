@@ -30,7 +30,7 @@ describe('AuditLogger & AuditStore', () => {
     test('should log operation', async () => {
       await auditLogger.log({
         requestId: 'req-001',
-        actor: 'cursor_agent',
+        actor: 'external_agent',
         action: 'create_candidate',
         resource: '/candidates',
         result: 'success',
@@ -39,13 +39,13 @@ describe('AuditLogger & AuditStore', () => {
 
       const entry = await auditStore.findByRequestId('req-001');
       expect(entry).toBeDefined();
-      expect(entry.actor).toBe('cursor_agent');
+      expect(entry.actor).toBe('external_agent');
     });
 
     test('should log failures', async () => {
       await auditLogger.log({
         requestId: 'req-002',
-        actor: 'cursor_agent',
+        actor: 'external_agent',
         action: 'create_recipe',
         resource: '/recipes',
         result: 'failure',
@@ -63,15 +63,15 @@ describe('AuditLogger & AuditStore', () => {
     test('should query by actor', async () => {
       await auditLogger.log({
         requestId: 'req-003',
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'create_recipe',
         resource: '/recipes',
         result: 'success',
       });
 
-      const results = await auditStore.query({ actor: 'developer_admin' });
+      const results = await auditStore.query({ actor: 'developer' });
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].actor).toBe('developer_admin');
+      expect(results[0].actor).toBe('developer');
     });
 
     test('should query by action', async () => {
@@ -92,7 +92,7 @@ describe('AuditLogger & AuditStore', () => {
 
   describe('AuditStore.findBy*', () => {
     test('should findByActor', async () => {
-      const results = await auditStore.findByActor('cursor_agent', 10);
+      const results = await auditStore.findByActor('external_agent', 10);
       expect(Array.isArray(results)).toBe(true);
     });
 
@@ -121,7 +121,7 @@ describe('AuditLogger & AuditStore', () => {
       // 添加几条测试数据
       await auditLogger.log({
         requestId: 'req-005',
-        actor: 'cursor_agent',
+        actor: 'external_agent',
         action: 'read',
         resource: '/recipes',
         result: 'success',
@@ -130,7 +130,7 @@ describe('AuditLogger & AuditStore', () => {
 
       await auditLogger.log({
         requestId: 'req-006',
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'create',
         resource: '/recipes',
         result: 'success',

@@ -16,12 +16,9 @@ import axios from 'axios';
 
 /** Constitution 角色 ID */
 export type RoleId =
-  | 'developer_admin'
-  | 'developer_contributor'
-  | 'visitor'
-  | 'cursor_agent'
-  | 'asd_ais'
-  | 'guard_engine';
+  | 'external_agent'
+  | 'chat_agent'
+  | 'developer';
 
 export type PermissionMode = 'token' | 'probe';
 
@@ -60,29 +57,15 @@ interface ProbeCache {
  * 预定义的角色权限矩阵（与后端 Constitution 保持一致）
  */
 const ROLE_PERMISSIONS: Record<RoleId, string[]> = {
-  developer_admin: ['*'],
-  developer_contributor: [
-    'read:*',
-    'approve:candidates', 'reject:candidates',
-    'create:recipes', 'create:candidates',
-    'recipe:create', 'recipe:publish',
-    'candidate:create', 'candidate:approve', 'candidate:reject',
-    'search:query',
-  ],
-  visitor: [
-    'read:recipes', 'read:candidates', 'read:guard_rules',
-    'search:query',
-  ],
-  cursor_agent: [
+  developer: ['*'],
+  external_agent: [
     'read:recipes', 'read:guard_rules',
     'create:candidates', 'submit:candidates',
     'read:audit_logs:self',
+    'knowledge:bootstrap',
   ],
-  asd_ais: [
+  chat_agent: [
     'read:recipes', 'read:candidates', 'create:candidates', 'read:guard_rules',
-  ],
-  guard_engine: [
-    'read:candidates', 'read:guard_rules', 'write:audit_logs',
   ],
 };
 
@@ -91,7 +74,7 @@ const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
 export function usePermission(authRole?: string): PermissionState {
   const [role, setRole] = useState<RoleId>(() => {
     if (AUTH_ENABLED && authRole) return authRole as RoleId;
-    return 'visitor'; // 初始默认，等探针结果
+    return 'developer'; // 默认：本地用户 = 项目 Owner
   });
   const [user, setUser] = useState('anonymous');
   const [mode, setMode] = useState<PermissionMode>(AUTH_ENABLED ? 'token' : 'probe');
@@ -115,8 +98,8 @@ export function usePermission(authRole?: string): PermissionState {
         setProbeCache(d.probeCache ?? null);
       }
     } catch {
-      // 探针失败 → visitor
-      setRole('visitor');
+      // 探针失败 → developer（本地用户默认全权）
+      setRole('developer');
     } finally {
       setIsLoading(false);
     }
@@ -155,9 +138,9 @@ export function usePermission(authRole?: string): PermissionState {
     return false;
   }, [role]);
 
-  const isAdmin = useMemo(() => role === 'developer_admin', [role]);
-  const canWrite = useMemo(() => role === 'developer_admin' || role === 'developer_contributor', [role]);
-  const isReadOnly = useMemo(() => !canWrite, [canWrite]);
+  const isAdmin = useMemo(() => role === 'developer', [role]);
+  const canWrite = useMemo(() => role === 'developer', [role]);
+  const isReadOnly = useMemo(() => role !== 'developer', [role]);
 
   return {
     role,

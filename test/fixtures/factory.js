@@ -106,7 +106,7 @@ export function mockCandidate(overrides = {}) {
     language: 'javascript',
     category: 'utility',
     status: 'pending',
-    source: { type: 'manual', actor: 'developer_admin' },
+    source: { type: 'manual', actor: 'developer' },
     metadata: {
       capturedAt: new Date().toISOString(),
       context: 'test',
@@ -176,7 +176,7 @@ export function mockGuardRule(overrides = {}) {
  */
 export function mockGatewayRequest(overrides = {}) {
   return {
-    actor: 'developer_admin',
+    actor: 'developer',
     action: 'test_action',
     resource: '/test',
     data: {
@@ -210,7 +210,7 @@ const DEFAULT_TOKEN_SECRET = 'test-secret-key-for-integration-tests';
 export function createTestToken(payload = {}, secret = DEFAULT_TOKEN_SECRET) {
   const fullPayload = {
     sub: 'test-user',
-    role: 'developer_admin',
+    role: 'developer',
     iat: Date.now(),
     exp: Date.now() + 3600_000, // 1 小时
     ...payload,

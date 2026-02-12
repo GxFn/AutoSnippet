@@ -252,52 +252,6 @@ program
   });
 
 // ─────────────────────────────────────────────────────
-// compliance 命令
-// ─────────────────────────────────────────────────────
-program
-  .command('compliance')
-  .description('运行合规评估')
-  .option('--json', '以 JSON 格式输出')
-  .action(async (opts) => {
-    try {
-      const { bootstrap, container } = await initContainer();
-      const complianceEvaluator = container.get('complianceEvaluator');
-
-      if (!complianceEvaluator) {
-        console.error('ComplianceEvaluator not available');
-        process.exit(1);
-      }
-
-      const report = complianceEvaluator.evaluate();
-
-      if (opts.json) {
-        console.log(JSON.stringify(report, null, 2));
-      } else {
-        console.log('\n📊 Compliance Report\n');
-        console.log(`   Overall Score: ${(report.overallScore * 100).toFixed(1)}%`);
-        console.log(`   Grade: ${report.grade || 'N/A'}\n`);
-
-        for (const [key, metric] of Object.entries(report.priorities || {})) {
-          const pct = ((metric.score || 0) * 100).toFixed(1);
-          console.log(`   ${key}: ${pct}%`);
-        }
-
-        if (report.recommendations?.length) {
-          console.log('\n   Recommendations:');
-          for (const rec of report.recommendations.slice(0, 5)) {
-            console.log(`   • ${rec}`);
-          }
-        }
-      }
-
-      await bootstrap.shutdown();
-    } catch (err) {
-      console.error('Error:', err.message);
-      process.exit(1);
-    }
-  });
-
-// ─────────────────────────────────────────────────────
 // server 命令
 // ─────────────────────────────────────────────────────
 program
@@ -601,10 +555,7 @@ async function initContainer(opts = {}) {
     db: bootstrap.components.db,
     auditLogger: bootstrap.components.auditLogger,
     gateway: bootstrap.components.gateway,
-    reasoningLogger: bootstrap.components.reasoningLogger,
-    roleDriftMonitor: bootstrap.components.roleDriftMonitor,
-    complianceEvaluator: bootstrap.components.complianceEvaluator,
-    sessionManager: bootstrap.components.sessionManager,
+    constitution: bootstrap.components.constitution,
     projectRoot,
   });
   return { bootstrap, container };

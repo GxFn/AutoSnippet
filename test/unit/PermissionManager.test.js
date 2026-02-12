@@ -18,34 +18,34 @@ describe('PermissionManager', () => {
   });
 
   describe('check - 3-tuple: (actor, action, resource)', () => {
-    test('developer_admin should have all permissions', () => {
-      const result = permissionManager.check('developer_admin', 'create', '/candidates');
+    test('developer should have all permissions', () => {
+      const result = permissionManager.check('developer', 'create', '/candidates');
       expect(result.allowed).toBe(true);
     });
 
-    test('cursor_agent should be able to read recipes', () => {
-      const result = permissionManager.check('cursor_agent', 'read', '/recipes');
+    test('external_agent should be able to read recipes', () => {
+      const result = permissionManager.check('external_agent', 'read', '/recipes');
       expect(result.allowed).toBe(true);
     });
 
-    test('cursor_agent should be able to create candidates', () => {
-      const result = permissionManager.check('cursor_agent', 'create', '/candidates');
+    test('external_agent should be able to create candidates', () => {
+      const result = permissionManager.check('external_agent', 'create', '/candidates');
       expect(result.allowed).toBe(true);
     });
 
-    test('cursor_agent should NOT be able to create recipes', () => {
-      const result = permissionManager.check('cursor_agent', 'create', '/recipes');
+    test('external_agent should NOT be able to create recipes', () => {
+      const result = permissionManager.check('external_agent', 'create', '/recipes');
       expect(result.allowed).toBe(false);
       expect(result.reason).toContain('Missing permission');
     });
 
-    test('cursor_agent should NOT be able to update recipes', () => {
-      const result = permissionManager.check('cursor_agent', 'update', '/recipes');
+    test('external_agent should NOT be able to update recipes', () => {
+      const result = permissionManager.check('external_agent', 'update', '/recipes');
       expect(result.allowed).toBe(false);
     });
 
-    test('cursor_agent should NOT be able to delete', () => {
-      const result = permissionManager.check('cursor_agent', 'delete', '/candidates');
+    test('external_agent should NOT be able to delete', () => {
+      const result = permissionManager.check('external_agent', 'delete', '/candidates');
       expect(result.allowed).toBe(false);
     });
 
@@ -54,9 +54,9 @@ describe('PermissionManager', () => {
       expect(result.allowed).toBe(false);
     });
 
-    test('guard_engine should have specific permissions', () => {
+    test('unknown role (guard_engine removed) should be denied', () => {
       const result = permissionManager.check('guard_engine', 'read', '/candidates');
-      expect(result.allowed).toBeDefined();
+      expect(result.allowed).toBe(false);
     });
   });
 
@@ -78,19 +78,19 @@ describe('PermissionManager', () => {
 
   describe('enforce', () => {
     test('should return true for allowed permission', () => {
-      const result = permissionManager.enforce('developer_admin', 'create', '/recipes');
+      const result = permissionManager.enforce('developer', 'create', '/recipes');
       expect(result).toBe(true);
     });
 
     test('should throw PermissionDenied error for denied permission', () => {
       expect(() => {
-        permissionManager.enforce('cursor_agent', 'create', '/recipes');
+        permissionManager.enforce('external_agent', 'create', '/recipes');
       }).toThrow(PermissionDenied);
     });
 
     test('should include detailed error message', () => {
       try {
-        permissionManager.enforce('cursor_agent', 'delete', '/candidates');
+        permissionManager.enforce('external_agent', 'delete', '/candidates');
       } catch (error) {
         expect(error.message).toContain('Permission denied');
         expect(error.statusCode).toBe(403);
@@ -99,8 +99,8 @@ describe('PermissionManager', () => {
   });
 
   describe('getRolePermissions', () => {
-    test('should return permissions for cursor_agent', () => {
-      const permissions = permissionManager.getRolePermissions('cursor_agent');
+    test('should return permissions for external_agent', () => {
+      const permissions = permissionManager.getRolePermissions('external_agent');
       expect(Array.isArray(permissions)).toBe(true);
       expect(permissions.length).toBeGreaterThan(0);
     });
@@ -112,8 +112,8 @@ describe('PermissionManager', () => {
   });
 
   describe('getRoleConstraints', () => {
-    test('should return constraints for cursor_agent', () => {
-      const constraints = permissionManager.getRoleConstraints('cursor_agent');
+    test('should return constraints for external_agent', () => {
+      const constraints = permissionManager.getRoleConstraints('external_agent');
       expect(Array.isArray(constraints)).toBe(true);
     });
   });
@@ -121,9 +121,9 @@ describe('PermissionManager', () => {
   describe('checkMultiple', () => {
     test('should check multiple permissions at once', () => {
       const checks = [
-        { actor: 'developer_admin', action: 'create', resource: '/recipes' },
-        { actor: 'cursor_agent', action: 'read', resource: '/recipes' },
-        { actor: 'cursor_agent', action: 'create', resource: '/recipes' },
+        { actor: 'developer', action: 'create', resource: '/recipes' },
+        { actor: 'external_agent', action: 'read', resource: '/recipes' },
+        { actor: 'external_agent', action: 'create', resource: '/recipes' },
       ];
 
       const results = permissionManager.checkMultiple(checks);
@@ -135,14 +135,14 @@ describe('PermissionManager', () => {
   });
 
   describe('wildcard matching', () => {
-    test('developer_admin should match wildcard permission', () => {
-      const result = permissionManager.check('developer_admin', 'any_action', '/any_resource');
+    test('developer should match wildcard permission', () => {
+      const result = permissionManager.check('developer', 'any_action', '/any_resource');
       expect(result.allowed).toBe(true);
     });
 
     test('should match action:* pattern', () => {
       // 如果权限包含 action:*
-      const adminPerms = permissionManager.getRolePermissions('developer_admin');
+      const adminPerms = permissionManager.getRolePermissions('developer');
       expect(adminPerms).toContain('*');
     });
   });

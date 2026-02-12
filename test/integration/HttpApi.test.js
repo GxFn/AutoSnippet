@@ -97,7 +97,7 @@ describe('Integration: HTTP API Endpoints', () => {
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
       expect(body.data.token).toBeDefined();
-      expect(body.data.user.role).toBe('developer_admin');
+      expect(body.data.user.role).toBe('developer');
     });
 
     test('POST /auth/login — 错误密码返回 401', async () => {
@@ -143,7 +143,7 @@ describe('Integration: HTTP API Endpoints', () => {
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(body.data.user.role).toBe('developer_admin');
+      expect(body.data.user.role).toBe('developer');
     });
 
     test('GET /auth/me — 无 token 返回 401', async () => {
@@ -198,7 +198,7 @@ describe('Integration: HTTP API Endpoints', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-Id': 'developer_admin',
+          'X-User-Id': 'developer',
         },
         body: JSON.stringify({
           title: 'Test Candidate from HTTP',
@@ -246,7 +246,7 @@ describe('Integration: HTTP API Endpoints', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-Id': 'developer_admin',
+          'X-User-Id': 'developer',
         },
         body: JSON.stringify({
           name: 'Test Recipe HTTP',
@@ -281,16 +281,16 @@ describe('Integration: HTTP API Endpoints', () => {
   // ═══════════════════════════════════════════════════════
 
   describe('Role-based Access Control via Header', () => {
-    test('visitor 可以 GET /recipes', async () => {
+    test('external_agent 可以 GET /recipes', async () => {
       const res = await fetch(`${BASE}/recipes`, {
-        headers: { 'X-User-Id': 'visitor' },
+        headers: { 'X-User-Id': 'external_agent' },
       });
       expect(res.status).toBe(200);
     });
 
-    test('guard_engine 可以 GET /candidates', async () => {
+    test('chat_agent 可以 GET /candidates', async () => {
       const res = await fetch(`${BASE}/candidates`, {
-        headers: { 'X-User-Id': 'guard_engine' },
+        headers: { 'X-User-Id': 'chat_agent' },
       });
       expect(res.status).toBe(200);
     });

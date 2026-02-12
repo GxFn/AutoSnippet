@@ -4,6 +4,123 @@
 
 ---
 
+## [2.4.0] - 2026-02-13
+
+### ChatAgent 增强 — 项目感知 + 信心信号 + 工具链 + 轻量记忆
+
+> 参考 Anthropic Tool Use / OpenAI Function Calling / LangGraph 业界实践，对 ChatAgent 进行 4 批次增强。
+
+#### Batch 1: Project Briefing（项目概况注入）
+
+- **`#buildProjectBriefing()`**：每次 `execute()` 入口自动聚合项目状态（Recipe 分布、Guard 规则数、候选积压量），注入系统提示词
+- 单次 SQL 聚合 < 5ms，DB 不可用时静默降级
+- 空知识库自动提示"建议先执行冷启动"
+
+#### Batch 2: Confidence Signal（信心信号）
+
+- **`search_recipes`**：搜索结果附加 `reasoning: { whyRelevant, rank }`，根据匹配分生成分级信心标注
+- **`search_knowledge`**：返回 `_meta: { confidence, hint }`（high/medium/low/none 四级）
+- **`check_duplicate`**：返回 `_meta` 查重信心标注（高相似 → 建议人工审核）
+- 系统提示词新增规则 9：confidence=none 时告知用户无匹配，不凭空编造
+
+#### Batch 3: Tool Chains（组合工具）
+
+- **`analyze_code`**（#34）：Guard 规范检查 + 相关 Recipe 搜索，并行执行
+- **`knowledge_overview`**（#35）：全局知识库概览（Recipe 分布 + 候选状态 + 知识图谱 + 质量概览）
+- **`submit_with_check`**（#36）：查重 → 条件提交，发现高相似则阻止并返回相似列表
+- 系统提示词新增规则 10：优先使用组合工具减少 ReAct 轮次
+- 工具总数从 33 扩展至 37
+
+#### Batch 4: Lightweight Memory（跨对话轻量记忆）
+
+- **新增 `Memory.js`**（~104 行）：JSONL 文件存储，TTL 自动过期，上限 50 条自动截断
+- 三种记忆类型：preference（用户偏好）、decision（关键决策）、context（项目上下文）
+- `#extractMemory()`：从用户消息正则匹配偏好性表述（"我们不用…"、"以后都…"、"记住…"），零延迟写入
+- `toPromptSection()` 生成历史记忆摘要注入系统提示词
+
+#### P2 预留接口
+
+- **`executeEvent(event)`**：事件驱动入口，支持 file_saved / candidate_backlog / scheduled_health 三种事件类型
+- `#eventToPrompt()`：事件到自然语言提示词的映射
+
+### 链路修复
+
+- `#buildProjectBriefing()` SQL 修复：`kind='rule'` → `knowledge_type IN (...)`，`status='PENDING'` → `status='pending'`，`guard_rules` 表引用 → `recipes WHERE knowledge_type='boundary-constraint'`
+
+---
+
+## [2.2.0] - 2026-02-13
+
+### 重构 — 治理架构精简
+
+> 跨项目架构对比后的 4 阶段精简行动，削减 ~1,090 行死代码，简化 Constitution / Gateway / Validator 管线。
+
+#### Phase 1: 死代码清理
+
+- **移除 RoleDriftMonitor**（~300 行）：角色漂移监控从未被调用，已从 bootstrap / ServiceContainer / McpServer 清除
+- **移除 SessionManager**（~280 行）：会话管理仅 RoleDriftMonitor 依赖，连带删除
+- **移除 ReasoningLogger**（~250 行）：推理日志组件无消费者，已清除
+- **移除 ComplianceEvaluator**（~260 行）：合规评估器无调用方，已清除
+- 清理残留引用：bootstrap.js、ServiceContainer.js、McpServer.js、api-server.js、cli.js、Gateway.js、search.js、browse.js、init-db.js
+
+#### Phase 2: Constitution v3.0 + Gateway 精简
+
+- **Constitution v3.0**：`constitution.yaml` 从 v2.0 P1–P4 优先级格式改为 v3.0 扁平 `rules` 数组（135→65 行）
+- **角色精简**：6 个角色缩减为 3 个（external_agent / chat_agent / developer）；移除 guard_engine、developer_contributor、visitor
+- **ConstitutionValidator 重写**（260→150 行）：rule-based checker 模式替代优先级遍历，4 个检查器映射表
+- **Gateway 管线精简**（321→250 行，7→4 步）：移除 Plugin 系统（`use()` / `getPlugins()` / `runPlugins()`），合并 `checkPermission()` + `validateConstitution()` 为单一 `guard()` 方法；管线：validate → guard → route → audit
+
+#### Phase 3: AI 人格 & 技能扩展
+
+- **SOUL.md**（新文件）：AI 身份/人格定义文件，注入 ChatAgent 系统提示词；包含 "我是谁"、"思考方式"、"面对模糊"、"硬约束" 四节
+- **项目级 Skills**：ChatAgent / tools.js / MCP skill.js 均支持从 `.autosnippet/skills/` 加载项目级技能，同名覆盖内置技能
+- **SkillHooks 生命周期钩子**（新文件，~125 行）：支持 4 个钩子点（onCandidateSubmit / onRecipeCreated / onGuardCheck / onBootstrapComplete）；从内置与项目级 skills 目录加载 `hooks.js`
+- **Reasoning 字段扩展**：Guard 违规结果附加 `reasoning: { whatViolated, whyItMatters, suggestedFix }`；搜索结果附加 `reasoning: { whyRelevant, rank }`
+
+### 变更
+
+- Constitution `toJSON()` 保留 `priorities`（空数组）向后兼容，新增 `rules` 字段
+- `init-db.js` 显示 `rules` 数量替代 `priorities`
+- 测试套件从 291→264（移除已删除组件/角色/Plugin 相关用例）
+- Dashboard 版本号同步升级至 2.2.0
+
+---
+
+## [2.3.0] - 2026-02-13
+
+### 链路打通 — 7 个断裂点修复 + 3 个废弃清理
+
+> 架构审计发现 7 个断裂点和 3 个废弃残留，全部修复并打通。
+
+#### Batch 1: 基础修复
+
+- **CapabilityProbe 角色映射统一**：`contributor` / `visitor` 探针结果统一映射为 `developer`（本地用户 = 项目 Owner）
+- **GatewayActionRegistry 修复**：新增 `candidate:update` action（MCP enrich/refine 工具的 Gateway gating 引用）
+- **SearchService 名称修复**：`search:query` action 从 `container.get('searchService')` 改为 `container.get('searchEngine')`
+- **EventBus / PluginManager 清理**：移除 ServiceContainer 中零消费者的注册（源文件保留）
+
+#### Batch 2: SkillHooks 触发集成
+
+- **CandidateService.createCandidate** 新增 `onCandidateSubmit` blocking hook（可拦截不合规候选）
+- **RecipeService.createRecipe** 新增 `onRecipeCreated` fire-and-forget hook
+- **MCP guard handler** 新增 `onGuardCheck` passthrough hook（允许 hooks 修改 violations）
+- **MCP bootstrap handler** 新增 `onBootstrapComplete` fire-and-forget hook
+- SkillHooks 通过 ServiceContainer 构造函数注入 CandidateService / RecipeService
+
+#### Batch 3: Guard Reasoning 全路径
+
+- **Reasoning 下沉到引擎层**：`GuardCheckEngine.checkCode()` 内置 `reasoning` 字段附加，MCP / CLI / ChatAgent 三条路径统一生效
+- **ChatAgent tools.js** 移除重复的 reasoning 包装代码
+
+#### Batch 4: 前端对齐 + DI 完善
+
+- **Dashboard 角色系统同步**：`usePermission.ts` RoleId 从 6 个角色更新为 3 个（external_agent / chat_agent / developer）
+- **Sidebar / HelpView** 角色标签全部对齐（开发者 / Agent / ChatAgent）
+- **Constitution 注册到 ServiceContainer**：三个入口点均传入 `constitution` 组件，`container.get('constitution')` 可用
+- **SetupService 模板更新**：`asd setup` 生成的 constitution.yaml 模板同步为 v3.0 格式
+
+---
+
 ## [2.1.0] - 2026-02-13
 
 ### 新增

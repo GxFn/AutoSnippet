@@ -20,10 +20,9 @@ interface SidebarProps {
 }
 
 const ROLE_LABELS: Record<string, { label: string, color: string, bg: string }> = {
-  developer_admin:       { label: '管理员', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
-  developer_contributor: { label: '贡献者', color: 'text-blue-700',    bg: 'bg-blue-50 border-blue-200' },
-  visitor:               { label: '访客',   color: 'text-slate-500',   bg: 'bg-slate-100 border-slate-200' },
-  cursor_agent:          { label: 'Agent', color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200' },
+  developer:       { label: '开发者', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
+  external_agent:  { label: 'Agent', color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200' },
+  chat_agent:      { label: 'ChatAgent', color: 'text-blue-700',    bg: 'bg-blue-50 border-blue-200' },
 };
 
 const MODE_ICONS: Record<string, typeof ShieldCheck> = {
@@ -32,7 +31,7 @@ const MODE_ICONS: Record<string, typeof ShieldCheck> = {
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, navigateToTab, handleRefreshProject, candidateCount, isDarkMode = false, currentUser, currentRole, permissionMode, onLogout }) => {
-  const roleInfo = ROLE_LABELS[currentRole || ''] || ROLE_LABELS.visitor;
+  const roleInfo = ROLE_LABELS[currentRole || ''] || ROLE_LABELS.developer;
   const ModeIcon = MODE_ICONS[permissionMode || 'probe'] || Eye;
 
   return (

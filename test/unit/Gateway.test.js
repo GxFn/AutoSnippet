@@ -8,7 +8,6 @@ import PermissionManager from '../../lib/core/permission/PermissionManager.js';
 import DatabaseConnection from '../../lib/infrastructure/database/DatabaseConnection.js';
 import AuditLogger from '../../lib/infrastructure/audit/AuditLogger.js';
 import AuditStore from '../../lib/infrastructure/audit/AuditStore.js';
-import SessionManager from '../../lib/core/session/SessionManager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,7 +19,6 @@ describe('Gateway', () => {
   let permissionManager;
   let db;
   let auditLogger;
-  let sessionManager;
 
   beforeAll(async () => {
     // 初始化依赖
@@ -36,7 +34,6 @@ describe('Gateway', () => {
 
     const auditStore = new AuditStore(db);
     auditLogger = new AuditLogger(auditStore);
-    sessionManager = new SessionManager(db);
 
     gateway = new Gateway({});
     gateway.setDependencies({
@@ -44,7 +41,6 @@ describe('Gateway', () => {
       constitutionValidator,
       permissionManager,
       auditLogger,
-      sessionManager,
     });
   });
 
@@ -59,7 +55,7 @@ describe('Gateway', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'test_action',
         resource: '/test',
         data: { test: true },
@@ -76,7 +72,7 @@ describe('Gateway', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'cursor_agent',
+        actor: 'external_agent',
         action: 'create_recipe',
         resource: '/recipes', // 问题：action 和 resource 不匹配
         data: { name: 'Test' },
@@ -92,7 +88,7 @@ describe('Gateway', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'cursor_agent',
+        actor: 'external_agent',
         action: 'create',
         resource: '/candidates',
         data: { name: 'Test' }, // 缺少 code 和 reasoning
@@ -108,7 +104,7 @@ describe('Gateway', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'audit_test',
         resource: '/test',
       });
@@ -119,7 +115,7 @@ describe('Gateway', () => {
 
     test('should handle missing action', async () => {
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         // 缺少 action
         resource: '/test',
       });
@@ -148,7 +144,7 @@ describe('Gateway', () => {
       gateway.register('context_test', handler);
 
       await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'context_test',
         resource: '/test',
         data: { foo: 'bar' },
@@ -156,7 +152,7 @@ describe('Gateway', () => {
 
       expect(handler).toHaveBeenCalled();
       const context = handler.mock.calls[0][0];
-      expect(context.actor).toBe('developer_admin');
+      expect(context.actor).toBe('developer');
       expect(context.action).toBe('context_test');
       expect(context.data.foo).toBe('bar');
     });
@@ -193,49 +189,6 @@ describe('Gateway', () => {
     });
   });
 
-  describe('plugins', () => {
-    test('should register plugin', () => {
-      const plugin = {
-        name: 'TestPlugin',
-        pre: jest.fn(),
-        post: jest.fn(),
-      };
-
-      gateway.use(plugin);
-      const plugins = gateway.getPlugins();
-      expect(plugins).toContain('TestPlugin');
-    });
-
-    test('should call plugin hooks', async () => {
-      const plugin = {
-        name: 'HookTestPlugin',
-        pre: jest.fn(),
-        post: jest.fn(),
-      };
-
-      const testGateway = new Gateway({});
-      testGateway.setDependencies({
-        constitution,
-        constitutionValidator,
-        permissionManager,
-        auditLogger,
-        sessionManager,
-      });
-
-      testGateway.use(plugin);
-      testGateway.register('hook_test', async () => ({ ok: true }));
-
-      await testGateway.execute({
-        actor: 'developer_admin',
-        action: 'hook_test',
-        resource: '/test',
-      });
-
-      expect(plugin.pre).toHaveBeenCalled();
-      expect(plugin.post).toHaveBeenCalled();
-    });
-  });
-
   describe('error handling', () => {
     test('should catch handler errors', async () => {
       gateway.register('error_action', async () => {
@@ -243,7 +196,7 @@ describe('Gateway', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'error_action',
         resource: '/test',
       });
@@ -254,7 +207,7 @@ describe('Gateway', () => {
 
     test('should report correct error status codes', async () => {
       const result = await gateway.execute({
-        actor: 'cursor_agent',
+        actor: 'external_agent',
         action: 'create_recipe',
         resource: '/recipes',
       });
@@ -269,13 +222,13 @@ describe('Gateway', () => {
       gateway.register('tracking_test', async () => ({ ok: true }));
 
       const result1 = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'tracking_test',
         resource: '/test1',
       });
 
       const result2 = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'tracking_test',
         resource: '/test2',
       });
@@ -293,7 +246,7 @@ describe('Gateway', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'slow_action',
         resource: '/test',
       });

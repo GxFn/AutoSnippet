@@ -430,11 +430,11 @@ const HelpView: React.FC = () => {
               <div className="space-y-2 text-xs">
                 <div className="flex items-start gap-2">
                   <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium shrink-0">治理层</span>
-                  <span className="text-slate-600">P1 数据完整 → P2 人工监督 → P3 AI 透明 → P4 有用性</span>
+                  <span className="text-slate-600">4 条数据完整性规则（destructive_confirm / content_required / ai_no_direct_recipe / batch_authorized）</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium shrink-0">角色层</span>
-                  <span className="text-slate-600">cursor_agent · asd_ais · guard_engine · developer_admin · contributor · visitor</span>
+                  <span className="text-slate-600">external_agent · chat_agent · developer（3 角色）</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium shrink-0">能力层</span>

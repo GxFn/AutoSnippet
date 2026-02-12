@@ -30,7 +30,7 @@ describe('Integration: Complete Gateway Flow', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'cursor_agent',
+        actor: 'external_agent',
         action: 'read_recipes',
         resource: '/recipes',
       });
@@ -48,7 +48,7 @@ describe('Integration: Complete Gateway Flow', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'cursor_agent',
+        actor: 'external_agent',
         action: 'create_recipe',
         resource: '/recipes',
       });
@@ -66,7 +66,7 @@ describe('Integration: Complete Gateway Flow', () => {
 
       // 没有 code 和 reasoning
       const result = await gateway.execute({
-        actor: 'cursor_agent',
+        actor: 'external_agent',
         action: 'create',
         resource: '/candidates',
         data: { name: 'Test' },
@@ -84,7 +84,7 @@ describe('Integration: Complete Gateway Flow', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'admin_create_recipe',
         resource: '/recipes',
         data: {
@@ -105,7 +105,7 @@ describe('Integration: Complete Gateway Flow', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'cursor_agent',
+        actor: 'external_agent',
         action: 'submit_candidates',
         resource: '/candidates',
         data: {
@@ -126,31 +126,6 @@ describe('Integration: Complete Gateway Flow', () => {
     });
   });
 
-  describe('Session integration', () => {
-    test('should associate request with session', async () => {
-      const { gateway, sessionManager } = components;
-
-      const session = sessionManager.create({
-        scope: 'project',
-        scopeId: '/my/project',
-        actor: 'cursor_agent',
-      });
-
-      gateway.register('session_test', async (context) => {
-        return { sessionId: context.session || 'no-session' };
-      });
-
-      const result = await gateway.execute({
-        actor: 'developer_admin',
-        action: 'session_test',
-        resource: '/test',
-        session: session.id,
-      });
-
-      expect(result.success).toBe(true);
-    });
-  });
-
   describe('Audit integration', () => {
     test('should record successful operations', async () => {
       const { gateway, auditStore } = components;
@@ -160,7 +135,7 @@ describe('Integration: Complete Gateway Flow', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'audit_success_test',
         resource: '/test',
       });
@@ -182,7 +157,7 @@ describe('Integration: Complete Gateway Flow', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'audit_fail_test',
         resource: '/test',
       });
@@ -207,7 +182,7 @@ describe('Integration: Complete Gateway Flow', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'audit_duration_test',
         resource: '/test',
       });
@@ -223,17 +198,15 @@ describe('Integration: Complete Gateway Flow', () => {
   describe('Permission matrix verification', () => {
     const testCases = [
       // (actor, action, resource, shouldSucceed)
-      ['developer_admin', 'read', '/recipes', true],
-      ['developer_admin', 'create', '/recipes', true],
-      ['developer_admin', 'delete', '/candidates', true],
-      ['cursor_agent', 'read', '/recipes', true],
-      ['cursor_agent', 'create', '/candidates', true], // cursor_agent 有 create:candidates 权限
-      ['cursor_agent', 'create', '/recipes', false],
-      ['cursor_agent', 'delete', '/candidates', false],
-      ['asd_ais', 'read', '/candidates', true],
-      ['asd_ais', 'create', '/recipes', false],
-      ['guard_engine', 'read', '/candidates', true],
-      ['guard_engine', 'create', '/guard_rules', false], // 没有权限
+      ['developer', 'read', '/recipes', true],
+      ['developer', 'create', '/recipes', true],
+      ['developer', 'delete', '/candidates', true],
+      ['external_agent', 'read', '/recipes', true],
+      ['external_agent', 'create', '/candidates', true], // external_agent 有 create:candidates 权限
+      ['external_agent', 'create', '/recipes', false],
+      ['external_agent', 'delete', '/candidates', false],
+      ['chat_agent', 'read', '/candidates', true],
+      ['chat_agent', 'create', '/recipes', false],
     ];
 
     testCases.forEach(([actor, action, resource, shouldSucceed]) => {
@@ -285,7 +258,7 @@ describe('Integration: Complete Gateway Flow', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'const_delete',
         resource: '/candidates/123',
         data: {},
@@ -303,7 +276,7 @@ describe('Integration: Complete Gateway Flow', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'const_delete_confirmed',
         resource: '/candidates/123',
         data: { confirmed: true },
@@ -323,7 +296,7 @@ describe('Integration: Complete Gateway Flow', () => {
       });
 
       const result1 = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'error_action',
         resource: '/test',
       });
@@ -336,7 +309,7 @@ describe('Integration: Complete Gateway Flow', () => {
       });
 
       const result2 = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'success_action',
         resource: '/test',
       });

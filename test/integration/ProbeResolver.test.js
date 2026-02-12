@@ -37,7 +37,7 @@ describe('Integration: CapabilityProbe', () => {
     });
 
     expect(probe.probe()).toBe('admin');
-    expect(probe.probeRole()).toBe('developer_admin');
+    expect(probe.probeRole()).toBe('developer');
   });
 
   test('subRepoPath = nonexistent → admin', () => {
@@ -55,7 +55,7 @@ describe('Integration: CapabilityProbe', () => {
     });
 
     expect(probe.probe()).toBe('admin');
-    expect(probe.probeRole()).toBe('developer_admin');
+    expect(probe.probeRole()).toBe('developer');
   });
 
   test('有 git repo + 无 remote + noRemote=deny → visitor', () => {
@@ -68,7 +68,7 @@ describe('Integration: CapabilityProbe', () => {
     });
 
     expect(probe.probe()).toBe('visitor');
-    expect(probe.probeRole()).toBe('visitor');
+    expect(probe.probeRole()).toBe('developer');
   });
 
   test('有 git repo + 有 remote (不可 push 的假地址) → contributor', () => {
@@ -194,12 +194,12 @@ describe('Integration: roleResolver middleware', () => {
   test('x-user-id header 直接信任（MCP 场景）', () => {
     const middleware = roleResolverMiddleware({});
     const { req, res, next, wasNextCalled } = mockExpress({
-      'x-user-id': 'cursor_agent',
+      'x-user-id': 'external_agent',
     });
 
     middleware(req, res, next);
     expect(wasNextCalled()).toBe(true);
-    expect(req.resolvedRole).toBe('cursor_agent');
+    expect(req.resolvedRole).toBe('external_agent');
   });
 
   test('x-user-id = "anonymous" 不直接信任（走正常路径）', () => {
@@ -239,11 +239,11 @@ describe('Integration: roleResolver middleware', () => {
     middleware(req, res, next);
 
     expect(wasNextCalled()).toBe(true);
-    expect(req.resolvedRole).toBe('developer_admin');
+    expect(req.resolvedRole).toBe('developer');
     expect(req.resolvedUser).toContain('probe:');
   });
 
-  test('Path B: 无 CapabilityProbe 实例 → 默认 developer_admin（向后兼容）', () => {
+  test('Path B: 无 CapabilityProbe 实例 → 默认 developer（向后兼容）', () => {
     setEnv('VITE_AUTH_ENABLED', undefined);
     setEnv('ASD_AUTH_ENABLED', undefined);
 
@@ -251,7 +251,7 @@ describe('Integration: roleResolver middleware', () => {
     const { req, res, next } = mockExpress({});
 
     middleware(req, res, next);
-    expect(req.resolvedRole).toBe('developer_admin');
+    expect(req.resolvedRole).toBe('developer');
     expect(req.resolvedUser).toBe('local');
   });
 
@@ -263,7 +263,7 @@ describe('Integration: roleResolver middleware', () => {
   // 测试 token 生成与验证的一致性
   test('createTestToken 生成的 token 格式正确', () => {
     const token = createTestToken(
-      { sub: 'admin', role: 'developer_admin' },
+      { sub: 'admin', role: 'developer' },
       TOKEN_SECRET,
     );
 
@@ -274,13 +274,13 @@ describe('Integration: roleResolver middleware', () => {
     // 反序列化 payload
     const payload = JSON.parse(Buffer.from(parts[0], 'base64url').toString());
     expect(payload.sub).toBe('admin');
-    expect(payload.role).toBe('developer_admin');
+    expect(payload.role).toBe('developer');
     expect(payload.exp).toBeGreaterThan(Date.now());
   });
 
   test('createExpiredToken 生成的 token 已过期', () => {
     const token = createExpiredToken(
-      { sub: 'admin', role: 'developer_admin' },
+      { sub: 'admin', role: 'developer' },
       TOKEN_SECRET,
     );
 
@@ -301,7 +301,7 @@ describe('Integration: roleResolver + real CapabilityProbe', () => {
     repos.forEach((r) => r.cleanup());
   });
 
-  test('真实 git repo (无 remote) 通过 middleware → developer_admin', () => {
+  test('真实 git repo (无 remote) 通过 middleware → developer', () => {
     const { repoPath, cleanup } = createTempGitRepo({ withRemote: false });
     repos.push({ repoPath, cleanup });
 
@@ -316,10 +316,10 @@ describe('Integration: roleResolver + real CapabilityProbe', () => {
     middleware(req, {}, () => { nextCalled = true; });
 
     expect(nextCalled).toBe(true);
-    expect(req.resolvedRole).toBe('developer_admin');
+    expect(req.resolvedRole).toBe('developer');
   });
 
-  test('真实 git repo (无 remote, deny) 通过 middleware → visitor', () => {
+  test('真实 git repo (无 remote, deny) 通过 middleware → developer', () => {
     const { repoPath, cleanup } = createTempGitRepo({ withRemote: false });
     repos.push({ repoPath, cleanup });
 
@@ -334,6 +334,6 @@ describe('Integration: roleResolver + real CapabilityProbe', () => {
     middleware(req, {}, () => { nextCalled = true; });
 
     expect(nextCalled).toBe(true);
-    expect(req.resolvedRole).toBe('visitor');
+    expect(req.resolvedRole).toBe('developer');
   });
 });

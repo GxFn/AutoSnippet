@@ -2,9 +2,8 @@
  * 集成测试：Gateway 全链路 — 权限 → 宪法 → 审计 → 角色矩阵
  *
  * 覆盖范围：
- *   ✓ 6 种角色（developer_admin / developer_contributor / visitor /
- *     cursor_agent / asd_ais / guard_engine）的权限矩阵
- *   ✓ Constitution 数据完整性规则（reasoning / 删除确认）
+ *   ✓ 3 种角色（developer / external_agent / chat_agent）的权限矩阵
+ *   ✓ Constitution 数据完整性规则（删除确认 / 内容必须）
  *   ✓ Audit 日志记录（成功 / 失败 / 持续时间）
  *   ✓ 插件 pre/post 钩子
  *   ✓ 错误恢复（handler 崩溃后 gateway 仍可用）
@@ -56,9 +55,9 @@ describe('Integration: Gateway Full Chain', () => {
       }
     });
 
-    // ── developer_admin (wildcard *) ──
-    describe('developer_admin (wildcard *)', () => {
-      const actor = 'developer_admin';
+    // ── developer (wildcard *) ──
+    describe('developer (wildcard *)', () => {
+      const actor = 'developer';
       const allowed = [
         ['read:recipes', '/recipes'],
         ['create:recipes', '/recipes'],
@@ -76,56 +75,9 @@ describe('Integration: Gateway Full Chain', () => {
       }
     });
 
-    // ── developer_contributor ──
-    describe('developer_contributor', () => {
-      const actor = 'developer_contributor';
-      const cases = [
-        ['read:recipes',      '/recipes',    true],
-        ['create:recipes',    '/recipes',    true],
-        ['approve:candidates', '/candidates', true],
-        ['reject:candidates',  '/candidates', true],
-        ['delete:recipes',    '/recipes',    false], // 无 delete 权限
-      ];
-      for (const [action, resource, ok] of cases) {
-        test(`${action} ${resource} → ${ok ? '✓' : '✗'}`, async () => {
-          const r = await components.gateway.execute({
-            actor, action, resource,
-            data: { confirmed: true, code: 'x', reasoning: { whyStandard: 't', sources: ['t'], qualitySignals: {}, alternatives: [], confidence: 0.9 } },
-          });
-          expect(r.success).toBe(ok);
-          if (!ok) expect([400, 403, 500]).toContain(r.error.statusCode);
-        });
-      }
-    });
-
-    // ── visitor (只读) ──
-    describe('visitor (read-only)', () => {
-      const actor = 'visitor';
-      const cases = [
-        ['read:recipes',      '/recipes',      true],
-        ['read:candidates',   '/candidates',   true],
-        ['read:guard_rules',  '/guard_rules',  true],
-        ['read:snippets',     '/snippets',     true],
-        ['search:query',      '/search',       true],
-        ['create:candidates', '/candidates',   false],
-        ['create:recipes',    '/recipes',      false],
-        ['delete:recipes',    '/recipes',      false],
-      ];
-      for (const [action, resource, ok] of cases) {
-        test(`${action} ${resource} → ${ok ? '✓' : '✗'}`, async () => {
-          const r = await components.gateway.execute({
-            actor, action, resource,
-            data: { confirmed: true, code: 'x', reasoning: { whyStandard: 't', sources: ['t'], qualitySignals: {}, alternatives: [], confidence: 0.9 } },
-          });
-          expect(r.success).toBe(ok);
-          if (!ok) expect([400, 403, 500]).toContain(r.error.statusCode);
-        });
-      }
-    });
-
-    // ── cursor_agent ──
-    describe('cursor_agent', () => {
-      const actor = 'cursor_agent';
+    // ── external_agent ──
+    describe('external_agent', () => {
+      const actor = 'external_agent';
       const cases = [
         ['read:recipes',      '/recipes',    true],
         ['create:recipes',    '/recipes',    false],
@@ -143,9 +95,9 @@ describe('Integration: Gateway Full Chain', () => {
       }
     });
 
-    // ── asd_ais ──
-    describe('asd_ais', () => {
-      const actor = 'asd_ais';
+    // ── chat_agent ──
+    describe('chat_agent', () => {
+      const actor = 'chat_agent';
       const cases = [
         ['read:recipes',      '/recipes',    true],
         ['read:candidates',   '/candidates', true],
@@ -163,25 +115,6 @@ describe('Integration: Gateway Full Chain', () => {
       }
     });
 
-    // ── guard_engine ──
-    describe('guard_engine', () => {
-      const actor = 'guard_engine';
-      const cases = [
-        ['read:candidates',   '/candidates',  true],
-        ['read:guard_rules',  '/guard_rules', true],
-        ['create:guard_rules', '/guard_rules', false],
-      ];
-      for (const [action, resource, ok] of cases) {
-        test(`${action} ${resource} → ${ok ? '✓' : '✗'}`, async () => {
-          const r = await components.gateway.execute({
-            actor, action, resource,
-            data: { confirmed: true, code: 'x', reasoning: { whyStandard: 't', sources: ['t'], qualitySignals: {}, alternatives: [], confidence: 0.9 } },
-          });
-          expect(r.success).toBe(ok);
-          if (!ok) expect([400, 403, 500]).toContain(r.error.statusCode);
-        });
-      }
-    });
   });
 
   // ═══════════════════════════════════════════════════════
@@ -189,17 +122,17 @@ describe('Integration: Gateway Full Chain', () => {
   // ═══════════════════════════════════════════════════════
 
   describe('Constitution Enforcement', () => {
-    test('cursor_agent action=create 在 /candidates 上权限通过（normalize → create:candidates）', async () => {
+    test('external_agent action=create 在 /candidates 上权限通过（normalize → create:candidates）', async () => {
       const { gateway } = components;
 
       // PermissionManager 将 action='create' + resource='/candidates' 归一化为 'create:candidates'
-      // cursor_agent 拥有 'create:candidates' 权限，所以请求通过
+      // external_agent 拥有 'create:candidates' 权限，所以请求通过
       if (!gateway.routes.has('create')) {
         gateway.register('create', async () => ({ id: 'c1' }));
       }
 
       const result = await gateway.execute({
-        actor: 'cursor_agent',
+        actor: 'external_agent',
         action: 'create',
         resource: '/candidates',
         data: {
@@ -210,11 +143,11 @@ describe('Integration: Gateway Full Chain', () => {
       expect(result.success).toBe(true);
     });
 
-    test('cursor_agent action=create 在 /recipes 上应被拒绝', async () => {
+    test('external_agent action=create 在 /recipes 上应被拒绝', async () => {
       const { gateway } = components;
 
       const result = await gateway.execute({
-        actor: 'cursor_agent',
+        actor: 'external_agent',
         action: 'create',
         resource: '/recipes',
         data: { code: 'function example() {}' },
@@ -224,11 +157,11 @@ describe('Integration: Gateway Full Chain', () => {
       expect(result.error.statusCode).toBe(403);
     });
 
-    test('带 action=create:candidates + reasoning 的 cursor_agent 请求应成功', async () => {
+    test('带 action=create:candidates + reasoning 的 external_agent 请求应成功', async () => {
       const { gateway } = components;
 
       const result = await gateway.execute({
-        actor: 'cursor_agent',
+        actor: 'external_agent',
         action: 'create:candidates',
         resource: '/candidates',
         data: {
@@ -250,7 +183,7 @@ describe('Integration: Gateway Full Chain', () => {
       const { gateway } = components;
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'delete:candidates',
         resource: '/candidates/abc',
         data: {},
@@ -264,7 +197,7 @@ describe('Integration: Gateway Full Chain', () => {
       const { gateway } = components;
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'delete:candidates',
         resource: '/candidates/abc',
         data: { confirmed: true },
@@ -286,7 +219,7 @@ describe('Integration: Gateway Full Chain', () => {
       gateway.register(actionName, async () => ({ status: 'ok' }));
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: actionName,
         resource: '/test',
       });
@@ -296,7 +229,7 @@ describe('Integration: Gateway Full Chain', () => {
       const logs = await auditStore.query({ action: actionName });
       expect(logs.length).toBeGreaterThan(0);
       expect(logs[0].result).toBe('success');
-      expect(logs[0].actor).toBe('developer_admin');
+      expect(logs[0].actor).toBe('developer');
     });
 
     test('失败操作被记录', async () => {
@@ -308,7 +241,7 @@ describe('Integration: Gateway Full Chain', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: actionName,
         resource: '/test',
       });
@@ -359,7 +292,7 @@ describe('Integration: Gateway Full Chain', () => {
       });
 
       const result = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: actionName,
         resource: '/test',
       });
@@ -373,39 +306,7 @@ describe('Integration: Gateway Full Chain', () => {
   });
 
   // ═══════════════════════════════════════════════════════
-  //  4. 插件 Pre/Post Hook
-  // ═══════════════════════════════════════════════════════
-
-  describe('Plugin Hooks', () => {
-    test('pre/post 插件按序执行', async () => {
-      const { gateway } = components;
-      const callOrder = [];
-
-      gateway.use({
-        name: 'test-order-plugin',
-        pre: async () => { callOrder.push('pre'); },
-        post: async () => { callOrder.push('post'); },
-      });
-
-      const actionName = 'plugin_order_test';
-      gateway.register(actionName, async () => {
-        callOrder.push('handler');
-        return { ok: true };
-      });
-
-      const result = await gateway.execute({
-        actor: 'developer_admin',
-        action: actionName,
-        resource: '/test',
-      });
-
-      expect(result.success).toBe(true);
-      expect(callOrder).toEqual(['pre', 'handler', 'post']);
-    });
-  });
-
-  // ═══════════════════════════════════════════════════════
-  //  5. 错误恢复
+  //  4. 错误恢复
   // ═══════════════════════════════════════════════════════
 
   describe('Error Recovery', () => {
@@ -418,7 +319,7 @@ describe('Integration: Gateway Full Chain', () => {
       });
 
       const r1 = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'recovery_crash',
         resource: '/test',
       });
@@ -428,7 +329,7 @@ describe('Integration: Gateway Full Chain', () => {
       gateway.register('recovery_ok', async () => ({ ok: true }));
 
       const r2 = await gateway.execute({
-        actor: 'developer_admin',
+        actor: 'developer',
         action: 'recovery_ok',
         resource: '/test',
       });
@@ -437,7 +338,7 @@ describe('Integration: Gateway Full Chain', () => {
   });
 
   // ═══════════════════════════════════════════════════════
-  //  6. requestId 唯一性
+  //  5. requestId 唯一性
   // ═══════════════════════════════════════════════════════
 
   describe('Request ID Uniqueness', () => {
@@ -450,7 +351,7 @@ describe('Integration: Gateway Full Chain', () => {
 
       for (let i = 0; i < 5; i++) {
         const r = await gateway.execute({
-          actor: 'developer_admin',
+          actor: 'developer',
           action: 'reqid_unique',
           resource: '/test',
         });

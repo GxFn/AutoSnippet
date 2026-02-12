@@ -25,14 +25,13 @@ async function main() {
     console.log('  - Gateway:', components.gateway ? '✓' : '✗');
     console.log('  - Permission Manager:', components.permissionManager ? '✓' : '✗');
     console.log('  - Audit Logger:', components.auditLogger ? '✓' : '✗');
-    console.log('  - Session Manager:', components.sessionManager ? '✓' : '✗');
 
     // 显示宪法信息
     const constitutionInfo = components.constitution.toJSON();
     console.log('\n📜 Constitution:');
     console.log('  - Version:', constitutionInfo.version);
     console.log('  - Effective Date:', constitutionInfo.effectiveDate);
-    console.log('  - Priorities:', constitutionInfo.priorities.length);
+    console.log('  - Rules:', (constitutionInfo.rules || []).length);
     console.log('  - Roles:', constitutionInfo.roles.length);
 
     await bootstrap.shutdown();
