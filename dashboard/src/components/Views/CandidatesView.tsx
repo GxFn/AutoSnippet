@@ -298,10 +298,10 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                   ? 'text-slate-400 bg-slate-100 cursor-not-allowed'
                   : 'text-white bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-sm hover:shadow'
               }`}
-              title="AI 全量扫描项目，提取知识候选"
+              title="冷启动：结构收集 + 9 维度 Candidate 创建（与 MCP 一致）"
             >
               {isScanning ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}
-              {isScanning ? '扫描中...' : '冷启动扫描'}
+              {isScanning ? '初始化中...' : '冷启动'}
             </button>
           )}
           {/* 批量 AI 补齐 */}
@@ -388,7 +388,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
             </div>
             <p className="text-sm font-medium text-slate-500">未发现候选内容</p>
             <p className="mt-2 text-xs max-w-sm text-center leading-relaxed text-slate-400">
-              点击下方按钮启动 AI 全量扫描，或使用 CLI 命令手动创建
+              点击下方按钮冷启动知识库，或使用 CLI 命令手动创建
             </p>
             {onColdStart && (
               <button
@@ -401,7 +401,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                 }`}
               >
                 {isScanning ? <Loader2 size={16} className="animate-spin" /> : <Rocket size={16} />}
-                {isScanning ? '正在扫描...' : '冷启动：AI 全量扫描项目'}
+                {isScanning ? '正在初始化...' : '冷启动：初始化知识库'}
               </button>
             )}
             <p className="mt-3 text-[11px] text-slate-400">

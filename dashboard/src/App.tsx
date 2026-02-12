@@ -455,14 +455,79 @@ const App: React.FC = () => {
   }
   };
 
-  /** 全项目扫描：AI 提取 + Guard 审计 */
+  /** 冷启动：结构收集 + 9 维度 Candidate 创建（与 MCP bootstrap 一致） */
+  const handleColdStart = async () => {
+  if (isScanning) return;
+  if (abortControllerRef.current) abortControllerRef.current.abort();
+  const controller = new AbortController();
+  abortControllerRef.current = controller;
+
+  // 自动跳转到 Candidates 页面展示结果
+  navigateToTab('candidates');
+  setIsScanning(true);
+  setScanResults([]);
+  setGuardAudit(null);
+  setScanFileList([]);
+  setScanProgress({ current: 0, total: 100, status: '正在收集项目结构...' });
+
+  const phases = [
+    { status: '正在扫描 SPM Target...', percent: 15 },
+    { status: '正在收集源文件...', percent: 30 },
+    { status: '正在构建依赖图谱...', percent: 50 },
+    { status: '正在运行 Guard 审计...', percent: 70 },
+    { status: '正在创建 9 维度 Candidate...', percent: 85 },
+  ];
+  let phaseIndex = 0;
+  const progressTimer = setInterval(() => {
+    phaseIndex = Math.min(phaseIndex + 1, phases.length);
+    const phase = phases[phaseIndex - 1];
+    if (phase) setScanProgress(prev => ({ ...prev, current: phase.percent, status: phase.status }));
+  }, 3000);
+
+  try {
+    const result = await api.bootstrap(controller.signal);
+    clearInterval(progressTimer);
+    setScanProgress({ current: 100, total: 100, status: '冷启动完成' });
+
+    // 刷新候选列表（bootstrap 已创建 Candidate）
+    fetchData();
+
+    const report = result.report || {};
+    const bs = result.bootstrapCandidates || { created: 0 };
+    const guardInfo = result.guardSummary;
+    const targetCount = result.targets?.length || 0;
+    const fileCount = report.totals?.files || 0;
+    const graphEdges = report.totals?.graphEdges || 0;
+    const guardMsg = guardInfo ? `, Guard: ${guardInfo.totalViolations} 项违规` : '';
+
+    notify(
+      `冷启动完成: ${targetCount} 个 Target, ${fileCount} 个文件, ` +
+      `${graphEdges} 条依赖, ${bs.created} 个维度 Candidate 已创建${guardMsg}`
+    );
+  } catch (err: any) {
+    clearInterval(progressTimer);
+    if (axios.isCancel(err)) return;
+    const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
+    const msg = isTimeout
+      ? '冷启动超时，请检查项目文件数量'
+      : (err.response?.data?.error || err.message);
+    notify(msg, { type: 'error' });
+  } finally {
+    if (abortControllerRef.current === controller) {
+    setIsScanning(false);
+    setScanProgress({ current: 0, total: 0, status: '' });
+    abortControllerRef.current = null;
+    }
+  }
+  };
+
+  /** 全项目扫描：AI 提取候选 + Guard 审计（SPM 页面专用） */
   const handleScanProject = async () => {
   if (isScanning) return;
   if (abortControllerRef.current) abortControllerRef.current.abort();
   const controller = new AbortController();
   abortControllerRef.current = controller;
 
-  // 自动跳转到 SPM 页面显示扫描进度
   navigateToTab('spm');
   setSelectedTargetName('__project__');
   setIsScanning(true);
@@ -929,7 +994,7 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
         isPendingTarget={isPendingTarget}
         handleDeleteCandidate={handleDeleteCandidate} 
         onEditRecipe={openRecipeEdit}
-        onColdStart={handleScanProject}
+        onColdStart={handleColdStart}
         isScanning={isScanning}
         onRefresh={fetchData}
         onAuditCandidate={(cand, targetName) => {

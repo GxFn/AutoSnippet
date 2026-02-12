@@ -391,6 +391,24 @@ export const api = {
     };
   },
 
+  /** 冷启动：结构收集 + 9 维度 Candidate 创建（与 MCP bootstrap 一致） */
+  async bootstrap(signal?: AbortSignal) {
+    const res = await http.post('/spm/bootstrap', {}, { signal, timeout: 120000 });
+    const data = res.data?.data || {};
+    return {
+      report: data.report || {},
+      targets: data.targets || [],
+      filesByTarget: data.filesByTarget || {},
+      dependencyGraph: data.dependencyGraph || null,
+      languageStats: data.languageStats || {},
+      primaryLanguage: data.primaryLanguage || '',
+      guardSummary: data.guardSummary || null,
+      guardViolationFiles: data.guardViolationFiles || [],
+      bootstrapCandidates: data.bootstrapCandidates || { created: 0, failed: 0 },
+      message: data.message || '',
+    };
+  },
+
   async getDepGraph(level: string) {
     const res = await http.get(`/spm/dep-graph?level=${level}`);
     return res.data?.data || {};
