@@ -124,65 +124,13 @@ asd install:cursor-skill --mcp  # 安装 Skills + MCP 配置
 asd install:vscode-copilot      # 配置 MCP 和 Copilot 指令
 ```
 
-### Xcode（深度原生集成）
+### Xcode
 
-AutoSnippet 不依赖 Xcode 插件，而是通过 **AppleScript + FileWatcher + Native macOS UI** 实现对 Xcode 的深度原生控制。
+通过 Code Snippet 触发词（`ass` / `asc` / `asa`）+ 文件保存指令与知识库交互，详见下方 [Xcode 深度集成](#xcode-深度集成)。
 
-#### 保存即触发
-
-FileWatcher（chokidar）监听项目源码目录，在 Xcode 中按 `⌘S` 即可触发指令：
-
-```swift
-// as:search networking        ← 保存后自动搜索知识库，弹出原生选择列表
-// as:create                   ← 保存后打开 Dashboard 或从剪贴板静默提交候选
-// as:audit                    ← 保存后按知识库审查当前文件
+```bash
+asd setup              # 注册 Snippet，重启 Xcode 生效
 ```
-
-三层 Save Event Filter 避免误触发：
-1. **Self-write 冷却**：AutoSnippet 自身写入的文件在冷却期内忽略
-2. **内容哈希去重**：文件内容未变时跳过
-3. **Xcode 焦点检测**：Xcode 不在前台时跳过（区分手动保存 vs 切窗口自动保存）
-
-#### AppleScript IDE 自动化
-
-通过 `osascript` 直接驱动 Xcode 编辑器：
-
-| 能力 | 实现 |
-|------|------|
-| 行号跳转 | `⌘L` → 输入行号 → 回车 |
-| 行选中 | `⌘←` 行首 → `⌘⇧→` 选到行尾 |
-| 剪切/粘贴 | `⌘X` / `⌘V`，支持选中替换 |
-| 前台检测 | 检查 Xcode 是否 running / frontmost |
-| 文档保存 | `⌘S` 自动保存活动文档 |
-
-搜索结果插入的完整链路：搜索 → 写入剪贴板 → 跳转到触发行 → 选中原指令 → 粘贴替换。
-
-#### 原生 macOS UI
-
-不依赖终端交互，通过 **Swift 原生二进制**（降级为 AppleScript `choose from list`）弹出系统级 UI：
-
-- **搜索结果列表**：原生弹窗展示匹配 Recipe，键盘选择后自动插入
-- **确认对话框**：头文件注入前弹出预览确认
-- **系统通知**：操作完成后通过 `display notification` 反馈
-
-#### 智能头文件注入
-
-插入代码片段时自动分析所需 `import`：
-
-1. 检查 SPM 模块可达性（当前 Target 是否已声明依赖）
-2. 弹出 NativeUI 确认弹窗，展示待注入的 import 列表
-3. 通过 AppleScript 跳转到文件 import 区域，自动插入头文件
-4. 若 Xcode 自动化失败，降级到文件级直接写入
-
-#### Code Snippet 触发词
-
-| 触发关键词 | 作用 |
-|-----------|------|
-| `ass` | 搜索知识库并插入代码（最快捷的联想方式） |
-| `asc` | 创建候选——打开 Dashboard 或从剪贴板静默提交 |
-| `asa` | 按知识库审查当前代码 |
-
-> 执行 `asd setup` 注册 Snippet 后，需**重启 Xcode** 才生效。
 
 ## CLI 命令参考
 
@@ -269,6 +217,19 @@ your-project/
 - **AI**：Gemini / OpenAI / Anthropic（通过 AiProvider 抽象层）
 - **AST**：Tree-sitter（Swift / ObjC / JS / TS）
 - **索引**：语义向量 + BM25 + 关键词三模式搜索
+
+## Xcode 深度集成
+
+AutoSnippet 不依赖 Xcode 插件，通过 **AppleScript + FileWatcher + 原生 macOS UI** 实现深度集成。
+
+| 能力 | 说明 |
+|------|------|
+| **保存即触发** | FileWatcher 监听源码目录；在代码中写入 `// as:search`、`// as:create`、`// as:audit` 后按 `⌘S`，自动执行对应操作 |
+| **AppleScript 自动化** | 通过 `osascript` 驱动 Xcode——行号跳转、行选中、剪切/粘贴替换、前台检测；搜索结果直接替换触发行 |
+| **原生 macOS UI** | Swift 原生弹窗展示搜索结果列表（降级为 AppleScript `choose from list`）；系统通知反馈操作结果 |
+| **智能 import 注入** | 插入代码时自动分析所需 `import`，检查 SPM 模块可达性，确认后通过 AppleScript 注入头文件 |
+| **三层防误触** | Self-write 冷却 + 内容哈希去重 + Xcode 焦点检测，区分手动保存与自动保存 |
+| **Code Snippet** | `ass`（搜索插入）、`asc`（创建候选）、`asa`（代码审查），`asd setup` 注册后重启 Xcode 生效 |
 
 ## 贡献
 
