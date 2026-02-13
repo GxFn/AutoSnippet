@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Zap, FileSearch, Box, Trash2, Edit3, Layers, Eye, EyeOff, GitCompare, X, Copy, Brain, BookOpen, Target, ChevronDown, ChevronUp, Sparkles, Shield, Clock, Code2, Tag, AlertTriangle, CheckCircle2, BarChart3, Filter, ArrowUpDown, Rocket, Wand2, Loader2 } from 'lucide-react';
-import { ProjectData, ExtractedRecipe, CandidateItem } from '../../types';
+import { ProjectData, ExtractedRecipe, CandidateItem, SimilarRecipe } from '../../types';
 import api from '../../api';
 import { notify } from '../../utils/notification';
 import { categoryConfigs } from '../../constants';
@@ -9,8 +9,6 @@ import MarkdownWithHighlight, { stripFrontmatter } from '../Shared/MarkdownWithH
 import Pagination from '../Shared/Pagination';
 import { ICON_SIZES } from '../../constants/icons';
 import RefineChatPanel from './RefineChatPanel';
-
-interface SimilarRecipe { recipeName: string; similarity: number; }
 
 const SILENT_LABELS: Record<string, string> = { _watch: 'as:create', _draft: '草稿', _cli: 'CLI', _pending: '待审核(24h)', _recipe: 'New Recipe' };
 
@@ -147,6 +145,8 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [similarityMap, setSimilarityMap] = useState<Record<string, SimilarRecipe[]>>({});
   const [similarityLoading, setSimilarityLoading] = useState<string | null>(null);
+  /** 异步刷新后的候选覆盖——不触发整页刷新即可更新抽屉 */
+  const [candidateOverrides, setCandidateOverrides] = useState<Record<string, CandidateItem>>({});
   const [filters, setFilters] = useState({
     priority: 'all' as 'all' | 'high' | 'medium' | 'low',
     sort: 'default' as 'default' | 'score-desc' | 'score-asc' | 'confidence-desc' | 'date-desc',
@@ -198,6 +198,9 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
       }
     }
     const initialCache: Record<string, string> = { [normalizedRecipeName]: recipeContent };
+    // 确保详情抽屉打开 + 关闭润色面板（互斥）
+    setExpandedId(cand.id);
+    setRefinePanel(null);
     setCompareModal({ candidate: cand, targetName, recipeName: normalizedRecipeName, recipeContent, similarList: similarList.slice(0, 3), recipeContents: initialCache });
   }, [data?.recipes]);
 
@@ -248,7 +251,11 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
       } else {
         notify('所有结构字段已完整，无需补齐');
       }
-      onRefresh?.();
+      // 异步刷新抽屉内容（不刷新页面）
+      try {
+        const updated = await api.getCandidate(candidateId);
+        setCandidateOverrides(prev => ({ ...prev, [candidateId]: updated }));
+      } catch (_) {}
     } catch (err: any) {
       notify(`AI 补齐失败: ${err.response?.data?.error || err.message}`, { type: 'error' });
     } finally {
@@ -287,14 +294,17 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
 
   /** 单条候选润色 — 打开对话式润色面板 */
   const handleRefineSingle = useCallback((candidateId: string) => {
+    setCompareModal(null); // 与对比互斥
     setRefinePanel({ candidateIds: [candidateId] });
   }, []);
 
-  /** 润色面板中某条候选已更新 — 局部刷新数据（不整页刷新） */
-  const handleCandidateUpdated = useCallback((candidateId: string) => {
-    // 触发最小化数据刷新
-    onRefresh?.();
-  }, [onRefresh]);
+  /** 润色面板中某条候选已更新 — 局部刷新抽屉（不整页刷新） */
+  const handleCandidateUpdated = useCallback(async (candidateId: string) => {
+    try {
+      const updated = await api.getCandidate(candidateId);
+      setCandidateOverrides(prev => ({ ...prev, [candidateId]: updated }));
+    } catch (_) {}
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -615,9 +625,10 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                     return (
                       <div
                         key={cand.id}
-                        className={`bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-200 flex flex-col group
+                        onClick={() => setExpandedId(isExpanded ? null : cand.id)}
+                        className={`bg-white rounded-xl border overflow-hidden hover:shadow-lg transition-all duration-200 flex flex-col group cursor-pointer
                           ${isShell ? 'opacity-75' : ''}
-                          ${isExpanded ? 'ring-2 ring-blue-200 shadow-lg' : 'hover:border-slate-300'}`}
+                          ${isExpanded ? 'ring-2 ring-blue-300 border-blue-300 shadow-md' : 'border-slate-200 hover:border-slate-300'}`}
                       >
                         {/* ── 卡片头部：类别色条 + 标题 + 置信度 ── */}
                         <div className={`border-l-[4px] ${strongAccent} px-4 pt-3.5 pb-2`}>
@@ -696,7 +707,8 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                             )}
                             {related && (
                               <button
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   const name = String(related.id || related.title || '').trim();
                                   if (name) openCompare(cand, targetName, name, similarList);
                                 }}
@@ -712,7 +724,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
 
                         {/* ── 代码预览（始终显示前 3 行） ── */}
                         {cand.code && (
-                          <div className="mx-3 mb-2 rounded-xl overflow-hidden border border-slate-200/60 shadow-sm">
+                          <div className="overflow-hidden border-t border-slate-200/60">
                             <div className="flex items-center justify-between px-3 py-1.5" style={{ background: '#282c34' }}>
                               <div className="flex items-center gap-2">
                                 <Code2 size={11} className="text-slate-500" />
@@ -733,130 +745,9 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                           </div>
                         )}
 
-                        {/* ── 展开详情 ── */}
-                        {isExpanded && (
-                          <div className="px-4 pb-3 space-y-3 border-t border-slate-100 pt-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                            {/* Reasoning 完整面板 */}
-                            {(() => {
-                              const r = cand.reasoning;
-                              const hasReasoning = r && (r.whyStandard || (r.sources && r.sources.length > 0) || r.confidence != null);
-                              if (!hasReasoning && !cand.quality) return null;
-                              return (
-                                <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 text-xs space-y-2.5">
-                                  <div className="flex items-center gap-1.5 text-indigo-700 font-bold text-[11px]">
-                                    <Brain size={14} />
-                                    AI 推理过程
-                                  </div>
-                                  {hasReasoning ? (
-                                    <>
-                                      {r!.whyStandard && (
-                                        <div>
-                                          <span className="text-indigo-600 font-bold flex items-center gap-1 mb-0.5"><Target size={10} /> 为什么是标准用法</span>
-                                          <p className="text-slate-600 leading-relaxed pl-3">{r!.whyStandard}</p>
-                                        </div>
-                                      )}
-                                      {r!.sources && r!.sources.length > 0 && (
-                                        <div>
-                                          <span className="text-indigo-600 font-bold flex items-center gap-1 mb-0.5"><BookOpen size={10} /> 来源</span>
-                                          <ul className="pl-3 text-slate-600 space-y-0.5">
-                                            {r!.sources.map((s: string, i: number) => <li key={i} className="flex items-start gap-1"><span className="text-indigo-400 mt-0.5">•</span>{s}</li>)}
-                                          </ul>
-                                        </div>
-                                      )}
-                                      {r!.confidence != null && (
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-indigo-600 font-bold">置信度</span>
-                                          <div className="flex-1 max-w-[200px] bg-indigo-100 rounded-full h-2 overflow-hidden">
-                                            <div
-                                              className={`h-full rounded-full transition-all ${r!.confidence >= 0.7 ? 'bg-emerald-500' : r!.confidence >= 0.4 ? 'bg-amber-500' : 'bg-red-500'}`}
-                                              style={{ width: `${Math.round((r!.confidence ?? 0) * 100)}%` }}
-                                            />
-                                          </div>
-                                          <span className={`font-bold ${r!.confidence >= 0.7 ? 'text-emerald-600' : r!.confidence >= 0.4 ? 'text-amber-600' : 'text-red-600'}`}>
-                                            {Math.round((r!.confidence ?? 0) * 100)}%
-                                          </span>
-                                        </div>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <p className="text-slate-400 italic pl-3">暂无推理信息</p>
-                                  )}
-                                </div>
-                              );
-                            })()}
-
-                            {/* 相似 Recipe 列表 */}
-                            {(() => {
-                              const similar = similarityMap[cand.id];
-                              const loading = similarityLoading === cand.id;
-                              const hasSimilar = (similar?.length ?? 0) > 0;
-                              return (hasSimilar || loading) ? (
-                                <div className="flex flex-wrap gap-1.5 items-center">
-                                  <span className="text-[10px] text-slate-400 font-bold">相似 Recipe：</span>
-                                  {loading ? (
-                                    <span className="text-[10px] text-slate-400 animate-pulse">加载中...</span>
-                                  ) : (
-                                    (similar || []).slice(0, 3).map(s => (
-                                      <button
-                                        key={s.recipeName}
-                                        onClick={() => openCompare(cand, targetName, s.recipeName, similar || [])}
-                                        className="text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors flex items-center gap-1"
-                                        title={`与 ${s.recipeName} 相似 ${(s.similarity * 100).toFixed(0)}%`}
-                                      >
-                                        <GitCompare size={10} />
-                                        {s.recipeName.replace(/\.md$/i, '')} {(s.similarity * 100).toFixed(0)}%
-                                      </button>
-                                    ))
-                                  )}
-                                </div>
-                              ) : null;
-                            })()}
-
-                            {/* 完整代码 / 使用指南 */}
-                            <div className="rounded-xl overflow-hidden border border-slate-100 bg-slate-50 max-h-72 overflow-y-auto">
-                              {cand.code ? (
-                                <CodeBlock code={cand.code} language={cand.language === 'objc' ? 'objectivec' : cand.language} showLineNumbers />
-                              ) : (
-                                <div className="p-4">
-                                  <MarkdownWithHighlight content={cand.usageGuide || ''} />
-                                </div>
-                              )}
-                            </div>
-
-                            {/* usageGuide（如果同时有 code 和 usageGuide） */}
-                            {cand.code && cand.usageGuide && (
-                              <div className="rounded-xl overflow-hidden border border-slate-100 bg-white p-3 max-h-48 overflow-y-auto">
-                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 mb-2">
-                                  <BookOpen size={12} /> 使用指南
-                                </div>
-                                <MarkdownWithHighlight content={cand.usageGuide} />
-                              </div>
-                            )}
-
-                            {/* 附加信息区 */}
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-400">
-                              {cand.scope && <span>范围: <strong className="text-slate-600">{cand.scope === 'universal' ? '通用' : cand.scope === 'project-specific' ? '项目级' : '模块级'}</strong></span>}
-                              {cand.headers && cand.headers.length > 0 && <span>头文件: <strong className="text-slate-600">{cand.headers.join(', ')}</strong></span>}
-                              {cand.steps && cand.steps.length > 0 && <span>实施步骤: <strong className="text-slate-600">{cand.steps.length} 步</strong></span>}
-                              {cand.rationale && <span title={cand.rationale}>设计原理: <strong className="text-slate-600 line-clamp-1">{cand.rationale.substring(0, 60)}{cand.rationale.length > 60 ? '...' : ''}</strong></span>}
-                            </div>
-                          </div>
-                        )}
-
                         {/* ── 卡片底栏：元信息 + 操作 ── */}
-                        <div className="flex justify-between items-center px-4 py-2.5 border-t border-slate-100 bg-slate-50/50 mt-auto">
+                        <div className="flex justify-between items-center px-4 py-2.5 border-t border-slate-100 bg-slate-50/50 mt-auto" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center gap-2 flex-wrap min-w-0">
-                            {/* 展开/折叠 */}
-                            <button
-                              onClick={() => setExpandedId(isExpanded ? null : cand.id)}
-                              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors
-                                ${isExpanded ? 'bg-blue-100 text-blue-700' : 'bg-white text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-200'}`}
-                              title={isExpanded ? '收起详情' : '展开详情'}
-                            >
-                              {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                              {isExpanded ? '收起' : '详情'}
-                            </button>
-
                             {/* trigger */}
                             {cand.trigger && (
                               <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 font-bold">{cand.trigger}</span>
@@ -963,117 +854,410 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
         }
       </div>
 
-      {/* ═══ 双栏对比弹窗 ═══ */}
-      {compareModal && (() => {
-        const cand = compareModal.candidate;
-        const candLang = cand.language === 'objc' || cand.language === 'objective-c' ? 'objectivec' : (cand.language || 'text');
-        const copyCandidate = () => {
-          const parts = [];
-          if (cand.code) parts.push('## Snippet / Code Reference\n\n```' + (candLang || '') + '\n' + cand.code + '\n```');
-          if (cand.usageGuide) parts.push('\n## AI Context / Usage Guide\n\n' + cand.usageGuide);
-          navigator.clipboard.writeText(parts.join('\n') || '').then(() => notify('已复制候选内容'));
-        };
-        const copyRecipe = () => {
-          const text = stripFrontmatter(compareModal.recipeContent);
-          navigator.clipboard.writeText(text).then(() => notify('已复制 Recipe 内容'));
-        };
-        const switchToRecipe = async (newName: string) => {
-          if (newName === compareModal.recipeName) return;
-          const cached = compareModal.recipeContents[newName];
-          if (cached) {
-            setCompareModal(prev => prev ? { ...prev, recipeName: newName, recipeContent: cached } : null);
-          } else {
-            let content = '';
-            const existing = data?.recipes?.find(r => r.name === newName || r.name.endsWith('/' + newName));
-            if (existing?.content) content = existing.content;
-            else {
-              try {
-                const recipeData = await api.getRecipeContentByName(newName);
-                content = recipeData.content;
-              } catch (_) { return; }
-            }
-            setCompareModal(prev => prev ? { ...prev, recipeName: newName, recipeContent: content, recipeContents: { ...prev.recipeContents, [newName]: content } } : null);
-          }
-        };
-        const handleDelete = async () => {
-          if (!window.confirm('确定删除该候选？')) return;
-          try {
-            await handleDeleteCandidate(compareModal.targetName, cand.id);
-            setCompareModal(null);
-          } catch (_) {}
-        };
-        const handleAuditCandidate = () => {
-          onAuditCandidate(cand, compareModal.targetName);
-          setCompareModal(null);
-        };
-        const handleEditRecipe = () => {
-          const recipe = data?.recipes?.find(r => r.name === compareModal.recipeName || r.name.endsWith('/' + compareModal.recipeName))
-            || { name: compareModal.recipeName, content: compareModal.recipeContent };
-          onEditRecipe?.(recipe);
-          setCompareModal(null);
-        };
+      {/* ═══ 详情侧面板（抽屉） ═══ */}
+      {expandedId && effectiveTarget && data?.candidates?.[effectiveTarget] && (() => {
+        const allItems = data.candidates[effectiveTarget].items;
+        const rawCand = allItems.find(c => c.id === expandedId);
+        if (!rawCand) return null;
+        // 优先使用异步刷新的覆盖数据
+        const cand = candidateOverrides[expandedId] || rawCand;
+
+        const currentIndex = allItems.findIndex(c => c.id === expandedId);
+        const hasPrev = currentIndex > 0;
+        const hasNext = currentIndex < allItems.length - 1;
+        const goToPrev = () => { if (hasPrev) { setExpandedId(allItems[currentIndex - 1].id); setRefinePanel(null); setCompareModal(null); } };
+        const goToNext = () => { if (hasNext) { setExpandedId(allItems[currentIndex + 1].id); setRefinePanel(null); setCompareModal(null); } };
+
+        const r = cand.reasoning;
+        const hasReasoning = r && (r.whyStandard || (r.sources && r.sources.length > 0) || r.confidence != null);
+        const similar = similarityMap[cand.id] || [];
+        const isLoadingSimilar = similarityLoading === cand.id;
+        const candCatCfg = categoryConfigs[cand.category || ''] || categoryConfigs['All'] || {};
+        const srcInfo = SOURCE_LABELS[cand.source || ''] || { label: cand.source || '', color: 'text-slate-500 bg-slate-50 border-slate-200' };
+
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setCompareModal(null)}>
-            <div className="bg-white rounded-2xl shadow-2xl w-[min(95vw,1600px)] max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
-              <div className="flex justify-between items-center px-5 py-3.5 border-b border-slate-200 shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                    <GitCompare size={16} className="text-white" />
-                  </div>
-                  <h3 className="font-bold text-slate-800">候选 vs Recipe 对比</h3>
-                  <div className="flex items-center gap-1.5 ml-2">
-                    <button onClick={handleDelete} className="text-xs font-medium text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-colors">删除候选</button>
-                    <button onClick={handleAuditCandidate} className="text-xs font-medium text-blue-600 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg transition-colors">审核候选</button>
-                    <button onClick={handleEditRecipe} className="text-xs font-medium text-emerald-600 hover:bg-emerald-50 px-2.5 py-1.5 rounded-lg transition-colors">审核 Recipe</button>
-                  </div>
-                </div>
-                <button onClick={() => setCompareModal(null)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors"><X size={20} /></button>
+          <div className="fixed inset-0 z-40 flex justify-end" onClick={() => { setExpandedId(null); setRefinePanel(null); setCompareModal(null); }}>
+            <div className="absolute inset-0 bg-black/15 backdrop-blur-[1px]" />
+
+            {/* ── 润色侧抽屉（嵌入模式，贴在详情抽屉左侧） ── */}
+            {refinePanel && effectiveTarget && data?.candidates?.[effectiveTarget] && (
+              <div
+                className="relative w-[520px] max-w-[40vw] h-full bg-white shadow-2xl flex flex-col border-l border-slate-200"
+                style={{ animation: 'slideInRight 0.2s ease-out' }}
+                onClick={e => e.stopPropagation()}
+              >
+                <RefineChatPanel
+                  embedded
+                  candidateIds={refinePanel.candidateIds}
+                  candidates={data.candidates[effectiveTarget].items}
+                  onClose={() => setRefinePanel(null)}
+                  onCandidateUpdated={handleCandidateUpdated}
+                />
               </div>
-              <div className="flex-1 grid grid-cols-2 overflow-hidden min-h-0" style={{ gridTemplateRows: 'auto 1fr' }}>
-                <div className="px-5 py-3 bg-blue-50 border-b border-r border-slate-100 flex flex-col justify-center min-h-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-bold text-blue-700 truncate flex-1 min-w-0" title={cand.title}>候选：{cand.title}</span>
-                    <button onClick={copyCandidate} className="p-1.5 hover:bg-blue-100 rounded-lg text-blue-600 shrink-0" title="复制"><Copy size={14} /></button>
+            )}
+
+            {/* ── 对比侧抽屉（贴在详情抽屉左侧） ── */}
+            {compareModal && (() => {
+              const compareCand = compareModal.candidate;
+              const compareCandLang = compareCand.language === 'objc' || compareCand.language === 'objective-c' ? 'objectivec' : (compareCand.language || 'text');
+              const copyCandidate = () => {
+                const parts = [];
+                if (compareCand.code) parts.push('## Snippet / Code Reference\n\n```' + (compareCandLang || '') + '\n' + compareCand.code + '\n```');
+                if (compareCand.usageGuide) parts.push('\n## AI Context / Usage Guide\n\n' + compareCand.usageGuide);
+                navigator.clipboard.writeText(parts.join('\n') || '').then(() => notify('已复制候选内容'));
+              };
+              const copyRecipe = () => {
+                const text = stripFrontmatter(compareModal.recipeContent);
+                navigator.clipboard.writeText(text).then(() => notify('已复制 Recipe 内容'));
+              };
+              const switchToRecipe = async (newName: string) => {
+                if (newName === compareModal.recipeName) return;
+                const cached = compareModal.recipeContents[newName];
+                if (cached) {
+                  setCompareModal(prev => prev ? { ...prev, recipeName: newName, recipeContent: cached } : null);
+                } else {
+                  let content = '';
+                  const existing = data?.recipes?.find(r => r.name === newName || r.name.endsWith('/' + newName));
+                  if (existing?.content) content = existing.content;
+                  else {
+                    try {
+                      const recipeData = await api.getRecipeContentByName(newName);
+                      content = recipeData.content;
+                    } catch (_) { return; }
+                  }
+                  setCompareModal(prev => prev ? { ...prev, recipeName: newName, recipeContent: content, recipeContents: { ...prev.recipeContents, [newName]: content } } : null);
+                }
+              };
+              const handleCompareDelete = async () => {
+                if (!window.confirm('确定删除该候选？')) return;
+                try {
+                  await handleDeleteCandidate(compareModal.targetName, compareCand.id);
+                  setCompareModal(null);
+                } catch (_) {}
+              };
+              const handleCompareAudit = () => {
+                onAuditCandidate(compareCand, compareModal.targetName);
+                setCompareModal(null);
+              };
+              const handleCompareEditRecipe = () => {
+                const recipe = data?.recipes?.find(r => r.name === compareModal.recipeName || r.name.endsWith('/' + compareModal.recipeName))
+                  || { name: compareModal.recipeName, content: compareModal.recipeContent };
+                onEditRecipe?.(recipe);
+                setCompareModal(null);
+              };
+              return (
+                <div
+                  className="relative w-[600px] max-w-[45vw] h-full bg-white shadow-2xl flex flex-col border-l border-slate-200"
+                  style={{ animation: 'slideInRight 0.2s ease-out' }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* 对比面板头部 */}
+                  <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 shrink-0 bg-emerald-50/60">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                        <GitCompare size={16} className="text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-sm text-emerald-800 truncate">Recipe 对比</h3>
+                        <span className="text-[11px] text-emerald-600 truncate block">{compareModal.recipeName.replace(/\.md$/i, '')}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      <button onClick={() => copyRecipe()} className="p-1.5 hover:bg-emerald-100 rounded-lg text-emerald-600 transition-colors" title="复制"><Copy size={14} /></button>
+                      <button onClick={handleCompareEditRecipe} className="text-[11px] font-medium text-emerald-600 hover:bg-emerald-100 px-2 py-1.5 rounded-lg transition-colors">审核 Recipe</button>
+                      <button onClick={() => setCompareModal(null)} className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-400">
+                        <X size={16} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="min-h-[28px] mt-2 shrink-0" />
-                </div>
-                <div className="px-5 py-3 bg-emerald-50 border-b border-slate-100 flex flex-col justify-center min-h-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-bold text-emerald-700 truncate flex-1 min-w-0" title={compareModal.recipeName}>Recipe：{compareModal.recipeName.replace(/\.md$/i, '')}</span>
-                    <button onClick={copyRecipe} className="p-1.5 hover:bg-emerald-100 rounded-lg text-emerald-600 shrink-0" title="复制"><Copy size={14} /></button>
-                  </div>
-                  {compareModal.similarList.length > 1 ? (
-                    <div className="flex flex-wrap gap-1 mt-2 shrink-0">
+
+                  {/* 相似 recipe 切换标签 */}
+                  {compareModal.similarList.length > 1 && (
+                    <div className="flex flex-wrap gap-1 px-5 py-2 border-b border-slate-100 bg-white shrink-0">
                       {compareModal.similarList.map(s => (
                         <button
                           key={s.recipeName}
                           onClick={() => switchToRecipe(s.recipeName)}
-                          className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${compareModal.recipeName === s.recipeName ? 'bg-emerald-200 text-emerald-800' : 'bg-white/80 text-emerald-600 hover:bg-emerald-100'}`}
+                          className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${compareModal.recipeName === s.recipeName ? 'bg-emerald-200 text-emerald-800' : 'bg-white text-emerald-600 hover:bg-emerald-50 border border-emerald-100'}`}
                         >
                           {s.recipeName.replace(/\.md$/i, '')} {(s.similarity * 100).toFixed(0)}%
                         </button>
                       ))}
                     </div>
-                  ) : (
-                    <div className="min-h-[28px] mt-2 shrink-0" />
+                  )}
+
+                  {/* 操作栏 */}
+                  <div className="flex items-center gap-1.5 px-5 py-2 border-b border-slate-100 bg-white shrink-0">
+                    <button onClick={handleCompareDelete} className="text-xs font-medium text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                      <Trash2 size={12} /> 删除候选
+                    </button>
+                    <button onClick={handleCompareAudit} className="text-xs font-medium text-blue-600 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                      <Edit3 size={12} /> 审核候选
+                    </button>
+                    <button onClick={() => copyCandidate()} className="text-xs font-medium text-slate-500 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                      <Copy size={12} /> 复制候选
+                    </button>
+                  </div>
+
+                  {/* Recipe 内容 */}
+                  <div className="flex-1 overflow-auto p-5 min-h-0">
+                    <MarkdownWithHighlight content={compareModal.recipeContent} stripFrontmatter />
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div
+              className="relative w-[700px] max-w-[92vw] h-full bg-white shadow-2xl flex flex-col border-l border-slate-200"
+              style={{ animation: 'slideInRight 0.25s ease-out' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* ── 面板头部 ── */}
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 shrink-0 bg-slate-50/80">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <ConfidenceRing value={cand.reasoning?.confidence ?? null} size={40} />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-sm text-slate-800 truncate">{cand.title}</h3>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase flex items-center gap-1 border ${candCatCfg?.bg || 'bg-slate-50'} ${candCatCfg?.color || 'text-slate-400'} ${candCatCfg?.border || 'border-slate-100'}`}>
+                        {cand.category || 'general'}
+                      </span>
+                      {cand.source && cand.source !== 'unknown' && (
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${srcInfo.color}`}>
+                          {srcInfo.label}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-400">{currentIndex + 1}/{allItems.length}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <button onClick={goToPrev} disabled={!hasPrev} title="上一条"
+                    className={`p-1.5 rounded-lg transition-colors ${hasPrev ? 'hover:bg-slate-200 text-slate-500' : 'text-slate-300 cursor-not-allowed'}`}>
+                    <ChevronUp size={16} />
+                  </button>
+                  <button onClick={goToNext} disabled={!hasNext} title="下一条"
+                    className={`p-1.5 rounded-lg transition-colors ${hasNext ? 'hover:bg-slate-200 text-slate-500' : 'text-slate-300 cursor-not-allowed'}`}>
+                    <ChevronDown size={16} />
+                  </button>
+                  <button onClick={() => { setExpandedId(null); setRefinePanel(null); setCompareModal(null); }} className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-400">
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* ── 面板内容 ── */}
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                {/* 摘要 */}
+                <p className="text-sm text-slate-600 leading-relaxed">{cand.summary || cand.summary_cn || ''}</p>
+
+                {/* 标签行 */}
+                <div className="flex flex-wrap gap-1.5">
+                  {cand.knowledgeType && (
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">{cand.knowledgeType}</span>
+                  )}
+                  {cand.complexity && (
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${cand.complexity === 'advanced' ? 'bg-red-50 text-red-600 border-red-100' : cand.complexity === 'intermediate' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                      {cand.complexity === 'advanced' ? '高级' : cand.complexity === 'intermediate' ? '中级' : '初级'}
+                    </span>
+                  )}
+                  {cand.trigger && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-600 font-bold">{cand.trigger}</span>}
+                  <span className="text-[10px] uppercase font-bold text-slate-400 bg-white border border-slate-200 px-1.5 py-0.5 rounded">{cand.language}</span>
+                  {cand.tags && cand.tags.slice(0, 5).map((tag, i) => (
+                    <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100 font-medium">
+                      {typeof tag === 'string' ? tag : String(tag)}
+                    </span>
+                  ))}
+                  {cand.createdAt && formatDate(cand.createdAt) && (
+                    <span className="text-[9px] text-slate-400 flex items-center gap-0.5">
+                      <Clock size={9} /> {formatDate(cand.createdAt)}
+                    </span>
                   )}
                 </div>
-                <div className="flex-1 overflow-auto p-5 min-h-0 border-r border-slate-200 markdown-body text-slate-700">
-                  <h2 className="text-lg font-bold mb-2 mt-4">Snippet / Code Reference</h2>
-                  {cand.code ? (
-                    <CodeBlock code={cand.code} language={candLang} className="!overflow-visible" />
-                  ) : (
-                    <p className="text-slate-400 italic mb-3">（无代码）</p>
-                  )}
-                  <h2 className="text-lg font-bold mb-2 mt-4">AI Context / Usage Guide</h2>
-                  {cand.usageGuide ? (
-                    <MarkdownWithHighlight content={cand.usageGuide} />
-                  ) : (
-                    <p className="text-slate-400 italic">（无使用指南）</p>
-                  )}
+
+                {/* AI 推理面板 */}
+                {(hasReasoning || cand.quality) && (
+                  <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 text-xs space-y-3">
+                    <div className="flex items-center gap-1.5 text-indigo-700 font-bold text-[11px]">
+                      <Brain size={14} />
+                      AI 推理过程
+                    </div>
+                    {hasReasoning ? (
+                      <>
+                        {r!.whyStandard && (
+                          <div>
+                            <span className="text-indigo-600 font-bold flex items-center gap-1 mb-0.5"><Target size={10} /> 为什么是标准用法</span>
+                            <p className="text-slate-600 leading-relaxed pl-3">{r!.whyStandard}</p>
+                          </div>
+                        )}
+                        {r!.sources && r!.sources.length > 0 && (
+                          <div>
+                            <span className="text-indigo-600 font-bold flex items-center gap-1 mb-0.5"><BookOpen size={10} /> 来源</span>
+                            <ul className="pl-3 text-slate-600 space-y-0.5">
+                              {r!.sources.map((s: string, i: number) => <li key={i} className="flex items-start gap-1"><span className="text-indigo-400 mt-0.5">•</span>{s}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {r!.confidence != null && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-indigo-600 font-bold">置信度</span>
+                            <div className="flex-1 max-w-[200px] bg-indigo-100 rounded-full h-2 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${r!.confidence >= 0.7 ? 'bg-emerald-500' : r!.confidence >= 0.4 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                style={{ width: `${Math.round((r!.confidence ?? 0) * 100)}%` }}
+                              />
+                            </div>
+                            <span className={`font-bold ${r!.confidence >= 0.7 ? 'text-emerald-600' : r!.confidence >= 0.4 ? 'text-amber-600' : 'text-red-600'}`}>
+                              {Math.round((r!.confidence ?? 0) * 100)}%
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-slate-400 italic pl-3">暂无推理信息</p>
+                    )}
+                  </div>
+                )}
+
+                {/* 相似 Recipe */}
+                {(similar.length > 0 || isLoadingSimilar) && (
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    <span className="text-[10px] text-slate-400 font-bold">相似 Recipe：</span>
+                    {isLoadingSimilar ? (
+                      <span className="text-[10px] text-slate-400 animate-pulse">加载中...</span>
+                    ) : (
+                      similar.slice(0, 5).map(s => (
+                        <button
+                          key={s.recipeName}
+                          onClick={() => openCompare(cand, effectiveTarget!, s.recipeName, similar)}
+                          className="text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors flex items-center gap-1"
+                          title={`与 ${s.recipeName} 相似 ${(s.similarity * 100).toFixed(0)}%`}
+                        >
+                          <GitCompare size={10} />
+                          {s.recipeName.replace(/\.md$/i, '')} {(s.similarity * 100).toFixed(0)}%
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* 完整代码 */}
+                {cand.code && (
+                  <div className="-mx-5 overflow-hidden border-y border-slate-200">
+                    <div className="flex items-center justify-between px-3 py-2" style={{ background: '#282c34' }}>
+                      <div className="flex items-center gap-2">
+                        <Code2 size={12} className="text-slate-400" />
+                        <span className="text-[11px] text-slate-400 font-mono uppercase tracking-wide">{cand.language || 'code'}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono tabular-nums">{cand.code.split('\n').length} 行</span>
+                    </div>
+                    <CodeBlock code={cand.code} language={cand.language === 'objc' ? 'objectivec' : cand.language} showLineNumbers className="!rounded-none" />
+                  </div>
+                )}
+
+                {/* 使用指南 */}
+                {cand.usageGuide && (
+                  <div className="rounded-xl border border-slate-100 bg-white p-4">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 mb-2">
+                      <BookOpen size={12} /> 使用指南
+                    </div>
+                    <div className="prose prose-sm prose-slate max-w-none">
+                      <MarkdownWithHighlight content={cand.usageGuide} />
+                    </div>
+                  </div>
+                )}
+
+                {/* 附加信息 */}
+                {(cand.scope || (cand.headers && cand.headers.length > 0) || (cand.steps && cand.steps.length > 0) || cand.rationale) && (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 space-y-2">
+                    <div className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5 mb-1">
+                      <Layers size={12} /> 附加信息
+                    </div>
+                    {cand.scope && (
+                      <div className="text-xs text-slate-500">
+                        范围：<strong className="text-slate-700">{cand.scope === 'universal' ? '通用' : cand.scope === 'project-specific' ? '项目级' : '模块级'}</strong>
+                      </div>
+                    )}
+                    {cand.headers && cand.headers.length > 0 && (
+                      <div className="text-xs text-slate-500">
+                        头文件：<strong className="text-slate-700">{cand.headers.join(', ')}</strong>
+                      </div>
+                    )}
+                    {cand.steps && cand.steps.length > 0 && (
+                      <div className="text-xs text-slate-500">
+                        <span className="font-medium">实施步骤（{cand.steps.length} 步）:</span>
+                        <ol className="mt-1 ml-4 list-decimal space-y-0.5">
+                          {cand.steps.map((step: any, i: number) => (
+                            <li key={i} className="text-slate-600">{typeof step === 'string' ? step : step.description || String(step)}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                    {cand.rationale && (
+                      <div className="text-xs text-slate-500">
+                        设计原理：<span className="text-slate-700">{cand.rationale}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ── 面板底部操作栏 ── */}
+              <div className="shrink-0 border-t border-slate-200 px-5 py-3 bg-slate-50/80 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleEnrichCandidate(cand.id)}
+                    disabled={enrichingIds.has(cand.id)}
+                    title="① 结构补齐"
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                      enrichingIds.has(cand.id) ? 'text-slate-300 cursor-not-allowed' : 'text-amber-600 hover:bg-amber-50 border border-amber-200'
+                    }`}
+                  >
+                    {enrichingIds.has(cand.id) ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
+                    补齐
+                  </button>
+                  <button
+                    onClick={() => handleRefineSingle(cand.id)}
+                    disabled={refiningIds.has(cand.id)}
+                    title="② 内容润色"
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                      refiningIds.has(cand.id) ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-600 hover:bg-emerald-50 border border-emerald-200'
+                    }`}
+                  >
+                    {refiningIds.has(cand.id) ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    润色
+                  </button>
+                  <button
+                    onClick={() => { handleDeleteCandidate(effectiveTarget!, cand.id); setExpandedId(null); setRefinePanel(null); setCompareModal(null); }}
+                    title="忽略"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 border border-red-200 transition-colors"
+                  >
+                    <Trash2 size={14} /> 删除
+                  </button>
                 </div>
-                <div className="flex-1 overflow-auto p-5 min-h-0">
-                  <MarkdownWithHighlight content={compareModal.recipeContent} stripFrontmatter />
+                <div className="flex items-center gap-2">
+                  {cand.status === 'approved' && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await api.promoteCandidateToRecipe(cand.id);
+                          notify('已提升为 Recipe');
+                          onRefresh?.();
+                        } catch (err: any) {
+                          notify(`提升失败: ${err.message}`, { type: 'error' });
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                    >
+                      <Rocket size={14} /> 提升为 Recipe
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { onAuditCandidate(cand, effectiveTarget!); setExpandedId(null); setRefinePanel(null); setCompareModal(null); }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    <Edit3 size={14} /> 审核并保存
+                  </button>
                 </div>
               </div>
             </div>
@@ -1081,8 +1265,11 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
         );
       })()}
 
-      {/* ── 对话式润色面板 ── */}
-      {refinePanel && effectiveTarget && data?.candidates?.[effectiveTarget] && (
+      {/* ═══ 双栏对比弹窗 — 已迁移到详情抽屉内的并列抽屉 ═══ */}
+
+      {/* ═══ 对话式润色面板 — 已迁移到详情抽屉内的并列抽屉 ═══ */}
+      {/* 无抽屉时的独立润色面板（兜底：从批量入口触发时抽屉可能未打开） */}
+      {refinePanel && !expandedId && effectiveTarget && data?.candidates?.[effectiveTarget] && (
         <RefineChatPanel
           candidateIds={refinePanel.candidateIds}
           candidates={data.candidates[effectiveTarget].items}

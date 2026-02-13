@@ -22,6 +22,7 @@ import DepGraphView from './components/Views/DepGraphView';
 import GuardView from './components/Views/GuardView';
 import AiChatView from './components/Views/AiChatView';
 import KnowledgeGraphView from './components/Views/KnowledgeGraphView';
+import SkillsView from './components/Views/SkillsView';
 import XcodeSimulator from './pages/XcodeSimulator';
 import RecipeEditor from './components/Modals/RecipeEditor';
 import CreateModal from './components/Modals/CreateModal';
@@ -992,6 +993,8 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
       />
       ) : activeTab === 'guard' ? (
       <GuardView onRefresh={fetchData} />
+      ) : activeTab === 'skills' ? (
+      <SkillsView onRefresh={fetchData} />
       ) : activeTab === 'candidates' ? (
       <CandidatesView 
         data={data} 

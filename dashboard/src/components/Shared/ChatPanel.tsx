@@ -117,6 +117,8 @@ export interface ChatPanelProps {
   // ── 高级 ──
   /** 子组件渲染在输入框上方（操作栏下方、输入区上方） */
   children?: ReactNode;
+  /** 嵌入模式 — 不渲染 fixed 遮罩层，直接输出面板内容（由父组件控制定位） */
+  embedded?: boolean;
 }
 
 /** 生成随机 ID */
@@ -217,6 +219,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   renderActions,
 
   children,
+  embedded = false,
 }) => {
   const [input, setInput] = useState('');
   const [codeExpanded, setCodeExpanded] = useState(defaultCodeExpanded);
@@ -261,20 +264,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }, [onSuggestionClick]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex">
-      {/* 遮罩 */}
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-
-      {/* 右侧面板 */}
-      <div className={`${widthClass} bg-white shadow-2xl flex flex-col animate-slide-in-right`}>
-        {/* ── Header ── */}
-        <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${theme.iconBg} border ${theme.iconBorder} flex items-center justify-center`}>
-              {headerIcon || <MessageSquare className={theme.iconText} size={18} />}
-            </div>
-            <div>
+  // ── 面板主体内容（Header + 消息列表 + 输入区） ──
+  const panelContent = (
+    <>
+      {/* ── Header ── */}
+      <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${theme.iconBg} border ${theme.iconBorder} flex items-center justify-center`}>
+            {headerIcon || <MessageSquare className={theme.iconText} size={18} />}
+          </div>
+          <div>
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                 {title}
                 {titleBadge && (
@@ -468,6 +467,27 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             <p className="text-[10px] text-slate-400 mt-1.5">{inputHint}</p>
           )}
         </div>
+    </>
+  );
+
+  // ── embedded 模式：不渲染 fixed 遮罩，由父组件定位 ──
+  if (embedded) {
+    return (
+      <div className="h-full bg-white flex flex-col">
+        {panelContent}
+      </div>
+    );
+  }
+
+  // ── 标准模式：fixed 遮罩 + 右侧面板 ──
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      {/* 遮罩 */}
+      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+
+      {/* 右侧面板 */}
+      <div className={`${widthClass} bg-white shadow-2xl flex flex-col animate-slide-in-right`}>
+        {panelContent}
       </div>
 
       {/* 滑入动画 */}

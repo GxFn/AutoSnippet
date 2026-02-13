@@ -4,6 +4,47 @@
 
 ---
 
+## [2.5.0] - 2026-02-13
+
+### Dashboard UX 大幅升级 + AI 响应截断修复
+
+#### RecipesView — 详情抽屉重构
+
+- 新增详情抽屉（800px）：view / edit 双模式切换，支持 Markdown 内联编辑与保存
+- Title 改为 `break-words` 避免截断；时间戳增加有效性校验（`isValidTimestamp`），无效值显示「从未使用」
+- 内容解析 YAML frontmatter 元数据并分区渲染，正文通过 `MarkdownWithHighlight` 展示
+- `updatedAt` / `createdAt` 字段自动格式化为 `yyyy/MM/dd HH:mm`
+- 移除内部搜索栏（使用顶层搜索过滤）
+- **关联 Recipes 管理**：始终显示关联区域，支持按 8 种关系类型（关联/依赖/继承/调用等）添加和移除关系
+- 关联搜索面板：下拉选择关系类型 + 实时搜索 Recipe 名称，已关联项标灰
+- 点击关联项打开左侧并列预览抽屉（与 CandidatesView 润色抽屉同模式），底部可切换到完整视图
+- 新增 API `updateRecipeRelations()` 通过 `PATCH /recipes/:id` 持久化关系
+
+#### SPMExplorerView — 组件提取与交互优化
+
+- 提取 `ScanResultCard` 组件（~540 行），SPMExplorerView 从 835 行精简到 ~400 行
+- 新增 `SPMCompareDrawer` 左右分栏对比抽屉（候选 vs Recipe 并排展示，1280px 宽）
+- 空状态文案优化：「知识提取」+ 清晰描述
+- 头文件编辑升级：引用状态指示（绿●引用/黄●未引用/灰●未知）、格式化按钮、清理未引用按钮
+
+#### CandidatesView — 重构抽屉交互
+
+- 将 `SimilarRecipe` 类型抽至 `types.ts` 集中管理
+
+#### AI 截断 JSON 修复（AiProvider）
+
+- `_repairTruncatedArray` 升级为双路径策略：字符级深度追踪（主路径）+ 正则回退（`_repairByRegexFallback`）
+- 正则回退不依赖 `inString` 追踪，解决代码字段含未转义引号时修复失败的问题
+- 提取 `_tryRepairAt()` 公用方法
+- 新增 12 个测试用例覆盖各类截断场景（含真实 VideoPlayerViews 案例）
+
+#### 其他
+
+- Skills 页面新增（SkillsView.tsx + `/api/v1/skills` 路由）
+- `index.css` 新增 `slideInRight` 动画帧
+
+---
+
 ## [2.4.0] - 2026-02-13
 
 ### ChatAgent 增强 — 项目感知 + 信心信号 + 工具链 + 轻量记忆

@@ -66,3 +66,15 @@
   scrollbar-width: thin !important;
   scrollbar-color: rgba(148, 163, 184, 0.25) transparent !important;
 }
+
+/* 详情面板滑入动画 */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

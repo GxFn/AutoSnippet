@@ -24,6 +24,8 @@ interface RefineChatPanelProps {
   onClose: () => void;
   /** 数据变更后通知父组件刷新（不触发整页刷新） */
   onCandidateUpdated: (candidateId: string) => void;
+  /** 嵌入模式 — 不渲染自身遮罩层，由父组件控制定位 */
+  embedded?: boolean;
 }
 
 // ─── Diff 类型与工具函数 ───────────────────────────────────
@@ -110,7 +112,7 @@ const DiffView: React.FC<{ diff: DiffField[] }> = ({ diff }) => {
 // ─── 主组件 ───────────────────────────────────────────────
 
 const RefineChatPanel: React.FC<RefineChatPanelProps> = ({
-  candidateIds, candidates, onClose, onCandidateUpdated,
+  candidateIds, candidates, onClose, onCandidateUpdated, embedded = false,
 }) => {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -202,7 +204,8 @@ const RefineChatPanel: React.FC<RefineChatPanelProps> = ({
     && !applied.has(currentId);
 
   // ── 构建 ChatPanel 上下文 ──
-  const context = currentCandidate ? {
+  // embedded 模式下详情抽屉已展示全部候选信息，不重复显示上下文卡片
+  const context = embedded ? undefined : (currentCandidate ? {
     title: currentCandidate.title || '(未命名)',
     subtitle: currentCandidate.summary || '(无摘要)',
     badge: currentCandidate.language || undefined,
@@ -212,7 +215,7 @@ const RefineChatPanel: React.FC<RefineChatPanelProps> = ({
       : undefined,
     code: currentCandidate.code || undefined,
     codeLabel: '文档内容',
-  } : undefined;
+  } : undefined);
 
   // ── 消息扩展渲染（diff 展示） ──
   const renderMessageExtra = useCallback((msg: ChatMessage) => {
@@ -278,6 +281,7 @@ const RefineChatPanel: React.FC<RefineChatPanelProps> = ({
       titleBadge={isBatch ? `${currentIdx + 1} / ${candidateIds.length}` : undefined}
       subtitle={currentCandidate?.title || '(未命名)'}
       themeColor="emerald"
+      embedded={embedded}
 
       context={context}
       defaultCodeExpanded={true}

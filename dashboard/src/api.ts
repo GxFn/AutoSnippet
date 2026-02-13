@@ -568,6 +568,18 @@ export const api = {
     }
   },
 
+  async updateRecipeRelations(name: string, relations: Record<string, any[]>): Promise<void> {
+    const title = name.replace(/\.md$/, '');
+    const searchRes = await http.get(`/recipes?keyword=${encodeURIComponent(title)}&limit=5`);
+    const items = searchRes.data?.data?.data || searchRes.data?.data?.items || [];
+    const recipe = items.find((r: any) => r.title === title) || items[0];
+    if (recipe?.id) {
+      await http.patch(`/recipes/${recipe.id}`, { relations });
+    } else {
+      throw new Error('Recipe not found');
+    }
+  },
+
   async searchRecipes(
     q: string,
   ): Promise<{ results: Array<{ name: string; content: string }>; total: number }> {
@@ -584,6 +596,14 @@ export const api = {
   },
 
   // ── Candidates ──────────────────────────────────────
+
+  /** 获取单个候选详情（V2 → V1 映射） */
+  async getCandidate(candidateId: string): Promise<CandidateItem> {
+    const res = await http.get(`/candidates/${candidateId}`);
+    const raw = res.data?.data;
+    if (!raw) throw new Error('Candidate not found');
+    return mapV2CandidateToV1(raw);
+  },
 
   async deleteCandidate(candidateId: string): Promise<void> {
     await http.delete(`/candidates/${candidateId}`);
@@ -816,6 +836,59 @@ export const api = {
       })),
       total: data.totalResults || recipes.length,
     };
+  },
+
+  // ── Skills ──────────────────────────────────────────
+
+  /** 获取所有 Skills 列表 */
+  async listSkills(): Promise<{ skills: any[]; total: number; hint?: string }> {
+    const res = await http.get('/skills');
+    return res.data?.data || { skills: [], total: 0 };
+  },
+
+  /** 加载指定 Skill 完整内容 */
+  async loadSkill(name: string, section?: string): Promise<any> {
+    const params = section ? `?section=${encodeURIComponent(section)}` : '';
+    const res = await http.get(`/skills/${encodeURIComponent(name)}${params}`);
+    return res.data?.data || {};
+  },
+
+  /** 创建项目级 Skill */
+  async createSkill(data: { name: string; description: string; content: string; overwrite?: boolean }): Promise<any> {
+    const res = await http.post('/skills', data);
+    return res.data?.data || {};
+  },
+
+  /** AI 生成 Skill 内容（通过 ChatAgent 对话） */
+  async aiGenerateSkill(prompt: string): Promise<{ reply: string; hasContext?: boolean }> {
+    const systemPrompt = `你是一个 AutoSnippet Skill 文档生成助手。用户会描述他们想创建的 Skill，你需要生成完整的 SKILL.md 内容。
+
+Skill 文档格式要求：
+1. 开头用 Markdown 标题说明 Skill 的目的
+2. 包含清晰的使用场景说明
+3. 列出具体的操作步骤和指南
+4. 如有必要，包含代码示例
+5. 使用中文撰写
+
+请严格按以下格式输出（不要用代码块包裹 JSON）：
+
+第一行：一个 JSON 对象，包含 name（kebab-case，3-64 字符）和 description（一句话中文描述）
+第二行：空行
+第三行起：Skill 文档正文内容（Markdown 格式，不含 frontmatter）
+
+示例输出：
+{"name": "swiftui-animation-guide", "description": "SwiftUI 动画最佳实践指南"}
+
+# SwiftUI 动画最佳实践
+
+## 使用场景
+...`;
+
+    const res = await http.post('/ai/chat', {
+      prompt: `${systemPrompt}\n\n用户需求：${prompt}`,
+      history: [],
+    });
+    return res.data?.data || { reply: '' };
   },
 };
 
