@@ -296,7 +296,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
         <Box size={ICON_SIZES.xxxl} className="mb-4 opacity-20" />
         <p className="font-medium text-slate-600">知识提取</p>
         <p className="text-xs mt-2 max-w-sm leading-relaxed">
-        在左侧选择 <span className="font-bold text-blue-600">Target</span> 扫描单个模块，<br/>或点击上方 <span className="font-bold text-indigo-600">全项目扫描</span> 批量提取并审计。
+        在左侧选择 <span className="font-bold text-blue-600">Target</span> 扫描单个模块，<br/>提取代码模式并生成 Recipe 知识卡片。
         </p>
       </div>
       )}

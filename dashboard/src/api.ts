@@ -859,6 +859,12 @@ export const api = {
     return res.data?.data || {};
   },
 
+  /** 基于使用模式推荐创建 Skill */
+  async suggestSkills(): Promise<any> {
+    const res = await http.get('/skills/suggest');
+    return res.data?.data || { suggestions: [], analysisContext: {} };
+  },
+
   /** AI 生成 Skill 内容（通过 ChatAgent 对话） */
   async aiGenerateSkill(prompt: string): Promise<{ reply: string; hasContext?: boolean }> {
     const systemPrompt = `你是一个 AutoSnippet Skill 文档生成助手。用户会描述他们想创建的 Skill，你需要生成完整的 SKILL.md 内容。

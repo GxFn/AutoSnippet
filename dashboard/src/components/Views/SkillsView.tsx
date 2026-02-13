@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   BookOpen, Plus, RefreshCw, ChevronRight, ChevronDown,
   Sparkles, X, Send, Package, FolderOpen, Copy, Check,
-  AlertCircle, Loader2, FileText,
+  AlertCircle, Loader2, FileText, Lightbulb, Zap,
 } from 'lucide-react';
 import api from '../../api';
 import { notify } from '../../utils/notification';
@@ -39,6 +39,10 @@ const SkillsView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filter, setFilter] = useState<'all' | 'builtin' | 'project'>('all');
   const [copied, setCopied] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [creatingSuggestion, setCreatingSuggestion] = useState<string | null>(null);
 
   /* ── Fetch skills list ── */
   const fetchSkills = useCallback(async () => {
@@ -85,10 +89,52 @@ const SkillsView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  /* ── Fetch skill suggestions ── */
+  const handleSuggest = async () => {
+    setLoadingSuggestions(true);
+    setShowSuggestions(true);
+    try {
+      const data = await api.suggestSkills();
+      setSuggestions(data.suggestions || []);
+    } catch (err: any) {
+      notify('获取 Skill 推荐失败: ' + (err.message || ''), { type: 'error' });
+      setSuggestions([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  /* ── Create skill from suggestion (AI generate content) ── */
+  const handleCreateFromSuggestion = async (suggestion: any) => {
+    setCreatingSuggestion(suggestion.name);
+    try {
+      // 使用 AI 生成 Skill 内容
+      const prompt = `请为以下场景创建一个 Skill 文档：\n\n名称：${suggestion.name}\n描述：${suggestion.description}\n推荐原因：${suggestion.rationale}\n\n请直接生成 Skill 正文内容（Markdown 格式），不需要 frontmatter。内容应该详细、实用，包含具体的操作指南和示例。`;
+      const aiResult = await api.aiGenerateSkill(prompt);
+      const content = aiResult.reply || `# ${suggestion.description}\n\n${suggestion.rationale}`;
+
+      await api.createSkill({
+        name: suggestion.name,
+        description: suggestion.description,
+        content,
+      });
+      notify(`Skill "${suggestion.name}" 已创建`, { type: 'success' });
+      setSuggestions(prev => prev.filter(s => s.name !== suggestion.name));
+      fetchSkills();
+    } catch (err: any) {
+      notify(`创建 Skill 失败: ${err.message || ''}`, { type: 'error' });
+    } finally {
+      setCreatingSuggestion(null);
+    }
+  };
+
   /* ── Filter ── */
   const filteredSkills = skills.filter(s => {
     if (filter === 'all') return true;
     return s.source === filter;
+  }).sort((a, b) => {
+    if (a.source === b.source) return a.name.localeCompare(b.name);
+    return a.source === 'project' ? -1 : 1;
   });
 
   const builtinCount = skills.filter(s => s.source === 'builtin').length;
@@ -111,6 +157,15 @@ const SkillsView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={handleSuggest}
+            disabled={loadingSuggestions}
+            className="flex items-center gap-2 px-3 py-2 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors text-sm font-medium disabled:opacity-50"
+            title="基于使用模式分析推荐 Skill"
+          >
+            {loadingSuggestions ? <Loader2 size={14} className="animate-spin" /> : <Lightbulb size={14} />}
+            推荐
+          </button>
+          <button
             onClick={fetchSkills}
             className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
             title="刷新"
@@ -131,8 +186,8 @@ const SkillsView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
       <div className="flex items-center gap-1 mb-4 p-1 bg-slate-100 rounded-lg w-fit">
         {([
           { key: 'all' as const, label: '全部', count: skills.length },
-          { key: 'builtin' as const, label: '内置', count: builtinCount, icon: Package },
           { key: 'project' as const, label: '项目级', count: projectCount, icon: FolderOpen },
+          { key: 'builtin' as const, label: '内置', count: builtinCount, icon: Package },
         ]).map(f => (
           <button
             key={f.key}
@@ -151,6 +206,63 @@ const SkillsView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
           </button>
         ))}
       </div>
+
+      {/* ── Skill Suggestions Panel ── */}
+      {showSuggestions && (
+        <div className="mb-4 border border-amber-200 bg-amber-50/50 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Lightbulb size={16} className="text-amber-600" />
+              <span className="text-sm font-semibold text-amber-800">推荐创建的 Skills</span>
+              {suggestions.length > 0 && (
+                <span className="px-1.5 py-0.5 bg-amber-200 text-amber-700 text-[10px] font-bold rounded-full">{suggestions.length}</span>
+              )}
+            </div>
+            <button onClick={() => setShowSuggestions(false)} className="p-1 text-amber-400 hover:text-amber-600">
+              <X size={14} />
+            </button>
+          </div>
+          {loadingSuggestions ? (
+            <div className="flex items-center gap-2 text-amber-600 text-xs py-2">
+              <Loader2 size={14} className="animate-spin" />
+              分析使用模式中...
+            </div>
+          ) : suggestions.length === 0 ? (
+            <p className="text-xs text-amber-600/70">当前暂无推荐。继续使用后会积累更多信号。</p>
+          ) : (
+            <div className="space-y-2">
+              {suggestions.map(s => (
+                <div key={s.name} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-amber-100">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-mono text-xs font-semibold text-slate-800">{s.name}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                        s.priority === 'high' ? 'bg-red-100 text-red-600'
+                        : s.priority === 'medium' ? 'bg-amber-100 text-amber-600'
+                        : 'bg-slate-100 text-slate-500'
+                      }`}>{s.priority}</span>
+                      <span className="text-[10px] text-slate-400">{s.source}</span>
+                    </div>
+                    <p className="text-xs text-slate-600 mb-1">{s.description}</p>
+                    <p className="text-[11px] text-slate-400 line-clamp-2">{s.rationale}</p>
+                  </div>
+                  <button
+                    onClick={() => handleCreateFromSuggestion(s)}
+                    disabled={creatingSuggestion === s.name}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors text-xs font-medium disabled:opacity-50"
+                  >
+                    {creatingSuggestion === s.name ? (
+                      <><Loader2 size={12} className="animate-spin" /> 创建中</>
+                    ) : (
+                      <><Zap size={12} /> AI 创建</>
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Content ── */}
       <div className="flex-1 flex gap-6 min-h-0 overflow-hidden">
