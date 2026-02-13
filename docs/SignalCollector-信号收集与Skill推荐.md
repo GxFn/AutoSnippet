@@ -1,228 +1,179 @@
-# SignalCollector — 信号收集与 Skill 自动推荐
+# SignalCollector — AI 驱动的后台行为分析与 Skill 推荐
 
-> 版本: 2.5.0+  
+> 版本: 2.5.0+
 > 模块路径: `lib/service/skills/SignalCollector.js`
 
 ## 概述
 
-SignalCollector 是一个后台定时服务，在 `asd ui` 启动时自动运行。它周期性分析用户与 Agent 的行为模式，生成 Skill 创建建议，并通过 Dashboard 推送通知。
+SignalCollector 是 AutoSnippet 的**后台 AI 分析引擎**。在 `asd ui` 启动时自动运行，周期性收集用户行为的多维度信号，通过 **ChatAgent（AI ReAct 循环）** 进行深度分析，生成 Skill 推荐并通过 Dashboard 推送。
 
-**核心理念**：用户不需要主动思考"该创建哪些 Skill"，SignalCollector 通过持续观察行为信号，自动发现模式并给出建议。
+**核心理念**：所有分析决策都由 AI（ChatAgent）完成，而非硬编码规则。AI 综合 6 个维度的信号，判断用户开发状态，给出精准推荐，并自主决定下次分析时间。
+
+## 与旧版的对比
+
+| 维度 | 旧版（v2.5.0 初始） | 新版（AI 驱动） |
+|------|---------------------|-----------------|
+| 分析引擎 | SkillAdvisor 规则引擎 | ChatAgent AI ReAct |
+| 信号维度 | 4 维度 | 6 维度（+对话记忆 +代码变更） |
+| 决策方式 | 硬编码阈值规则 | AI 自主分析决策 |
+| 执行频率 | 固定定时器 | AI 动态调整（5min ~ 24h） |
+| 自动创建 | 回调函数 | AI 直接调用 create_skill 工具 |
+| Token 消耗 | 零 | 每次 tick 消耗 AI tokens |
 
 ## 架构
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  asd ui 进程                                                 │
+│                     asd ui 启动                              │
 │                                                             │
-│  ┌──────────┐  EventBus  ┌──────────────┐  onSuggestions()  │
-│  │ Gateway   │ ────────► │ SignalCollector│ ──────────────┐  │
-│  │ (audit)   │           │  (定时 30min)  │               │  │
-│  └──────────┘            └───────┬──────┘               │  │
-│                                  │                       │  │
-│                     SkillAdvisor │ suggest()             │  │
-│                    ┌─────────────┘                       │  │
-│                    │  4 维度信号分析                      │  │
-│                    │  ┌─ Guard 违规模式                   │  │
-│                    │  ├─ Memory 偏好积累                  │  │
-│                    │  ├─ Recipe 分布缺口                  ▼  │
-│                    │  └─ 候选积压分析        ┌──────────────┐│
-│                    │                        │RealtimeService││
-│                    ▼                        │(Socket.io)    ││
-│           signal-snapshot.json              └───────┬──────┘│
-│           (.autosnippet/)                           │       │
-│                                                     │       │
-└─────────────────────────────────────────────────────┼───────┘
-                                                      │
-                                                      ▼
-                                           ┌──────────────────┐
-                                           │  Dashboard UI     │
-                                           │  Skills 侧栏徽标  │
-                                           │  推荐面板          │
-                                           └──────────────────┘
+│  ┌──────────────┐    ┌──────────────────────────────────┐   │
+│  │ SignalCollector│    │          ChatAgent                │   │
+│  │               │    │  ┌─────────────────────────────┐ │   │
+│  │  收集 6 维度  │───▶│  │    AI ReAct 循环             │ │   │
+│  │  构造 prompt  │    │  │                             │ │   │
+│  │               │◀───│  │  1. 分析多维度信号           │ │   │
+│  │  解析响应     │    │  │  2. 可调用 suggest_skills    │ │   │
+│  │  推送建议     │    │  │  3. 可调用 create_skill      │ │   │
+│  │  调整间隔     │    │  │  4. 输出 JSON 推荐          │ │   │
+│  │               │    │  └─────────────────────────────┘ │   │
+│  └──────┬───────┘    └──────────────────────────────────┘   │
+│         │                                                    │
+│         ▼                                                    │
+│  ┌──────────────┐    ┌──────────────┐                       │
+│  │ RealtimeService│   │   Dashboard   │                       │
+│  │  WebSocket 推送│──▶│  Sidebar 徽章  │                       │
+│  └──────────────┘    └──────────────┘                       │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## 工作模式
+## 6 大信号维度
 
-| 模式      | 行为                              | 使用场景               |
-| --------- | --------------------------------- | ---------------------- |
-| `off`     | 不启动，不收集                    | CI/CD、静默环境        |
-| `suggest` | 收集信号，推送到 Dashboard（默认）| 日常开发               |
-| `auto`    | 收集 + 自动创建高优先级 Skill     | 团队统一管理           |
+### 1. Guard 冲突信号
+- **来源**：`skills` 表中 `conflict_count > 0` 的记录
+- **含义**：存在冲突的 Skill 需要关注或修复
 
-**环境变量控制：**
+### 2. 对话记忆信号
+- **来源**：`.autosnippet/memory.jsonl`（最近 20 条）
+- **含义**：用户近期与 AI 的对话主题，反映当前关注点
+
+### 3. Recipe 健康信号
+- **来源**：`recipes` 表（最近 30 条，按更新时间排序）
+- **含义**：模板使用频率、成功/失败率，发现低质量模板
+
+### 4. Candidate 堆积信号
+- **来源**：`candidates` 表中 `status = 'pending'` 的记录
+- **含义**：待处理候选 Skill 堆积，可能需要批量审核
+
+### 5. 操作日志信号
+- **来源**：`audit_logs` 表（上次运行以来的最近 50 条）
+- **含义**：用户近期操作模式，发现重复行为和高频操作
+
+### 6. 代码变更信号
+- **来源**：`git diff --stat HEAD~1`
+- **含义**：项目代码变更情况，识别需要新 Skill 覆盖的领域
+
+## AI 决策流程
+
+```
+tick() 执行流程：
+
+1. 收集 → 6 个维度并行收集原始信号
+2. 构造 → #buildAnalysisPrompt(signals) 生成完整 prompt
+3. AI 分析 → chatAgent.execute(prompt, {history: []})
+   ├── AI ReAct 循环（最多 6 轮）
+   ├── 可能调用 suggest_skills 工具获取规则建议
+   └── 可能调用 create_skill 工具（auto 模式）
+4. 解析 → #parseAiResponse(reply) 提取 JSON
+   ├── 策略1: 最后一行 JSON
+   ├── 策略2: markdown code block
+   └── 策略3: 正则匹配
+5. 去重 → 过滤已推送的建议
+6. 推送 → onSuggestions(newSuggestions)
+7. 调频 → AI 指定 nextIntervalMinutes → 动态调整
+8. 持久化 → #saveSnapshot()
+9. 调度 → setTimeout(#tick, intervalMs)
+```
+
+## 动态间隔机制
+
+SignalCollector 使用 `setTimeout`（而非 `setInterval`）实现自适应调度：
+
+- **初始值**：1 小时（可通过环境变量配置）
+- **AI 调整**：每次 tick 后，AI 在响应中指定 `nextIntervalMinutes`
+- **范围限制**：5 分钟 ~ 24 小时
+- **退避策略**：tick 出错时，间隔翻倍（不超过上限）
+- **信号密集时**：AI 可能建议缩短到 15-30 分钟
+- **信号平静时**：AI 可能建议延长到 4-8 小时
+
+## 三种工作模式
+
+| 模式 | 行为 |
+|------|------|
+| `off` | 不启动，不收集 |
+| `suggest` | 收集 + AI 分析 + 推送推荐（默认） |
+| `auto` | 收集 + AI 分析 + 推送推荐 + AI 自动创建高优先级 Skill |
+
+在 `auto` 模式下，ChatAgent 在 ReAct 循环中可以直接调用 `create_skill` 工具创建 Skill，无需人工干预。
+
+## 前提条件
+
+- **AI Provider 必须可用**：`chatAgent.hasAI === true`
+- 如果没有配置 AI Provider，SignalCollector 不会启动
+- SkillAdvisor 规则引擎仍然可用（通过 `suggest_skills` 工具），但不再是 SignalCollector 的直接依赖
+
+## 配置
+
+通过环境变量配置：
 
 ```bash
-# 设置模式（默认 suggest）
-export ASD_SIGNAL_MODE=suggest
+# 工作模式
+ASD_SIGNAL_MODE=suggest   # off | suggest | auto
 
-# 设置收集间隔毫秒（默认 30 分钟 = 1800000）
-export ASD_SIGNAL_INTERVAL=1800000
+# 初始间隔（毫秒），后续由 AI 动态调整
+ASD_SIGNAL_INTERVAL=3600000  # 默认 1 小时
 ```
 
-## 信号维度
+## 快照文件
 
-SignalCollector 委托 `SkillAdvisor` 进行 4 维度分析（零 AI 调用，纯规则引擎）：
-
-### 1. Guard 违规模式
-- **数据源**：`audit_log` 表 (`action = 'guard_rule:check_code'`)
-- **条件**：同一规则违规 ≥ 3 次
-- **推荐**：创建编码规范 Skill，让 AI 在编码时主动提醒
-
-### 2. Memory 偏好积累
-- **数据源**：`.autosnippet/memory.jsonl`
-- **条件**：`type: 'preference'` 条目 ≥ 5 条
-- **推荐**：创建项目约定总结 Skill，归纳团队偏好
-
-### 3. Recipe 分布缺口
-- **数据源**：`recipes` 表
-- **条件**：最高频类别 Recipe ≥ 10 条
-- **推荐**：创建该类别的设计模式 / 最佳实践 Skill
-
-### 4. 候选积压分析
-- **数据源**：`candidates` 表
-- **条件**：被拒绝候选 ≥ 10 条
-- **推荐**：创建候选提交质量指南 Skill
-
-## 去重与持久化
-
-每次 tick 的推荐结果与 `.autosnippet/signal-snapshot.json` 快照对比：
+位置：`.autosnippet/signal-snapshot.json`
 
 ```json
 {
   "lastRun": "2025-01-15T10:30:00.000Z",
   "totalRuns": 42,
-  "pushedNames": ["project-conventions", "project-guard-no-force-unwrap"],
+  "pushedNames": ["auto-import-helper", "error-handler-template"],
   "lastResult": {
     "totalSuggestions": 3,
     "newSuggestions": 1,
-    "analysisContext": { ... }
+    "aiToolCalls": 2
   },
+  "lastAiSummary": "项目近期大量修改了 API 路由，建议创建路由模板 Skill",
   "autoCreated": [
-    { "name": "project-conventions", "createdAt": "2025-01-15T09:00:00.000Z" }
+    { "name": "api-route-template", "createdAt": "2025-01-15T10:30:00.000Z" }
   ]
 }
 ```
 
-- 已推送过的 Skill 名称记录在 `pushedNames` 中，不会重复通知
-- `resetPushed()` 方法可清除记录，使下次 tick 重新评估
-
-## API 端点
-
-### GET /api/v1/skills/signal-status
-
-获取 SignalCollector 后台服务状态。
-
-**响应示例：**
-
-```json
-{
-  "success": true,
-  "data": {
-    "running": true,
-    "mode": "suggest",
-    "snapshot": {
-      "lastRun": "2025-01-15T10:30:00.000Z",
-      "totalRuns": 5,
-      "pushedNames": ["project-conventions"],
-      "lastResult": {
-        "totalSuggestions": 2,
-        "newSuggestions": 1
-      }
-    }
-  }
-}
-```
-
-### MCP list_skills `_meta`
-
-`autosnippet_list_skills` 工具返回的 `_meta` 字段现包含：
-
-```json
-{
-  "_meta": {
-    "signalSuggestions": 2
-  }
-}
-```
-
-Agent 可据此在适当时机提示用户查看推荐。
-
-## Dashboard 集成
-
-### 侧栏徽标
-Skills 导航按钮右侧显示 amber 色角标（✨ n），数字 > 0 时可见。
-
-### 推荐面板
-在 Skills 页面点击"推荐"按钮，展开推荐列表，可以 AI 一键创建。
-
-### 轮询机制
-Dashboard 每 5 分钟轮询 `/api/v1/skills/signal-status` 更新角标计数。
-
-## EventBus 与 Gateway 集成
-
-### EventBus
-全局事件总线已恢复注册到 ServiceContainer：
+## API
 
 ```javascript
-container.get('eventBus'); // EventBus 实例
+import { SignalCollector } from './lib/service/skills/SignalCollector.js';
+
+const collector = new SignalCollector({
+  projectRoot: '/path/to/project',
+  database: db,
+  chatAgent: container.get('chatAgent'),  // 必须注入 ChatAgent
+  mode: 'suggest',
+  intervalMs: 3600000,
+  onSuggestions: (suggestions) => {
+    realtimeService.broadcast('signal:suggestions', suggestions);
+  },
+});
+
+collector.start();       // 启动（需要 chatAgent.hasAI === true）
+collector.stop();        // 停止
+await collector.collect(); // 手动触发一次
+collector.getSnapshot(); // 获取快照
+collector.setMode('auto'); // 切换模式
+collector.resetPushed(); // 清除已推送记录
 ```
-
-### Gateway 事件
-Gateway 每次操作完成/失败后发射事件：
-
-- `gateway:action:completed` — 成功的 Gateway 请求
-- `gateway:action:failed` — 失败的 Gateway 请求
-
-事件载荷：
-
-```javascript
-{
-  requestId, actor, action, resource,
-  result: 'success' | 'failure',
-  duration, timestamp
-}
-```
-
-## 生命周期
-
-```
-CLI `asd ui` 启动
-  ├── initContainer()
-  ├── EventBus 注入 Gateway
-  ├── HttpServer.start()
-  ├── SignalCollector 创建 & start()
-  │   ├── 延迟 10s 首次 tick
-  │   ├── setInterval 定时 tick
-  │   └── tick → SkillAdvisor.suggest() → 过滤 → 推送/自动创建
-  └── FileWatcher.start()
-```
-
-## 开发调试
-
-```bash
-# 缩短间隔到 1 分钟，方便观察
-ASD_SIGNAL_INTERVAL=60000 ASD_DEBUG=1 asd ui
-
-# auto 模式（高优先级自动创建）
-ASD_SIGNAL_MODE=auto asd ui
-
-# 关闭 SignalCollector
-ASD_SIGNAL_MODE=off asd ui
-```
-
-## 文件清单
-
-| 文件 | 说明 |
-| --- | --- |
-| `lib/service/skills/SignalCollector.js` | 核心服务 |
-| `lib/service/skills/SkillAdvisor.js` | 4 维度信号分析引擎 |
-| `lib/infrastructure/event/EventBus.js` | 全局事件总线 |
-| `lib/core/gateway/Gateway.js` | 统一网关（含事件发射） |
-| `lib/injection/ServiceContainer.js` | DI 容器（EventBus 注册） |
-| `lib/http/routes/skills.js` | HTTP 路由（signal-status） |
-| `lib/external/mcp/handlers/skill.js` | MCP handler（_meta 扩展） |
-| `bin/cli.js` | CLI 启动链（SignalCollector 接入） |
-| `dashboard/src/api.ts` | 前端 API（getSignalStatus） |
-| `dashboard/src/components/Layout/Sidebar.tsx` | 侧栏徽标 |
-| `dashboard/src/App.tsx` | 轮询 + 状态传递 |
