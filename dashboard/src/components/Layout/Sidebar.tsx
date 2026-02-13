@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bookmark, Copy, FolderOpen, Clock, GitBranch, Share2, Shield, MessageSquare, HelpCircle, Code, RefreshCw, Edit3, LogOut, User, ShieldCheck, Eye, Fingerprint, BookOpen } from 'lucide-react';
+import { Bookmark, Copy, FolderOpen, Clock, GitBranch, Share2, Shield, MessageSquare, HelpCircle, Code, RefreshCw, Edit3, LogOut, User, ShieldCheck, Eye, Fingerprint, BookOpen, Sparkles } from 'lucide-react';
 import { TabType } from '../../constants';
 import { ICON_SIZES } from '../../constants/icons';
 
@@ -8,6 +8,8 @@ interface SidebarProps {
   navigateToTab: (tab: TabType, options?: { preserveSearch?: boolean }) => void;
   handleRefreshProject: () => void;
   candidateCount: number;
+  /** SignalCollector 后台推荐计数 */
+  signalSuggestionCount?: number;
   isDarkMode?: boolean;
   /** 当前登录用户名 */
   currentUser?: string;
@@ -30,7 +32,7 @@ const MODE_ICONS: Record<string, typeof ShieldCheck> = {
   probe: Eye,
 };
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, navigateToTab, handleRefreshProject, candidateCount, isDarkMode = false, currentUser, currentRole, permissionMode, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, navigateToTab, handleRefreshProject, candidateCount, signalSuggestionCount = 0, isDarkMode = false, currentUser, currentRole, permissionMode, onLogout }) => {
   const roleInfo = ROLE_LABELS[currentRole || ''] || ROLE_LABELS.developer;
   const ModeIcon = MODE_ICONS[permissionMode || 'probe'] || Eye;
 
@@ -47,7 +49,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, navigateToTab, handleRefre
     <button type="button" onClick={() => navigateToTab('depgraph')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'depgraph' ? (isDarkMode ? 'bg-blue-900/30 text-blue-400 font-medium' : 'bg-blue-50 text-blue-700 font-medium') : (isDarkMode ? 'text-slate-300 hover:bg-slate-700/50' : 'text-slate-600 hover:bg-slate-50')}`}><GitBranch size={ICON_SIZES.lg} /><span>依赖关系图</span></button>
     <button type="button" onClick={() => navigateToTab('knowledgegraph')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'knowledgegraph' ? (isDarkMode ? 'bg-blue-900/30 text-blue-400 font-medium' : 'bg-blue-50 text-blue-700 font-medium') : (isDarkMode ? 'text-slate-300 hover:bg-slate-700/50' : 'text-slate-600 hover:bg-slate-50')}`}><Share2 size={ICON_SIZES.lg} /><span>知识图谱</span></button>
     <button type="button" onClick={() => navigateToTab('guard')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'guard' ? (isDarkMode ? 'bg-blue-900/30 text-blue-400 font-medium' : 'bg-blue-50 text-blue-700 font-medium') : (isDarkMode ? 'text-slate-300 hover:bg-slate-700/50' : 'text-slate-600 hover:bg-slate-50')}`}><Shield size={ICON_SIZES.lg} /><span>Guard</span></button>
-    <button type="button" onClick={() => navigateToTab('skills')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'skills' ? (isDarkMode ? 'bg-blue-900/30 text-blue-400 font-medium' : 'bg-blue-50 text-blue-700 font-medium') : (isDarkMode ? 'text-slate-300 hover:bg-slate-700/50' : 'text-slate-600 hover:bg-slate-50')}`}><BookOpen size={ICON_SIZES.lg} /><span>Skills</span></button>
+    <button type="button" onClick={() => navigateToTab('skills')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'skills' ? (isDarkMode ? 'bg-blue-900/30 text-blue-400 font-medium' : 'bg-blue-50 text-blue-700 font-medium') : (isDarkMode ? 'text-slate-300 hover:bg-slate-700/50' : 'text-slate-600 hover:bg-slate-50')}`}><BookOpen size={ICON_SIZES.lg} /><span className="flex-1 text-left">Skills</span>{signalSuggestionCount > 0 && <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold"><Sparkles size={10} />{signalSuggestionCount}</span>}</button>
     <button type="button" onClick={() => navigateToTab('ai')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'ai' ? (isDarkMode ? 'bg-blue-900/30 text-blue-400 font-medium' : 'bg-blue-50 text-blue-700 font-medium') : (isDarkMode ? 'text-slate-300 hover:bg-slate-700/50' : 'text-slate-600 hover:bg-slate-50')}`}><MessageSquare size={ICON_SIZES.lg} /><span>AI Assistant</span></button>
     <button type="button" onClick={() => navigateToTab('editor')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'editor' ? (isDarkMode ? 'bg-blue-900/30 text-blue-400 font-medium' : 'bg-blue-50 text-blue-700 font-medium') : (isDarkMode ? 'text-slate-300 hover:bg-slate-700/50' : 'text-slate-600 hover:bg-slate-50')}`}><Edit3 size={ICON_SIZES.lg} /><span>编辑器（测试）</span></button>
     <button type="button" onClick={() => navigateToTab('help')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'help' ? (isDarkMode ? 'bg-blue-900/30 text-blue-400 font-medium' : 'bg-blue-50 text-blue-700 font-medium') : (isDarkMode ? 'text-slate-300 hover:bg-slate-700/50' : 'text-slate-600 hover:bg-slate-50')}`}><HelpCircle size={ICON_SIZES.lg} /><span>使用说明</span></button>

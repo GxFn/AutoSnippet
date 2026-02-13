@@ -83,6 +83,9 @@ const App: React.FC = () => {
   const [searchAction, setSearchAction] = useState<{ q: string; path: string } | null>(null);
   const [isSavingRecipe, setIsSavingRecipe] = useState(false);
 
+  // SignalCollector 后台推荐计数
+  const [signalSuggestionCount, setSignalSuggestionCount] = useState(0);
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const chatAbortControllerRef = useRef<AbortController | null>(null);
 
@@ -97,6 +100,22 @@ const App: React.FC = () => {
   if (chatAbortControllerRef.current) chatAbortControllerRef.current.abort();
   setIsAiThinking(false);
   };
+
+  // SignalCollector 轮询：每 5 分钟检查是否有新建议
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const status = await api.getSignalStatus();
+        if (!cancelled && status?.snapshot?.lastResult?.newSuggestions) {
+          setSignalSuggestionCount(status.snapshot.lastResult.newSuggestions);
+        }
+      } catch { /* silent */ }
+    };
+    poll();
+    const timer = setInterval(poll, 5 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, []);
 
   // Navigation
   const navigateToTab = (tab: TabType, options?: { preserveSearch?: boolean }) => {
@@ -943,6 +962,7 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
     navigateToTab={navigateToTab} 
     handleRefreshProject={handleRefreshProject} 
     candidateCount={candidateCount}
+    signalSuggestionCount={signalSuggestionCount}
     isDarkMode={isDarkMode}
     currentUser={auth.authEnabled ? auth.user?.username : (permission.user !== 'anonymous' ? permission.user : undefined)}
     currentRole={permission.role}

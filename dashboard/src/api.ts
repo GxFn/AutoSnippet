@@ -865,6 +865,12 @@ export const api = {
     return res.data?.data || { suggestions: [], analysisContext: {} };
   },
 
+  /** 获取 SignalCollector 后台服务状态 */
+  async getSignalStatus(): Promise<{ running: boolean; mode: string; snapshot: any }> {
+    const res = await http.get('/skills/signal-status');
+    return res.data?.data || { running: false, mode: 'off', snapshot: null };
+  },
+
   /** AI 生成 Skill 内容（通过 ChatAgent 对话） */
   async aiGenerateSkill(prompt: string): Promise<{ reply: string; hasContext?: boolean }> {
     const systemPrompt = `你是一个 AutoSnippet Skill 文档生成助手。用户会描述他们想创建的 Skill，你需要生成完整的 SKILL.md 内容。

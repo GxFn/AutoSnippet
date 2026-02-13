@@ -297,11 +297,73 @@ program
 
       const { bootstrap, container } = await initContainer({ projectRoot });
 
+      // 连接 EventBus → Gateway（供 SignalCollector 监听事件）
+      try {
+        const eventBus = container.get('eventBus');
+        const gateway = container.get('gateway');
+        gateway.eventBus = eventBus;
+      } catch { /* EventBus 不可用不阻塞启动 */ }
+
       const httpServer = new HttpServer({ port, host });
       await httpServer.initialize();
       await httpServer.start();
 
       console.log(`✅ API server running at http://${host}:${port}`);
+
+      // 启动 SignalCollector 后台服务
+      try {
+        const { SignalCollector } = await import('../lib/service/skills/SignalCollector.js');
+        const { getRealtimeService } = await import('../lib/infrastructure/realtime/RealtimeService.js');
+        const db = container.get('database');
+
+        const signalCollector = new SignalCollector({
+          projectRoot,
+          database: db,
+          mode: process.env.ASD_SIGNAL_MODE || 'suggest',
+          intervalMs: parseInt(process.env.ASD_SIGNAL_INTERVAL || '1800000', 10),
+          onSuggestions: (suggestions) => {
+            try {
+              const realtime = getRealtimeService();
+              realtime.broadcastEvent('skill:suggestions', { suggestions });
+            } catch { /* realtime 未就绪 */ }
+          },
+          onAutoCreate: async (suggestion) => {
+            // auto 模式：创建最简 Skill 文档
+            try {
+              const { createSkill } = await import('../lib/external/mcp/handlers/skill.js');
+              const content = [
+                `# ${suggestion.description || suggestion.name}`,
+                '',
+                '## 来源',
+                `由 SignalCollector 自动创建（${suggestion.source}）`,
+                '',
+                '## 原因',
+                suggestion.rationale || '符合自动创建阈值',
+                '',
+                '## 指南',
+                '> 请根据项目实际情况补充具体内容。',
+              ].join('\n');
+              const raw = createSkill(null, {
+                name: suggestion.name,
+                description: suggestion.description || suggestion.name,
+                content,
+              });
+              const parsed = JSON.parse(raw);
+              if (!parsed.success) {
+                throw new Error(parsed.error?.message || 'createSkill failed');
+              }
+            } catch (err) {
+              throw err;
+            }
+          },
+        });
+        signalCollector.start();
+        global._signalCollector = signalCollector; // HTTP route 访问入口
+        console.log(`🧠 SignalCollector started (mode=${signalCollector.getMode()})`);
+      } catch (scErr) {
+        console.warn(`⚠️  SignalCollector failed to start: ${scErr.message}`);
+        if (process.env.ASD_DEBUG === '1') console.error(scErr.stack);
+      }
 
       // 3. 启动文件监听器（监控 // as:c // as:s // as:a 等指令）
       try {
