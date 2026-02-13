@@ -321,7 +321,7 @@ program
           projectRoot,
           database: db,
           chatAgent,
-          mode: process.env.ASD_SIGNAL_MODE || 'suggest',
+          mode: process.env.ASD_SIGNAL_MODE || 'auto',
           intervalMs: parseInt(process.env.ASD_SIGNAL_INTERVAL || '3600000', 10),
           onSuggestions: (suggestions) => {
             try {
