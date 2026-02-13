@@ -854,7 +854,7 @@ export const api = {
   },
 
   /** 创建项目级 Skill */
-  async createSkill(data: { name: string; description: string; content: string; overwrite?: boolean }): Promise<any> {
+  async createSkill(data: { name: string; description: string; content: string; overwrite?: boolean; createdBy?: string }): Promise<any> {
     const res = await http.post('/skills', data);
     return res.data?.data || {};
   },

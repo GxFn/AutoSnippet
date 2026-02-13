@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   BookOpen, Plus, RefreshCw, ChevronRight, ChevronDown,
   Sparkles, X, Send, Package, FolderOpen, Copy, Check,
-  AlertCircle, Loader2, FileText, Lightbulb, Zap,
+  AlertCircle, Loader2, FileText, Lightbulb, Zap, Bot, User, Cpu,
 } from 'lucide-react';
 import api from '../../api';
 import { notify } from '../../utils/notification';
@@ -16,6 +16,8 @@ interface SkillItem {
   source: 'builtin' | 'project';
   summary: string;
   useCase: string | null;
+  createdBy: string | null;
+  createdAt: string | null;
 }
 
 interface SkillDetail {
@@ -25,7 +27,17 @@ interface SkillDetail {
   charCount: number;
   useCase: string | null;
   relatedSkills: string[];
+  createdBy: string | null;
+  createdAt: string | null;
 }
+
+/** createdBy 标签配置 */
+const CREATED_BY_CONFIG: Record<string, { label: string; color: string; icon: typeof Bot }> = {
+  'manual':      { label: '手动',     color: 'bg-slate-100 text-slate-600',   icon: User },
+  'user-ai':     { label: 'AI 协助',  color: 'bg-violet-100 text-violet-600', icon: Sparkles },
+  'system-ai':   { label: '自动',     color: 'bg-amber-100 text-amber-600',   icon: Cpu },
+  'external-ai': { label: '外部 AI',  color: 'bg-cyan-100 text-cyan-600',     icon: Bot },
+};
 
 /* ═══════════════════════════════════════════════════════
  *  Main Component
@@ -117,6 +129,7 @@ const SkillsView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
         name: suggestion.name,
         description: suggestion.description,
         content,
+        createdBy: 'user-ai',
       });
       notify(`Skill "${suggestion.name}" 已创建`, { type: 'success' });
       setSuggestions(prev => prev.filter(s => s.name !== suggestion.name));
@@ -308,6 +321,16 @@ const SkillsView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
                       }`}>
                         {skill.source === 'builtin' ? '内置' : '项目'}
                       </span>
+                      {skill.createdBy && CREATED_BY_CONFIG[skill.createdBy] && (() => {
+                        const cfg = CREATED_BY_CONFIG[skill.createdBy!];
+                        const Icon = cfg.icon;
+                        return (
+                          <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium ${cfg.color}`}>
+                            <Icon size={10} />
+                            {cfg.label}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <p className="text-xs text-slate-500 line-clamp-2">{skill.summary}</p>
                     {skill.useCase && (
@@ -342,6 +365,16 @@ const SkillsView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
                   }`}>
                     {selectedSkill.source === 'builtin' ? '内置' : '项目'}
                   </span>
+                  {selectedSkill.createdBy && CREATED_BY_CONFIG[selectedSkill.createdBy] && (() => {
+                    const cfg = CREATED_BY_CONFIG[selectedSkill.createdBy!];
+                    const Icon = cfg.icon;
+                    return (
+                      <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium ${cfg.color}`}>
+                        <Icon size={10} />
+                        {cfg.label}创建
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-slate-400">{selectedSkill.charCount} 字符</span>
@@ -422,6 +455,7 @@ const CreateSkillModal: React.FC<{
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [aiGenerated, setAiGenerated] = useState(false);
 
   /* ── AI Generate ── */
   const handleGenerate = async () => {
@@ -492,6 +526,7 @@ const CreateSkillModal: React.FC<{
       if (metaDesc) setDescription(metaDesc);
       setContent(bodyContent || reply.trim());
 
+      setAiGenerated(true);
       setMode('manual'); // Switch to manual to let user review/edit
       notify('AI 已生成 Skill 内容，请检查并确认', { type: 'success' });
     } catch (err: any) {
@@ -510,7 +545,7 @@ const CreateSkillModal: React.FC<{
     setSaving(true);
     setError('');
     try {
-      await api.createSkill({ name: name.trim(), description: description.trim(), content: content.trim() });
+      await api.createSkill({ name: name.trim(), description: description.trim(), content: content.trim(), createdBy: aiGenerated ? 'user-ai' : 'manual' });
       notify(`Skill "${name}" 创建成功`, { type: 'success' });
       onCreated();
     } catch (err: any) {
