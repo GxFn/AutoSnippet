@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus, X, FileSearch, Clipboard, Zap, Cpu } from 'lucide-react';
 import { ICON_SIZES } from '../../constants/icons';
+import PageOverlay from '../Shared/PageOverlay';
 
 interface CreateModalProps {
   setShowCreateModal: (show: boolean) => void;
@@ -20,8 +21,9 @@ const CreateModal: React.FC<CreateModalProps> = ({
   isExtracting 
 }) => {
   return (
-  <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+  <PageOverlay className="z-40 flex items-center justify-center p-4">
+    <PageOverlay.Backdrop className="bg-slate-900/50 backdrop-blur-sm" />
+    <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
      <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
       <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800"><Plus size={ICON_SIZES.xl} className="text-blue-600" /> New Recipe</h2>
       <button onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-white rounded-full transition-colors"><X size={ICON_SIZES.lg} /></button>
@@ -49,7 +51,7 @@ const CreateModal: React.FC<CreateModalProps> = ({
        </div>
      )}
     </div>
-  </div>
+  </PageOverlay>
   );
 };
 

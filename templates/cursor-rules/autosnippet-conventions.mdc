@@ -41,9 +41,19 @@ Recipes are classified into three kinds:
 - **Retry policy**: If an MCP call fails, do not retry within the same agent turn; fall back to static docs or already-read context.
 - **Adoption tracking**: Tool `autosnippet_confirm_usage` records that a Recipe was adopted or applied (affects usage stats and authority ranking). Show it when the user explicitly adopts a recipe, not immediately after presenting one.
 - **Batch scan**: Ask Cursor in natural language (e.g. "scan all targets in this project", "batch extract candidates") to trigger the batch-scan workflow. The workflow calls `autosnippet_get_targets` → `autosnippet_get_target_files` → extract per file → `autosnippet_submit_candidates` automatically.
-- **Cold start**: Use `autosnippet_bootstrap_knowledge` for full project knowledge initialization covering 9 dimensions (project norms, usage patterns, architecture, code patterns, best practices, bug fixes, knowledge graph, library characteristics, agent dev notes).
+- **Cold start**: Use `autosnippet_bootstrap_knowledge` for full project knowledge initialization covering 9 dimensions. Phase 5.5 auto-generates 4 Project Skills (code-standard, architecture, project-profile, agent-guidelines) to `AutoSnippet/skills/`.
 
-## MCP tools (31 total)
+## Project Skills
+
+- **Skills 目录**: `AutoSnippet/skills/<name>/SKILL.md` — 跟随项目 Git 管理
+- **发现**: `autosnippet_list_skills` — 列出所有可用 Skills（内置 + 项目级）
+- **加载**: `autosnippet_load_skill(skillName)` — 获取 Skill 完整文档
+- **创建**: `autosnippet_create_skill(name, description, content)` — 创建项目级 Skill
+- **推荐**: `autosnippet_suggest_skills` — 基于使用模式推荐创建 Skill
+- **优先级**: 项目级 Skill 同名覆盖内置 Skill；Skill > Recipe（宏观知识优先查 Skill）
+- **Bootstrap 自动生成**: 冷启动会自动生成 `project-code-standard`、`project-architecture`、`project-profile`、`project-agent-guidelines` 四个 Project Skills
+
+## MCP tools (36 total)
 
 ### Search (prefer search / context_search)
 - `autosnippet_search` — Unified search (auto: BM25 + semantic fusion)
@@ -66,13 +76,20 @@ Recipes are classified into three kinds:
 - `autosnippet_submit_draft_recipes` — Parse draft Markdown files
 - `autosnippet_enrich_candidates` — AI-fill missing semantic fields
 
-### Project scanning
+### Project scanning & bootstrap
 - `autosnippet_get_targets` / `autosnippet_get_target_files` / `autosnippet_get_target_metadata`
 - `autosnippet_scan_project` — Lightweight probe (file list + Guard audit)
-- `autosnippet_bootstrap_knowledge` — Cold-start knowledge initialization
+- `autosnippet_bootstrap_knowledge` — Cold-start knowledge initialization (9 dimensions + auto Project Skills)
+- `autosnippet_bootstrap_refine` — AI refinement for bootstrap candidates (summary/insight/relations)
 
 ### Guard & governance
 - `autosnippet_guard_check` / `autosnippet_guard_audit_files` / `autosnippet_compliance_report`
+
+### Skills
+- `autosnippet_list_skills` — List all available Skills (builtin + project)
+- `autosnippet_load_skill` — Load a Skill's full document
+- `autosnippet_create_skill` — Create a project-level Skill in `AutoSnippet/skills/`
+- `autosnippet_suggest_skills` — Recommend Skills based on usage patterns
 
 ### Other
 - `autosnippet_health` / `autosnippet_capabilities` / `autosnippet_confirm_usage`

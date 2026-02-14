@@ -99,7 +99,23 @@ function mapV2RecipeToV1(r: any): Recipe {
   if (usageGuideCn) md += `## AI Context / Usage Guide\n\n${usageGuideCn}\n\n`;
   if (usageGuideEn) md += `## AI Context / Usage Guide (EN)\n\n${usageGuideEn}\n\n`;
   const stepsArr: any[] = contentObj.steps || [];
-  const stepsStr = stepsArr.map((s: any) => (typeof s === 'string' ? s : s.description || '')).join('\n');
+  const safeStr = (v: any): string => {
+    if (v == null) return '';
+    if (typeof v === 'string') return v;
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+    return JSON.stringify(v);
+  };
+  const stepsStr = stepsArr.map((s: any, i: number) => {
+    if (typeof s === 'string') return `${i + 1}. ${s}`;
+    if (typeof s !== 'object' || s === null) return `${i + 1}. ${String(s)}`;
+    const title = safeStr(s.title);
+    const desc = safeStr(s.description);
+    const code = safeStr(s.code);
+    const parts = [title, desc].filter(Boolean).join(': ');
+    let line = `${i + 1}. ${parts || '(步骤)'}`;
+    if (code) line += `\n\n\`\`\`\n${code}\n\`\`\``;
+    return line;
+  }).join('\n');
   if (stepsStr.trim()) md += `## Best Practices\n\n${stepsStr}\n\n`;
   const standardsText = (r.constraints || {}).standards || '';
   if (standardsText) md += `## Standards\n\n${standardsText}\n\n`;
@@ -128,6 +144,9 @@ function mapV2RecipeToV1(r: any): Recipe {
     constraints: r.constraints || null,
     tags: r.tags || [],
     stats,
+    usageGuide: r.usageGuideCn || r.usageGuideEn || '',
+    usageGuide_cn: r.usageGuideCn || '',
+    usageGuide_en: r.usageGuideEn || '',
   };
 }
 
@@ -166,6 +185,15 @@ function mapV2CandidateToV1(c: any): CandidateItem {
           confidence: reasoning.confidence ?? null,
         }
       : null,
+    // ── 润色产生的额外字段 ──
+    agentNotes: meta.agentNotes || null,
+    aiInsight: meta.aiInsight || null,
+    relations: meta.relations || null,
+    refinedConfidence: meta.refinedConfidence ?? null,
+    rationale: meta.rationale || '',
+    scope: meta.scope || '',
+    steps: meta.steps || [],
+    complexity: meta.complexity || undefined,
   } as CandidateItem;
 }
 
@@ -391,7 +419,7 @@ export const api = {
     };
   },
 
-  /** 冷启动：结构收集 + 9 维度 Candidate 创建（与 MCP bootstrap 一致） */
+  /** 冷启动：快速骨架 + 异步逐维度填充（v5） */
   async bootstrap(signal?: AbortSignal) {
     const res = await http.post('/spm/bootstrap', {}, { signal, timeout: 300000 });
     const data = res.data?.data || {};
@@ -405,9 +433,16 @@ export const api = {
       guardSummary: data.guardSummary || null,
       guardViolationFiles: data.guardViolationFiles || [],
       bootstrapCandidates: data.bootstrapCandidates || { created: 0, failed: 0 },
+      bootstrapSession: data.bootstrapSession || null,
+      asyncFill: data.asyncFill || false,
       message: data.message || '',
-      aiEnhancement: data.aiEnhancement || null,
     };
+  },
+
+  /** 查询 bootstrap 异步填充进度（Socket.io 不可用时的 fallback） */
+  async getBootstrapStatus() {
+    const res = await http.get('/spm/bootstrap/status');
+    return res.data?.data || { status: 'idle' };
   },
 
   async getDepGraph(level: string) {
@@ -866,7 +901,7 @@ export const api = {
   },
 
   /** 获取 SignalCollector 后台服务状态 */
-  async getSignalStatus(): Promise<{ running: boolean; mode: string; snapshot: any }> {
+  async getSignalStatus(): Promise<{ running: boolean; mode: string; snapshot: any; suggestions?: any[] }> {
     const res = await http.get('/skills/signal-status');
     return res.data?.data || { running: false, mode: 'off', snapshot: null };
   },

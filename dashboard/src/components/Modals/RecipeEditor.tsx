@@ -6,6 +6,7 @@ import MarkdownWithHighlight from '../Shared/MarkdownWithHighlight';
 import HighlightedCodeEditor from '../Shared/HighlightedCodeEditor';
 import CodeBlock from '../Shared/CodeBlock';
 import { ICON_SIZES } from '../../constants/icons';
+import PageOverlay from '../Shared/PageOverlay';
 
 interface RecipeEditorProps {
   editingRecipe: Recipe;
@@ -43,7 +44,9 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
         const stats = editingRecipe.stats ? { ...editingRecipe.stats, authority } : { ...defaultStats, authority };
         setEditingRecipe({ ...editingRecipe, stats });
       }
-    } catch (_) {}
+    } catch (err: any) {
+      console.warn('设置权威分失败:', err?.message);
+    }
   };
 
   // 解析元数据和正文
@@ -133,8 +136,9 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
   };
 
   return (
-  <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl flex flex-col h-[85vh]">
+  <PageOverlay className="z-40 flex items-center justify-center p-4">
+    <PageOverlay.Backdrop className="bg-slate-900/50 backdrop-blur-sm" />
+    <div className="relative bg-white w-full max-w-6xl rounded-2xl shadow-2xl flex flex-col h-[85vh]">
     <div className="p-6 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
       <div className="flex items-center gap-3">
       <h2 className="text-xl font-bold">Edit Recipe</h2>
@@ -425,7 +429,7 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
                 { key: 'extends', label: '扩展', color: 'text-teal-600', icon: '⊃' },
                 { key: 'related', label: '关联', color: 'text-slate-500', icon: '∼' },
               ] as const).map(({ key, label, color, icon }) => {
-                const items = (editingRecipe.relations as any)?.[key];
+                const items = editingRecipe.relations?.[key];
                 if (!items || !Array.isArray(items) || items.length === 0) return null;
                 return (
                   <div key={key} className="flex items-start gap-3">
@@ -455,7 +459,7 @@ const RecipeEditor: React.FC<RecipeEditorProps> = ({ editingRecipe, setEditingRe
       </button>
     </div>
     </div>
-  </div>
+  </PageOverlay>
   );
 };
 

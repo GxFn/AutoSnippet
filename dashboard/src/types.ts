@@ -25,6 +25,16 @@ export interface RecipeStats {
   authorityScore: number;
 }
 
+/** Recipe 结构化内容（API 返回对象形式时） */
+export interface RecipeContent {
+  pattern?: string;
+  markdown?: string;
+  rationale?: string;
+  steps?: Array<string | { title?: string; description?: string; code?: string }>;
+  codeChanges?: Array<{ file: string; before: string; after: string; explanation: string }>;
+  verification?: { method?: string; expectedResult?: string; testCode?: string } | null;
+}
+
 export interface Recipe {
   id?: string;
   name: string;
@@ -56,6 +66,10 @@ export interface Recipe {
     sideEffects?: string[];
   } | null;
   tags?: string[];
+  /** 使用指南 */
+  usageGuide?: string;
+  usageGuide_cn?: string;
+  usageGuide_en?: string;
 }
 
 export interface ProjectData {
@@ -171,6 +185,11 @@ export type CandidateItem = ExtractedRecipe & {
   reviewNotes?: CandidateReviewNotes | null;
   relatedRecipes?: CandidateRelatedRecipe[];
   reasoning?: CandidateReasoning | null;
+  // ── 润色产生的额外字段 ──
+  agentNotes?: string[] | null;
+  aiInsight?: string | null;
+  relations?: Array<{ type: string; target: string; description: string }> | null;
+  refinedConfidence?: number | null;
 };
 
 /** Guard 审计摘要（全项目扫描返回） */

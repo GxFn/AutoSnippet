@@ -1,102 +1,368 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { MessageSquare, Send, Brain, Loader2, Plus, Sparkles, ArrowRight, Trash2, Clock, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import MarkdownWithHighlight from '../Shared/MarkdownWithHighlight';
+import { useChatState, useGlobalChat } from '../Shared/GlobalChatDrawer';
+import { useChatTopics, ChatMessage } from '../../hooks/useChatTopics';
+import api from '../../api';
 
-interface AiChatViewProps {
-  chatHistory: { role: 'user' | 'model', text: string }[];
-  userInput: string;
-  setUserInput: (input: string) => void;
-  handleChat: (e: React.FormEvent) => void;
-  isAiThinking: boolean;
-}
+/* ═══════════════════════════════════════════════════════════
+ * AiChatView — /ai 页面的全屏 AI 聊天界面
+ *
+ * 左侧: 话题列表（localStorage 持久化，支持新建/切换/删除）
+ * 右侧: 聊天对话区域
+ * ═══════════════════════════════════════════════════════════ */
 
-const AiChatView: React.FC<AiChatViewProps> = ({ chatHistory, userInput, setUserInput, handleChat, isAiThinking }) => {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+const uid = () => Math.random().toString(36).substring(2, 10);
 
-  // 自动滚动到最新消息
-  useEffect(() => {
-  // 使用 requestAnimationFrame 确保 DOM 已更新
-  const timer = requestAnimationFrame(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  });
-  return () => cancelAnimationFrame(timer);
-  }, [chatHistory, isAiThinking]);
-
-  // 格式化消息文本（模型消息支持 Markdown）
-  const renderMessage = (text: string, role: 'user' | 'model') => {
-  if (role === 'model') {
-    return (
-    <MarkdownWithHighlight
-      content={text}
-      className="text-slate-800"
-    />
-    );
-  }
-  return <div className="whitespace-pre-wrap break-words">{text}</div>;
-  };
-
-  return (
-  <div className="max-w-4xl mx-auto flex flex-col h-full bg-slate-50">
-    {/* 消息区域 */}
-    <div 
-    ref={messagesContainerRef}
-    className="flex-1 overflow-y-auto space-y-3 p-4"
-    >
-    {chatHistory.length === 0 ? (
-      <div className="text-center text-slate-400 mt-8">
-      <p className="text-sm">开始聊天吧，询问关于你的项目的任何问题</p>
-      </div>
-    ) : (
-      chatHistory.map((msg, i) => (
-      <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-        <div className={`max-w-[75%] p-3 rounded-lg text-sm ${
-        msg.role === 'user' 
-          ? 'bg-blue-600 text-white rounded-br-none' 
-          : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none shadow-sm'
-        }`}>
-        {renderMessage(msg.text, msg.role)}
-        </div>
-      </div>
-      ))
-    )}
-    {isAiThinking && (
-      <div className="flex justify-start">
-      <div className="bg-white border border-slate-200 text-slate-800 p-3 rounded-lg rounded-bl-none shadow-sm">
-        <div className="flex items-center gap-2">
-        <div className="flex gap-1">
-          <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-          <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-          <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-        </div>
-        <span className="text-xs text-slate-400">AI 思考中...</span>
-        </div>
-      </div>
-      </div>
-    )}
-    <div ref={messagesEndRef} />
+/** Diff 字段视图 */
+const DiffFieldView: React.FC<{ d: { field: string; label: string; before: string; after: string } }> = ({ d }) => (
+  <div className="border border-slate-200 rounded-lg overflow-hidden">
+    <div className="px-2.5 py-1 bg-slate-50 border-b border-slate-200 flex items-center gap-1.5">
+      <ArrowRight size={10} className="text-emerald-500" />
+      <span className="text-[10px] font-bold text-slate-600">{d.label}</span>
     </div>
-
-    {/* 输入区域 */}
-    <div className="border-t border-slate-200 p-4 bg-white">
-    <form onSubmit={handleChat} className="flex gap-2">
-      <input 
-      type="text" 
-      value={userInput} 
-      onChange={(e) => setUserInput(e.target.value)} 
-      placeholder="Ask anything about your project..." 
-      disabled={isAiThinking}
-      className="flex-1 px-4 py-2 outline-none text-sm border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-400" 
-      />
-      <button 
-      type="submit" 
-      disabled={isAiThinking || !userInput.trim()} 
-      className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
-      >
-      Ask
-      </button>
-    </form>
+    <div className="p-2.5 bg-red-50/30 border-b border-slate-200">
+      <div className="text-[9px] font-bold text-red-400 mb-0.5 uppercase">Before</div>
+      <pre className="text-[11px] text-slate-600 whitespace-pre-wrap break-words max-h-48 overflow-auto font-mono leading-relaxed scrollbar-light">
+        {d.before || <span className="italic text-slate-300">（空）</span>}
+      </pre>
+    </div>
+    <div className="p-2.5 bg-emerald-50/30">
+      <div className="text-[9px] font-bold text-emerald-500 mb-0.5 uppercase">After</div>
+      <pre className="text-[11px] text-slate-700 whitespace-pre-wrap break-words max-h-48 overflow-auto font-mono leading-relaxed scrollbar-light">
+        {d.after}
+      </pre>
     </div>
   </div>
+);
+
+/** 格式化时间 */
+function formatTopicTime(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return '刚刚';
+  if (diffMin < 60) return `${diffMin}分钟前`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}小时前`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 7) return `${diffDay}天前`;
+  return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+}
+
+const AiChatView: React.FC = () => {
+  const s = useChatState();
+  const { close, isOpen } = useGlobalChat();
+  const {
+    messages, setMessages, loading, setLoading,
+    chatHistoryRef,
+  } = s;
+
+  const topicsMgr = useChatTopics();
+  const { topics, activeTopicId, activeTopic, createTopic, deleteTopic, saveTopic, switchTopic, setActiveTopicId } = topicsMgr;
+
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [input, setInput] = useState('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // 用于跟踪是否正在执行话题切换（防止保存覆盖）
+  const isSwitchingRef = useRef(false);
+
+  // 侧边 panel 在 /ai 全屏模式下自动关闭
+  useEffect(() => { if (isOpen) close(); }, []);
+
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 200); }, []);
+
+  // 消息变化时自动保存到当前话题（仅当有消息且有活跃话题时）
+  useEffect(() => {
+    if (isSwitchingRef.current) return;
+    if (activeTopicId && messages.length > 0) {
+      saveTopic(activeTopicId, messages as ChatMessage[]);
+    }
+  }, [messages, activeTopicId, saveTopic]);
+
+  /** 新建话题 */
+  const handleNewTopic = useCallback(() => {
+    isSwitchingRef.current = true;
+    const id = createTopic();
+    setMessages([]);
+    chatHistoryRef.current = [];
+    // 恢复保存
+    setTimeout(() => { isSwitchingRef.current = false; }, 50);
+  }, [createTopic, setMessages, chatHistoryRef]);
+
+  /** 切换到指定话题 */
+  const handleSwitchTopic = useCallback((id: string) => {
+    if (id === activeTopicId) return;
+    isSwitchingRef.current = true;
+    switchTopic(id);
+    const topic = topicsMgr.getTopic(id);
+    if (topic) {
+      setMessages(topic.messages);
+      // 重建 chatHistoryRef
+      chatHistoryRef.current = topic.messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => ({ role: m.role === 'assistant' ? 'model' : m.role, content: m.content }));
+    } else {
+      setMessages([]);
+      chatHistoryRef.current = [];
+    }
+    setTimeout(() => { isSwitchingRef.current = false; }, 50);
+  }, [activeTopicId, switchTopic, topicsMgr, setMessages, chatHistoryRef]);
+
+  /** 删除话题 */
+  const handleDeleteTopic = useCallback((e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    deleteTopic(id);
+    if (id === activeTopicId) {
+      isSwitchingRef.current = true;
+      setMessages([]);
+      chatHistoryRef.current = [];
+      setTimeout(() => { isSwitchingRef.current = false; }, 50);
+    }
+  }, [deleteTopic, activeTopicId, setMessages, chatHistoryRef]);
+
+  const handleSend = useCallback(async () => {
+    const text = input.trim();
+    if (!text || loading) return;
+
+    // 如果没有活跃话题，自动创建一个
+    let topicId = activeTopicId;
+    if (!topicId) {
+      isSwitchingRef.current = true;
+      topicId = createTopic();
+      setTimeout(() => { isSwitchingRef.current = false; }, 50);
+    }
+
+    setInput('');
+    setMessages(prev => [...prev, { id: uid(), role: 'user', content: text, timestamp: Date.now() }]);
+    setLoading(true);
+
+    chatHistoryRef.current.push({ role: 'user', content: text });
+    try {
+      const result = await api.chat(text, chatHistoryRef.current);
+      chatHistoryRef.current.push({ role: 'model', content: result.text });
+      setMessages(prev => [...prev, { id: uid(), role: 'assistant', content: result.text, timestamp: Date.now() }]);
+    } catch (err: any) {
+      setMessages(prev => [...prev, { id: uid(), role: 'assistant', content: `请求失败: ${err.message}`, timestamp: Date.now() }]);
+    }
+    setLoading(false);
+  }, [input, loading, activeTopicId, createTopic]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  }, [handleSend]);
+
+  return (
+    <div className="flex-1 flex h-full bg-slate-50">
+      {/* ═══ 左侧话题列表 ═══ */}
+      <div className={`${sidebarCollapsed ? 'w-10' : 'w-64'} shrink-0 bg-white border-r border-slate-200 flex flex-col transition-all duration-200`}>
+        {sidebarCollapsed ? (
+          /* 折叠状态 */
+          <div className="flex flex-col items-center py-3 gap-2">
+            <button onClick={() => setSidebarCollapsed(false)}
+              className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600" title="展开话题列表">
+              <ChevronRightIcon size={16} />
+            </button>
+            <button onClick={handleNewTopic}
+              className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors text-blue-500" title="新建话题">
+              <Plus size={16} />
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* 话题列表头部 */}
+            <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">话题记录</span>
+              <div className="flex items-center gap-0.5">
+                <button onClick={handleNewTopic}
+                  className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors text-slate-400 hover:text-blue-600" title="新建话题">
+                  <Plus size={14} />
+                </button>
+                <button onClick={() => setSidebarCollapsed(true)}
+                  className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600" title="折叠">
+                  <ChevronLeft size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* 话题列表 */}
+            <div className="flex-1 overflow-y-auto scrollbar-light">
+              {topics.length === 0 ? (
+                <div className="px-4 py-8 text-center">
+                  <MessageSquare size={24} className="text-slate-200 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400">暂无聊天记录</p>
+                  <p className="text-[10px] text-slate-300 mt-1">开始对话后自动保存</p>
+                </div>
+              ) : (
+                <div className="py-1">
+                  {topics.map(topic => {
+                    const isActive = topic.id === activeTopicId;
+                    const msgCount = topic.messages.filter(m => m.role === 'user').length;
+                    return (
+                      <div key={topic.id}
+                        onClick={() => handleSwitchTopic(topic.id)}
+                        className={`group mx-1.5 mb-0.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                          isActive
+                            ? 'bg-blue-50 border border-blue-200'
+                            : 'hover:bg-slate-50 border border-transparent'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-1.5">
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-medium truncate leading-snug ${
+                              isActive ? 'text-blue-700' : 'text-slate-700'
+                            }`}>
+                              {topic.title}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
+                                <Clock size={9} />
+                                {formatTopicTime(topic.updatedAt)}
+                              </span>
+                              {msgCount > 0 && (
+                                <span className="text-[10px] text-slate-300">{msgCount} 条</span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => handleDeleteTopic(e, topic.id)}
+                            className={`p-1 rounded transition-colors shrink-0 ${
+                              isActive
+                                ? 'text-blue-400 hover:text-red-500 hover:bg-red-50'
+                                : 'text-transparent group-hover:text-slate-300 hover:!text-red-500 hover:!bg-red-50'
+                            }`}
+                            title="删除话题"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 底部统计 */}
+            {topics.length > 0 && (
+              <div className="px-3 py-2 border-t border-slate-100 shrink-0">
+                <span className="text-[10px] text-slate-400">{topics.length} 个话题 · 本地存储</span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ═══ 右侧对话区域 ═══ */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="px-6 py-3 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center">
+              <MessageSquare className="text-blue-600" size={18} />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-800">
+                {activeTopic ? activeTopic.title : 'AI Chat'}
+              </h2>
+              <p className="text-[11px] text-slate-400">询问任何关于项目的问题</p>
+            </div>
+          </div>
+          {messages.length > 0 && (
+            <button onClick={handleNewTopic}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-slate-200 hover:border-blue-200">
+              <Plus size={14} />
+              开启新话题
+            </button>
+          )}
+        </div>
+
+        {/* 消息区域 */}
+        <div className="flex-1 overflow-y-auto min-h-0 scrollbar-light">
+          <div className="max-w-3xl mx-auto p-6 space-y-4">
+            {messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center mb-4">
+                  <Sparkles className="text-blue-500" size={28} />
+                </div>
+                <h3 className="text-base font-bold text-slate-700 mb-2">开始 AI 对话</h3>
+                <p className="text-sm text-slate-400 max-w-md leading-relaxed mb-5">
+                  询问关于你项目的任何问题 — 代码分析、架构建议、优化方向等。
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {['分析项目架构', '查找重复代码', '推荐优化方向', '总结项目概况'].map(t => (
+                    <button key={t} onClick={() => { setInput(t); inputRef.current?.focus(); }}
+                      className="text-xs px-3.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-colors shadow-sm">
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {messages.map((msg) => (
+              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] ${
+                  msg.role === 'user' ? 'bg-blue-600 text-white rounded-2xl rounded-tr-md px-4 py-2.5'
+                    : msg.role === 'system' ? 'bg-slate-100 border border-slate-200 text-slate-600 rounded-2xl px-4 py-2.5 w-full'
+                    : 'bg-white border border-slate-200 rounded-2xl rounded-tl-md px-4 py-3 shadow-sm w-full'
+                }`}>
+                  {msg.role === 'assistant' && (
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Brain size={13} className="text-blue-500" />
+                      <span className="text-[11px] font-bold text-blue-600">AI 助手</span>
+                    </div>
+                  )}
+                  {msg.role === 'assistant' && !msg.diff ? (
+                    <MarkdownWithHighlight content={msg.content} className="text-sm text-slate-700" />
+                  ) : (
+                    <p className={`text-sm leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? '' : 'text-slate-600'}`}>{msg.content}</p>
+                  )}
+                  {msg.diff && msg.diff.length > 0 && (
+                    <div className="space-y-2 mt-2">
+                      {msg.diff.map((d: any) => <DiffFieldView key={d.field} d={d} />)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-md px-4 py-3 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <Loader2 size={14} className="animate-spin text-blue-500" />
+                    <span className="text-sm text-slate-500">AI 思考中...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+        </div>
+
+        {/* 输入区域 */}
+        <div className="border-t border-slate-200 bg-white shrink-0">
+          <div className="max-w-3xl mx-auto px-6 py-3">
+            <div className="flex gap-2">
+              <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
+                placeholder="输入你的问题..." rows={2}
+                className="flex-1 px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 resize-none placeholder:text-slate-300"
+                disabled={loading} />
+              <button onClick={handleSend} disabled={!input.trim() || loading}
+                className="self-stretch w-10 flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm shrink-0">
+                <Send size={16} />
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1.5">Enter 发送 · Shift+Enter 换行</p>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, AlertTriangle, AlertCircle, Trash2, ChevronDown, ChevronRight, ExternalLink, BookOpen, Wrench, Link2 } from 'lucide-react';
 import api from '../../api';
+import { notify } from '../../utils/notification';
 import { GITHUB_ISSUES_NEW_GUARD_URL } from '../../constants';
 import { ICON_SIZES } from '../../constants/icons';
 
@@ -86,7 +87,9 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
     await api.clearViolations();
     fetchGuard();
     onRefresh?.();
-  } catch (_) {}
+  } catch (err: any) {
+    notify(err?.message || '清空违反记录失败', { type: 'error' });
+  }
   };
 
   const handleToggleLang = (lang: string) => {

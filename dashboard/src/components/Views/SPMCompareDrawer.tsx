@@ -6,6 +6,7 @@ import { notify } from '../../utils/notification';
 import { ICON_SIZES } from '../../constants/icons';
 import CodeBlock from '../Shared/CodeBlock';
 import MarkdownWithHighlight, { stripFrontmatter } from '../Shared/MarkdownWithHighlight';
+import PageOverlay from '../Shared/PageOverlay';
 
 export type { SimilarRecipe };
 
@@ -88,7 +89,9 @@ const SPMCompareDrawer: React.FC<SPMCompareDrawerProps> = ({
     try {
       await handleDeleteCandidate(data.targetName, cand.candidateId);
       onClose();
-    } catch (_) {}
+    } catch (err: any) {
+      notify(err?.message || '删除失败', { type: 'error' });
+    }
   };
 
   const handleAuditCandidate = () => {
@@ -104,12 +107,11 @@ const SPMCompareDrawer: React.FC<SPMCompareDrawerProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex justify-end"
+    <PageOverlay
+      className="z-30 flex justify-end"
       onClick={onClose}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
+      <PageOverlay.Backdrop className="bg-black/30 backdrop-blur-[1px]" />
 
       {/* Drawer — wider for side-by-side */}
       <div
@@ -203,7 +205,7 @@ const SPMCompareDrawer: React.FC<SPMCompareDrawerProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </PageOverlay>
   );
 };
 

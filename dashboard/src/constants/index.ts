@@ -1,4 +1,18 @@
-import { Globe, Layout, Cpu, Zap, Database, Wifi, HardDrive, Box, Layers } from 'lucide-react';
+import { Globe, Layout, Cpu, Zap, Database, Wifi, HardDrive, Box, Layers, Hash, GitBranch, Shield, BookOpen, Workflow, Cog, Brain, ScanSearch, Library } from 'lucide-react';
+
+/** Bootstrap 维度分类 tab 显示名 */
+export const BOOTSTRAP_DIM_LABELS: Record<string, string> = {
+  'code-standard': '代码规范',
+  'code-pattern': '设计模式',
+  'architecture': '架构模式',
+  'best-practice': '最佳实践',
+  'event-and-data-flow': '事件与数据流',
+  'project-profile': '项目特征',
+  'agent-guidelines': 'Agent 注意事项',
+  'objc-deep-scan': '常量/Hook',
+  'category-scan': 'Category 分类方法',
+  'bootstrap': 'Bootstrap',
+};
 
 export const categoryConfigs: Record<string, { icon: any, color: string, bg: string, border: string }> = {
   All: { icon: Globe, color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' },
@@ -10,6 +24,17 @@ export const categoryConfigs: Record<string, { icon: any, color: string, bg: str
   Storage: { icon: HardDrive, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
   UI: { icon: Box, color: 'text-cyan-600', bg: 'bg-cyan-50', border: 'border-cyan-100' },
   Utility: { icon: Layers, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
+  // Bootstrap 维度分类
+  'code-standard': { icon: BookOpen, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100' },
+  'code-pattern': { icon: GitBranch, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50', border: 'border-fuchsia-100' },
+  'architecture': { icon: Workflow, color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-100' },
+  'best-practice': { icon: Shield, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+  'event-and-data-flow': { icon: Cog, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
+  'project-profile': { icon: Hash, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-100' },
+  'agent-guidelines': { icon: Brain, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100' },
+  'objc-deep-scan': { icon: ScanSearch, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
+  'category-scan': { icon: Library, color: 'text-cyan-600', bg: 'bg-cyan-50', border: 'border-cyan-100' },
+  'bootstrap': { icon: Zap, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100' },
 };
 
 export const categories = ['All', 'View', 'Service', 'Tool', 'Model', 'Network', 'Storage', 'UI', 'Utility'];

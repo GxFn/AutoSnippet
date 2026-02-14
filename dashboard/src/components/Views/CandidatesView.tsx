@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Zap, FileSearch, Box, Trash2, Edit3, Layers, Eye, EyeOff, GitCompare, X, Copy, Brain, BookOpen, Target, ChevronDown, ChevronUp, Sparkles, Shield, Clock, Code2, Tag, AlertTriangle, CheckCircle2, BarChart3, Filter, ArrowUpDown, Rocket, Wand2, Loader2 } from 'lucide-react';
+import { Zap, FileSearch, Box, Trash2, Edit3, Layers, Eye, EyeOff, GitCompare, X, Copy, Brain, BookOpen, Target, ChevronDown, ChevronUp, Sparkles, Shield, Clock, Code2, Tag, AlertTriangle, CheckCircle2, BarChart3, Filter, ArrowUpDown, Rocket, Wand2, Loader2, Lightbulb, FileText, Maximize2, Minimize2 } from 'lucide-react';
+import { useDrawerWide } from '../../hooks/useDrawerWide';
 import { ProjectData, ExtractedRecipe, CandidateItem, SimilarRecipe } from '../../types';
 import api from '../../api';
 import { notify } from '../../utils/notification';
-import { categoryConfigs } from '../../constants';
+import { categoryConfigs, BOOTSTRAP_DIM_LABELS } from '../../constants';
 import CodeBlock from '../Shared/CodeBlock';
 import MarkdownWithHighlight, { stripFrontmatter } from '../Shared/MarkdownWithHighlight';
 import Pagination from '../Shared/Pagination';
 import { ICON_SIZES } from '../../constants/icons';
-import RefineChatPanel from './RefineChatPanel';
+import { useGlobalChat } from '../Shared/GlobalChatDrawer';
+import PageOverlay from '../Shared/PageOverlay';
+import { useRefineSocket } from '../../hooks/useRefineSocket';
+import RefineProgressBar from './RefineProgressBar';
 
 const SILENT_LABELS: Record<string, string> = { _watch: 'as:create', _draft: '草稿', _cli: 'CLI', _pending: '待审核(24h)', _recipe: 'New Recipe' };
 
@@ -24,6 +28,8 @@ interface CandidatesViewProps {
   onEditRecipe?: (recipe: { name: string; content: string; stats?: any }) => void;
   onColdStart?: () => void;
   isScanning?: boolean;
+  /** bootstrap 任务是否正在进行（隐藏冷启动按钮和空状态） */
+  isBootstrapping?: boolean;
   onRefresh?: () => void;
 }
 
@@ -133,14 +139,16 @@ const ConfidenceRing: React.FC<{ value: number | null | undefined; size?: number
 const CandidatesView: React.FC<CandidatesViewProps> = ({
   data, isShellTarget, isSilentTarget = () => false, isPendingTarget = () => false,
   handleDeleteCandidate, handleDeleteAllInTarget,
-  onAuditCandidate, onAuditAllInTarget, onEditRecipe, onColdStart, isScanning, onRefresh,
+  onAuditCandidate, onAuditAllInTarget, onEditRecipe, onColdStart, isScanning, isBootstrapping, onRefresh,
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { isWide: drawerWide, toggle: toggleDrawerWide } = useDrawerWide();
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set());
   const [refiningIds, setRefiningIds] = useState<Set<string>>(new Set());
   const [enrichingAll, setEnrichingAll] = useState(false);
   const [refining, setRefining] = useState(false);
-  const [refinePanel, setRefinePanel] = useState<{ candidateIds: string[] } | null>(null);
+  const globalChat = useGlobalChat();
+  const { refine: refineProgress, isRefining, isRefineDone, resetRefine } = useRefineSocket();
   const [targetPages, setTargetPages] = useState<Record<string, { page: number; pageSize: number }>>({});
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [similarityMap, setSimilarityMap] = useState<Record<string, SimilarRecipe[]>>({});
@@ -200,7 +208,6 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
     const initialCache: Record<string, string> = { [normalizedRecipeName]: recipeContent };
     // 确保详情抽屉打开 + 关闭润色面板（互斥）
     setExpandedId(cand.id);
-    setRefinePanel(null);
     setCompareModal({ candidate: cand, targetName, recipeName: normalizedRecipeName, recipeContent, similarList: similarList.slice(0, 3), recipeContents: initialCache });
   }, [data?.recipes]);
 
@@ -285,19 +292,6 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
     }
   }, [enrichingAll, effectiveTarget, data?.candidates, onRefresh]);
 
-  /** Phase 6: AI 润色所有 Bootstrap 候选 — 打开对话式润色面板 */
-  const handleRefineBootstrap = useCallback(() => {
-    if (!effectiveTarget || !data?.candidates?.[effectiveTarget]) return;
-    const ids = data.candidates[effectiveTarget].items.map(c => c.id);
-    setRefinePanel({ candidateIds: ids });
-  }, [effectiveTarget, data?.candidates]);
-
-  /** 单条候选润色 — 打开对话式润色面板 */
-  const handleRefineSingle = useCallback((candidateId: string) => {
-    setCompareModal(null); // 与对比互斥
-    setRefinePanel({ candidateIds: [candidateId] });
-  }, []);
-
   /** 润色面板中某条候选已更新 — 局部刷新抽屉（不整页刷新） */
   const handleCandidateUpdated = useCallback(async (candidateId: string) => {
     try {
@@ -305,6 +299,30 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
       setCandidateOverrides(prev => ({ ...prev, [candidateId]: updated }));
     } catch (_) {}
   }, []);
+
+  /** Phase 6: AI 润色所有 Bootstrap 候选 — 打开全局 AI Chat 润色模式 */
+  const handleRefineBootstrap = useCallback(() => {
+    if (!effectiveTarget || !data?.candidates?.[effectiveTarget]) return;
+    const items = data.candidates[effectiveTarget].items;
+    const ids = items.map(c => c.id);
+    globalChat.openRefine({
+      candidateIds: ids,
+      candidates: items,
+      onCandidateUpdated: handleCandidateUpdated,
+    });
+  }, [effectiveTarget, data?.candidates, globalChat, handleCandidateUpdated]);
+
+  /** 单条候选润色 — 打开全局 AI Chat 润色模式 */
+  const handleRefineSingle = useCallback((candidateId: string) => {
+    if (!effectiveTarget || !data?.candidates?.[effectiveTarget]) return;
+    setCompareModal(null);
+    const items = data.candidates[effectiveTarget].items;
+    globalChat.openRefine({
+      candidateIds: [candidateId],
+      candidates: items,
+      onCandidateUpdated: handleCandidateUpdated,
+    });
+  }, [effectiveTarget, data?.candidates, globalChat, handleCandidateUpdated]);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -320,8 +338,8 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* 冷启动按钮 */}
-          {onColdStart && (
+          {/* 冷启动按钮 — bootstrap 进行中时隐藏 */}
+          {onColdStart && !isBootstrapping && (
             <button
               onClick={onColdStart}
               disabled={isScanning}
@@ -356,16 +374,16 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
           {stats && stats.total > 0 && (
             <button
               onClick={handleRefineBootstrap}
-              disabled={refining || enrichingAll}
+              disabled={refining || enrichingAll || isRefining}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                refining || enrichingAll
+                refining || enrichingAll || isRefining
                   ? 'text-slate-400 bg-slate-100 cursor-not-allowed'
                   : 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'
               }`}
               title="② 内容润色：改善 summary 描述、补充架构洞察、推断 relations 关联、调整 confidence 评分（逐条 AI 精炼，建议在结构补齐之后执行）"
             >
-              {refining ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              {refining ? '润色中...' : '② 内容润色'}
+              {refining || isRefining ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              {refining || isRefining ? '润色中...' : '② 内容润色'}
             </button>
           )}
           {stats && (
@@ -392,6 +410,15 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
         </div>
       </div>
 
+      {/* ── AI 润色实时进度条 ── */}
+      {refineProgress && (
+        <RefineProgressBar
+          refine={refineProgress}
+          isRefineDone={isRefineDone}
+          onDismiss={() => { resetRefine(); onRefresh?.(); }}
+        />
+      )}
+
       {/* ── Target 切换标签栏 ── */}
       {candidateEntries.length > 0 && (
         <div className="shrink-0 bg-white border border-slate-100 rounded-xl px-3 py-2 mb-4 shadow-sm">
@@ -417,7 +444,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                     const Icon = catCfg?.icon || Box;
                     return <Icon size={ICON_SIZES.sm} className={isSelected ? '' : 'text-slate-400'} />;
                   })()}
-                  <span>{targetName}</span>
+                  <span>{BOOTSTRAP_DIM_LABELS[targetName] || targetName}</span>
                   {isSilent && silentLabel && <span className="text-[9px] text-amber-600 border border-amber-200 px-1 rounded">{silentLabel}</span>}
                   <span className={`text-[10px] font-normal rounded-full px-1.5 ${isSelected ? 'bg-white/60' : 'bg-slate-200/60 text-slate-400'}`}>{count}</span>
                 </button>
@@ -429,7 +456,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
 
       {/* ── 内容区域 ── */}
       <div className="flex-1 overflow-y-auto pr-1">
-        {(!data?.candidates || Object.keys(data.candidates).length === 0) && (
+        {(!data?.candidates || Object.keys(data.candidates).length === 0) && !isBootstrapping && (
           <div className="h-72 flex flex-col items-center justify-center bg-white rounded-2xl border border-dashed border-slate-200 text-slate-400">
             <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center mb-4">
               <FileSearch size={32} className="text-slate-300" />
@@ -455,6 +482,19 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
             <p className="mt-3 text-[11px] text-slate-400">
               或 <code className="text-blue-600 bg-blue-50 px-1 rounded">asd ais --all</code> 全量扫描 ·
               <code className="text-blue-600 bg-blue-50 px-1 rounded ml-1">asd candidate</code> 从剪贴板创建
+            </p>
+          </div>
+        )}
+
+        {/* Bootstrap 进行中且无候选内容时，显示等待提示 */}
+        {(!data?.candidates || Object.keys(data.candidates).length === 0) && isBootstrapping && (
+          <div className="h-72 flex flex-col items-center justify-center bg-white rounded-2xl border border-dashed border-violet-200 text-slate-400">
+            <div className="w-16 h-16 rounded-2xl bg-violet-50 flex items-center justify-center mb-4">
+              <Loader2 size={32} className="text-violet-400 animate-spin" />
+            </div>
+            <p className="text-sm font-medium text-violet-600">冷启动正在进行中…</p>
+            <p className="mt-2 text-xs max-w-sm text-center leading-relaxed text-slate-400">
+              各维度知识正在后台提取并接受 AI 审查，完成后候选内容将自动展示
             </p>
           </div>
         )}
@@ -518,7 +558,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                       const Icon = catCfg?.icon || Box;
                       return <Icon size={18} className={catCfg?.color || 'text-blue-600'} />;
                     })()}
-                    <span className="text-base font-bold text-slate-800 truncate">{targetName}</span>
+                    <span className="text-base font-bold text-slate-800 truncate">{BOOTSTRAP_DIM_LABELS[targetName] || targetName}</span>
                     {isSilent && <span className="text-[10px] font-bold text-amber-600 border border-amber-200 bg-amber-50 px-1.5 py-0.5 rounded">{silentLabel}</span>}
                     {isShell && !isSilent && <span className="text-[10px] font-bold text-slate-400 border border-slate-200 bg-slate-50 px-1.5 py-0.5 rounded">SHELL</span>}
                     <span className="text-[11px] text-slate-400 flex items-center gap-1">
@@ -587,10 +627,14 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                       当前页进入审核
                     </button>
                     <button
-                      onClick={() => {
-                        if (window.confirm(`确定移除当前页的 ${paginatedItems.length} 条候选？`)) {
-                          paginatedItems.forEach(item => handleDeleteCandidate(targetName, item.id));
-                        }
+                      onClick={async () => {
+                        if (!window.confirm(`确定移除当前页的 ${paginatedItems.length} 条候选？`)) return;
+                        const results = await Promise.allSettled(
+                          paginatedItems.map(item => handleDeleteCandidate(targetName, item.id))
+                        );
+                        const failed = results.filter(r => r.status === 'rejected').length;
+                        if (failed > 0) notify(`${failed} 条删除失败`, { type: 'error' });
+                        onRefresh?.();
                       }}
                       className="text-[11px] font-bold text-orange-500 hover:text-orange-600 px-2.5 py-1.5 rounded-lg hover:bg-orange-50 transition-colors"
                     >
@@ -716,7 +760,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                                 title="点击对比相似 Recipe"
                               >
                                 <GitCompare size={10} />
-                                相似 {String(related.title || related.id || '').replace(/\.md$/i, '')} {(related.similarity * 100).toFixed(0)}%
+                                相似 {String(related.title || related.id || '').replace(/\.md$/i, '')} {((related.similarity ?? 0) * 100).toFixed(0)}%
                               </button>
                             )}
                           </div>
@@ -865,8 +909,8 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
         const currentIndex = allItems.findIndex(c => c.id === expandedId);
         const hasPrev = currentIndex > 0;
         const hasNext = currentIndex < allItems.length - 1;
-        const goToPrev = () => { if (hasPrev) { setExpandedId(allItems[currentIndex - 1].id); setRefinePanel(null); setCompareModal(null); } };
-        const goToNext = () => { if (hasNext) { setExpandedId(allItems[currentIndex + 1].id); setRefinePanel(null); setCompareModal(null); } };
+        const goToPrev = () => { if (hasPrev) { setExpandedId(allItems[currentIndex - 1].id); setCompareModal(null); } };
+        const goToNext = () => { if (hasNext) { setExpandedId(allItems[currentIndex + 1].id); setCompareModal(null); } };
 
         const r = cand.reasoning;
         const hasReasoning = r && (r.whyStandard || (r.sources && r.sources.length > 0) || r.confidence != null);
@@ -876,25 +920,10 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
         const srcInfo = SOURCE_LABELS[cand.source || ''] || { label: cand.source || '', color: 'text-slate-500 bg-slate-50 border-slate-200' };
 
         return (
-          <div className="fixed inset-0 z-40 flex justify-end" onClick={() => { setExpandedId(null); setRefinePanel(null); setCompareModal(null); }}>
-            <div className="absolute inset-0 bg-black/15 backdrop-blur-[1px]" />
+          <PageOverlay className="z-30 flex justify-end" onClick={() => { setExpandedId(null); setCompareModal(null); }}>
+            <PageOverlay.Backdrop className="bg-black/15 backdrop-blur-[1px]" />
 
-            {/* ── 润色侧抽屉（嵌入模式，贴在详情抽屉左侧） ── */}
-            {refinePanel && effectiveTarget && data?.candidates?.[effectiveTarget] && (
-              <div
-                className="relative w-[520px] max-w-[40vw] h-full bg-white shadow-2xl flex flex-col border-l border-slate-200"
-                style={{ animation: 'slideInRight 0.2s ease-out' }}
-                onClick={e => e.stopPropagation()}
-              >
-                <RefineChatPanel
-                  embedded
-                  candidateIds={refinePanel.candidateIds}
-                  candidates={data.candidates[effectiveTarget].items}
-                  onClose={() => setRefinePanel(null)}
-                  onCandidateUpdated={handleCandidateUpdated}
-                />
-              </div>
-            )}
+            {/* ── 润色已迁移到 GlobalChatDrawer ── */}
 
             {/* ── 对比侧抽屉（贴在详情抽屉左侧） ── */}
             {compareModal && (() => {
@@ -933,7 +962,9 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                 try {
                   await handleDeleteCandidate(compareModal.targetName, compareCand.id);
                   setCompareModal(null);
-                } catch (_) {}
+                } catch (err: any) {
+                  notify(err?.message || '删除失败', { type: 'error' });
+                }
               };
               const handleCompareAudit = () => {
                 onAuditCandidate(compareCand, compareModal.targetName);
@@ -947,7 +978,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
               };
               return (
                 <div
-                  className="relative w-[600px] max-w-[45vw] h-full bg-white shadow-2xl flex flex-col border-l border-slate-200"
+                  className={`relative h-full bg-white shadow-2xl flex flex-col border-l border-slate-200 ${drawerWide ? 'w-[800px] max-w-[55vw]' : 'w-[600px] max-w-[45vw]'}`}
                   style={{ animation: 'slideInRight 0.2s ease-out' }}
                   onClick={e => e.stopPropagation()}
                 >
@@ -1008,7 +1039,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
             })()}
 
             <div
-              className="relative w-[700px] max-w-[92vw] h-full bg-white shadow-2xl flex flex-col border-l border-slate-200"
+              className={`relative h-full bg-white shadow-2xl flex flex-col border-l border-slate-200 ${drawerWide ? 'w-[960px] max-w-[92vw]' : 'w-[700px] max-w-[92vw]'}`}
               style={{ animation: 'slideInRight 0.25s ease-out' }}
               onClick={e => e.stopPropagation()}
             >
@@ -1040,7 +1071,14 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                     className={`p-1.5 rounded-lg transition-colors ${hasNext ? 'hover:bg-slate-200 text-slate-500' : 'text-slate-300 cursor-not-allowed'}`}>
                     <ChevronDown size={16} />
                   </button>
-                  <button onClick={() => { setExpandedId(null); setRefinePanel(null); setCompareModal(null); }} className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-400">
+                  <button
+                    onClick={toggleDrawerWide}
+                    className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-400"
+                    title={drawerWide ? '收窄面板' : '展开更宽'}
+                  >
+                    {drawerWide ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                  </button>
+                  <button onClick={() => { setExpandedId(null); setCompareModal(null); }} className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-400">
                     <X size={18} />
                   </button>
                 </div>
@@ -1115,6 +1153,61 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                       </>
                     ) : (
                       <p className="text-slate-400 italic pl-3">暂无推理信息</p>
+                    )}
+                  </div>
+                )}
+
+                {/* AI 润色结果 — agentNotes / aiInsight / relations / refinedConfidence */}
+                {(cand.agentNotes || cand.aiInsight || cand.refinedConfidence != null || (cand.relations && cand.relations.length > 0)) && (
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4 text-xs space-y-3">
+                    <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-[11px]">
+                      <Sparkles size={14} />
+                      润色增强信息
+                      {cand.refinedConfidence != null && (
+                        <span className="ml-auto text-emerald-600 font-mono text-[10px]">
+                          润色置信度: {Math.round(cand.refinedConfidence * 100)}%
+                        </span>
+                      )}
+                    </div>
+                    {cand.aiInsight && (
+                      <div>
+                        <span className="text-emerald-600 font-bold flex items-center gap-1 mb-0.5">
+                          <Lightbulb size={10} /> 架构洞察
+                        </span>
+                        <p className="text-slate-600 leading-relaxed pl-3">{cand.aiInsight}</p>
+                      </div>
+                    )}
+                    {cand.agentNotes && cand.agentNotes.length > 0 && (
+                      <div>
+                        <span className="text-emerald-600 font-bold flex items-center gap-1 mb-0.5">
+                          <FileText size={10} /> Agent 笔记
+                        </span>
+                        <ul className="pl-3 text-slate-600 space-y-0.5">
+                          {cand.agentNotes.map((note: string, i: number) => (
+                            <li key={i} className="flex items-start gap-1">
+                              <span className="text-emerald-400 mt-0.5">•</span>{note}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {cand.relations && cand.relations.length > 0 && (
+                      <div>
+                        <span className="text-emerald-600 font-bold flex items-center gap-1 mb-0.5">
+                          <GitCompare size={10} /> 关联关系
+                        </span>
+                        <div className="pl-3 space-y-1">
+                          {cand.relations.map((rel: any, i: number) => (
+                            <div key={i} className="flex items-start gap-1.5 text-slate-600">
+                              <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-emerald-100 text-emerald-700 shrink-0 uppercase">
+                                {rel.type}
+                              </span>
+                              <span className="font-medium text-slate-700">{rel.target}</span>
+                              {rel.description && <span className="text-slate-400">— {rel.description}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
@@ -1228,7 +1321,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                     润色
                   </button>
                   <button
-                    onClick={() => { handleDeleteCandidate(effectiveTarget!, cand.id); setExpandedId(null); setRefinePanel(null); setCompareModal(null); }}
+                    onClick={() => { handleDeleteCandidate(effectiveTarget!, cand.id); setExpandedId(null); setCompareModal(null); }}
                     title="忽略"
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 border border-red-200 transition-colors"
                   >
@@ -1253,7 +1346,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                     </button>
                   )}
                   <button
-                    onClick={() => { onAuditCandidate(cand, effectiveTarget!); setExpandedId(null); setRefinePanel(null); setCompareModal(null); }}
+                    onClick={() => { onAuditCandidate(cand, effectiveTarget!); setExpandedId(null); setCompareModal(null); }}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
                   >
                     <Edit3 size={14} /> 审核并保存
@@ -1261,22 +1354,13 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                 </div>
               </div>
             </div>
-          </div>
+          </PageOverlay>
         );
       })()}
 
       {/* ═══ 双栏对比弹窗 — 已迁移到详情抽屉内的并列抽屉 ═══ */}
 
-      {/* ═══ 对话式润色面板 — 已迁移到详情抽屉内的并列抽屉 ═══ */}
-      {/* 无抽屉时的独立润色面板（兜底：从批量入口触发时抽屉可能未打开） */}
-      {refinePanel && !expandedId && effectiveTarget && data?.candidates?.[effectiveTarget] && (
-        <RefineChatPanel
-          candidateIds={refinePanel.candidateIds}
-          candidates={data.candidates[effectiveTarget].items}
-          onClose={() => setRefinePanel(null)}
-          onCandidateUpdated={handleCandidateUpdated}
-        />
-      )}
+      {/* ═══ 润色面板已迁移到 GlobalChatDrawer ═══ */}
     </div>
   );
 };

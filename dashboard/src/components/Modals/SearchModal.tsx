@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Search, CheckCircle } from 'lucide-react';
 import api from '../../api';
 import { ICON_SIZES } from '../../constants/icons';
+import PageOverlay from '../Shared/PageOverlay';
 
 interface SearchResult {
   name: string;
@@ -82,8 +83,9 @@ const SearchModal: React.FC<SearchModalProps> = ({ searchQ, insertPath, onClose 
   };
 
   return (
-  <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+  <PageOverlay className="z-40 flex items-center justify-center p-4">
+    <PageOverlay.Backdrop className="bg-slate-900/50 backdrop-blur-sm" />
+    <div className="relative bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
     <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
       <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
       <Search size={ICON_SIZES.xl} className="text-blue-600" /> as:search — 选择并插入
@@ -139,7 +141,7 @@ const SearchModal: React.FC<SearchModalProps> = ({ searchQ, insertPath, onClose 
       )}
     </div>
     </div>
-  </div>
+  </PageOverlay>
   );
 };
 

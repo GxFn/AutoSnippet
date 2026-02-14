@@ -8,7 +8,11 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:3000',
         timeout: 300000,      // 5 分钟（AI 扫描需要较长时间）
-      }
+      },
+      '/socket.io': {
+        target: 'http://127.0.0.1:3000',
+        ws: true,             // WebSocket 升级
+      },
     }
   },
   build: {

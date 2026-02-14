@@ -390,7 +390,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
     currentFile={selectedContextFile}
     language="swift"
     onSelectRecipe={(recipeName) => {
-      console.log('Selected recipe:', recipeName);
+      // Recipe selected for detail view
     }}
     />
   </div>

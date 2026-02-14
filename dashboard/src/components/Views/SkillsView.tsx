@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import api from '../../api';
 import { notify } from '../../utils/notification';
+import PageOverlay from '../Shared/PageOverlay';
 
 /* ═══════════════════════════════════════════════════════
  *  Types
@@ -43,7 +44,13 @@ const CREATED_BY_CONFIG: Record<string, { label: string; color: string; icon: ty
  *  Main Component
  * ═══════════════════════════════════════════════════════ */
 
-const SkillsView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
+interface SkillsViewProps {
+  onRefresh?: () => void;
+  signalSuggestionCount?: number;
+  onSuggestionCountChange?: (count: number) => void;
+}
+
+const SkillsView: React.FC<SkillsViewProps> = ({ onRefresh, signalSuggestionCount = 0, onSuggestionCountChange }) => {
   const [skills, setSkills] = useState<SkillItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSkill, setSelectedSkill] = useState<SkillDetail | null>(null);
@@ -101,38 +108,70 @@ const SkillsView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  /* ── Fetch skill suggestions ── */
+  /* ── Fetch skill suggestions (merge rule-based + AI signal) ── */
   const handleSuggest = async () => {
     setLoadingSuggestions(true);
     setShowSuggestions(true);
     try {
-      const data = await api.suggestSkills();
-      setSuggestions(data.suggestions || []);
+      // 并行获取两个来源
+      const [ruleData, signalData] = await Promise.allSettled([
+        api.suggestSkills(),
+        api.getSignalStatus(),
+      ]);
+
+      const ruleSuggestions = ruleData.status === 'fulfilled' ? (ruleData.value.suggestions || []) : [];
+      const signalSuggestions = signalData.status === 'fulfilled' ? (signalData.value.suggestions || []) : [];
+
+      // 合并去重（以 name 为 key，signal AI 建议优先）
+      const merged = new Map<string, any>();
+      for (const s of ruleSuggestions) merged.set(s.name, s);
+      for (const s of signalSuggestions) merged.set(s.name, { ...merged.get(s.name), ...s });
+      const list = [...merged.values()];
+
+      setSuggestions(list);
+      // 同步角标数量为实际推荐数
+      onSuggestionCountChange?.(list.length);
     } catch (err: any) {
       notify('获取 Skill 推荐失败: ' + (err.message || ''), { type: 'error' });
       setSuggestions([]);
+      onSuggestionCountChange?.(0);
     } finally {
       setLoadingSuggestions(false);
     }
   };
+
+  /* ── 角标 > 0 时自动加载推荐 ── */
+  useEffect(() => {
+    if (signalSuggestionCount > 0 && suggestions.length === 0 && !showSuggestions) {
+      handleSuggest();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ── Create skill from suggestion (AI generate content) ── */
   const handleCreateFromSuggestion = async (suggestion: any) => {
     setCreatingSuggestion(suggestion.name);
     try {
       // 使用 AI 生成 Skill 内容
-      const prompt = `请为以下场景创建一个 Skill 文档：\n\n名称：${suggestion.name}\n描述：${suggestion.description}\n推荐原因：${suggestion.rationale}\n\n请直接生成 Skill 正文内容（Markdown 格式），不需要 frontmatter。内容应该详细、实用，包含具体的操作指南和示例。`;
+      const desc = suggestion.description || suggestion.rationale || suggestion.name;
+      const prompt = `请为以下场景创建一个 Skill 文档：\n\n名称：${suggestion.name}\n描述：${desc}\n推荐原因：${suggestion.rationale}\n\n请直接生成 Skill 正文内容（Markdown 格式），不需要 frontmatter，不需要输出 JSON 元数据。内容应该详细、实用，包含具体的操作指南和示例。`;
       const aiResult = await api.aiGenerateSkill(prompt);
-      const content = aiResult.reply || `# ${suggestion.description}\n\n${suggestion.rationale}`;
+      let content = aiResult.reply || suggestion.body || `# ${desc}\n\n${suggestion.rationale || ''}`;
+      // 剥离 AI 可能输出的 JSON 元数据首行
+      content = content.replace(/^\s*\{["']name["']\s*:.*\}\s*\n?/, '').trim();
 
       await api.createSkill({
         name: suggestion.name,
-        description: suggestion.description,
+        description: desc,
         content,
         createdBy: 'user-ai',
       });
       notify(`Skill "${suggestion.name}" 已创建`, { type: 'success' });
-      setSuggestions(prev => prev.filter(s => s.name !== suggestion.name));
+      setSuggestions(prev => {
+        const next = prev.filter(s => s.name !== suggestion.name);
+        onSuggestionCountChange?.(next.length);
+        return next;
+      });
       fetchSkills();
     } catch (err: any) {
       notify(`创建 Skill 失败: ${err.message || ''}`, { type: 'error' });
@@ -557,8 +596,9 @@ const CreateSkillModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-[720px] max-h-[85vh] flex flex-col">
+    <PageOverlay className="z-40 flex items-center justify-center">
+      <PageOverlay.Backdrop className="bg-black/40 backdrop-blur-sm" />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-[720px] max-h-[85vh] flex flex-col">
         {/* Modal header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
@@ -713,7 +753,7 @@ const CreateSkillModal: React.FC<{
           )}
         </div>
       </div>
-    </div>
+    </PageOverlay>
   );
 };
 

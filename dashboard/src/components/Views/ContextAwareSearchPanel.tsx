@@ -3,6 +3,7 @@ import { Search, X, Zap, Target, Code, AlertCircle, Loader2, ChevronRight } from
 import api from '../../api';
 import CodeBlock from '../Shared/CodeBlock';
 import { ICON_SIZES } from '../../constants/icons';
+import PageOverlay from '../Shared/PageOverlay';
 
 interface ContextInfo {
   fileInfo?: {
@@ -94,8 +95,9 @@ const ContextAwareSearchPanel: React.FC<ContextAwareSearchPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-  <div className="fixed inset-0 bg-black/20 z-50 flex">
-    <div className="w-full max-w-2xl ml-auto bg-white shadow-xl flex flex-col max-h-screen">
+  <PageOverlay className="z-30 flex">
+    <PageOverlay.Backdrop className="bg-black/20" />
+    <div className="relative w-full max-w-2xl ml-auto bg-white shadow-xl flex flex-col max-h-screen">
     {/* Header */}
     <div className="border-b border-slate-200 p-6">
       <div className="flex items-center justify-between mb-4">
@@ -268,8 +270,9 @@ const ContextAwareSearchPanel: React.FC<ContextAwareSearchPanelProps> = ({
 
     {/* 详情模态框 */}
     {detailsOpen && selectedResult && (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+    <PageOverlay className="z-40 flex items-center justify-center p-4">
+      <PageOverlay.Backdrop className="bg-black/40" />
+      <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
       {/* Header */}
       <div className="border-b border-slate-200 p-6 flex items-start justify-between shrink-0">
         <div>
@@ -336,9 +339,9 @@ const ContextAwareSearchPanel: React.FC<ContextAwareSearchPanelProps> = ({
         )}
       </div>
       </div>
-    </div>
+    </PageOverlay>
     )}
-  </div>
+  </PageOverlay>
   );
 };
 

@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Edit3, Trash2, Tag, BookOpen, Shield, Lightbulb, FileText, X, BookOpenCheck, ChevronLeft, ChevronRight, Eye, Save, Loader2, Link2, Plus, Search } from 'lucide-react';
+import { Edit3, Trash2, Tag, BookOpen, Shield, Lightbulb, FileText, FileCode, X, BookOpenCheck, ChevronLeft, ChevronRight, Eye, Save, Loader2, Link2, Plus, Search, ArrowUpDown, ArrowUp, ArrowDown, Maximize2, Minimize2 } from 'lucide-react';
+import { useDrawerWide } from '../../hooks/useDrawerWide';
 import { Recipe } from '../../types';
 import { categoryConfigs } from '../../constants';
 import Pagination from '../Shared/Pagination';
 import MarkdownWithHighlight from '../Shared/MarkdownWithHighlight';
 import HighlightedCodeEditor from '../Shared/HighlightedCodeEditor';
 import api from '../../api';
+import { notify } from '../../utils/notification';
 import { ICON_SIZES } from '../../constants/icons';
+import PageOverlay from '../Shared/PageOverlay';
 
 const kindConfig: Record<string, { label: string; color: string; bg: string; border: string; icon: React.ElementType }> = {
   rule: { label: 'Rule', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', icon: Shield },
@@ -38,9 +41,10 @@ function getDisplayName(recipe: Recipe) {
 }
 
 function getContentStr(recipe: Recipe) {
-  return typeof recipe.content === 'string'
-    ? recipe.content
-    : (recipe.content as any)?.pattern || (recipe.content as any)?.markdown || JSON.stringify(recipe.content, null, 2);
+  if (typeof recipe.content === 'string') return recipe.content;
+  // API 偶尔返回对象格式的 content（V2 结构化数据）
+  const obj = recipe.content as Record<string, string> | null;
+  return obj?.pattern || obj?.markdown || JSON.stringify(recipe.content, null, 2);
 }
 
 function getPreviewText(recipe: Recipe) {
@@ -101,6 +105,22 @@ const RecipesView: React.FC<RecipesViewProps> = ({
   pageSize: controlledPageSize,
   onPageSizeChange: controlledOnPageSizeChange
 }) => {
+  /* ── Sorting ── */
+  type SortKey = 'default' | 'name' | 'authorityScore' | 'authority' | 'totalUsage' | 'lastUsed' | 'category';
+  type SortDir = 'asc' | 'desc';
+  const [sortKey, setSortKey] = useState<SortKey>('default');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  const sortOptions: { key: SortKey; label: string; defaultDir: SortDir }[] = [
+    { key: 'default', label: '默认', defaultDir: 'desc' },
+    { key: 'authorityScore', label: '综合分', defaultDir: 'desc' },
+    { key: 'authority', label: '权威分', defaultDir: 'desc' },
+    { key: 'totalUsage', label: '使用次数', defaultDir: 'desc' },
+    { key: 'lastUsed', label: '最近使用', defaultDir: 'desc' },
+    { key: 'name', label: '名称', defaultDir: 'asc' },
+    { key: 'category', label: '分类', defaultDir: 'asc' },
+  ];
+
   const [internalPage, setInternalPage] = useState(1);
   const [internalPageSize, setInternalPageSize] = useState(12);
   const currentPage = controlledPage ?? internalPage;
@@ -111,6 +131,7 @@ const RecipesView: React.FC<RecipesViewProps> = ({
     : (size: number) => { setInternalPageSize(size); setInternalPage(1); };
 
   /* ── Detail Drawer ── */
+  const { isWide: drawerWide, toggle: toggleDrawerWide } = useDrawerWide();
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [drawerMode, setDrawerMode] = useState<'view' | 'edit'>('view');
   const [editContent, setEditContent] = useState('');
@@ -164,7 +185,9 @@ const RecipesView: React.FC<RecipesViewProps> = ({
     try {
       await api.setRecipeAuthority(selectedRecipe.name, authority);
       onRefresh?.();
-    } catch (_) {}
+    } catch (err: any) {
+      notify(err?.message || '设置权威分失败', { type: 'error' });
+    }
   };
 
   /* ── Relation management ── */
@@ -255,9 +278,50 @@ const RecipesView: React.FC<RecipesViewProps> = ({
     if (controlledPage == null) setInternalPage(1);
   }, [recipes.length, controlledPage]);
 
-  const totalPages = Math.ceil(recipes.length / pageSize);
+  /* ── Sort recipes before pagination ── */
+  const sortedRecipes = React.useMemo(() => {
+    if (sortKey === 'default') return recipes;
+    const arr = [...recipes];
+    const dir = sortDir === 'asc' ? 1 : -1;
+    arr.sort((a, b) => {
+      let va: number | string = 0, vb: number | string = 0;
+      switch (sortKey) {
+        case 'name':
+          va = getDisplayName(a).toLowerCase();
+          vb = getDisplayName(b).toLowerCase();
+          return dir * (va < vb ? -1 : va > vb ? 1 : 0);
+        case 'authorityScore':
+          va = a.stats?.authorityScore ?? -1;
+          vb = b.stats?.authorityScore ?? -1;
+          break;
+        case 'authority':
+          va = a.stats?.authority ?? -1;
+          vb = b.stats?.authority ?? -1;
+          break;
+        case 'totalUsage':
+          va = (a.stats?.guardUsageCount ?? 0) + (a.stats?.humanUsageCount ?? 0) + (a.stats?.aiUsageCount ?? 0);
+          vb = (b.stats?.guardUsageCount ?? 0) + (b.stats?.humanUsageCount ?? 0) + (b.stats?.aiUsageCount ?? 0);
+          break;
+        case 'lastUsed': {
+          const ta = a.stats?.lastUsedAt ? new Date(a.stats.lastUsedAt).getTime() : 0;
+          const tb = b.stats?.lastUsedAt ? new Date(b.stats.lastUsedAt).getTime() : 0;
+          va = isNaN(ta) ? 0 : ta;
+          vb = isNaN(tb) ? 0 : tb;
+          break;
+        }
+        case 'category':
+          va = (a.category || '').toLowerCase();
+          vb = (b.category || '').toLowerCase();
+          return dir * (va < vb ? -1 : va > vb ? 1 : 0);
+      }
+      return dir * ((va as number) - (vb as number));
+    });
+    return arr;
+  }, [recipes, sortKey, sortDir]);
+
+  const totalPages = Math.ceil(sortedRecipes.length / pageSize);
   const startIndex = (currentPage - 1) * pageSize;
-  const paginatedRecipes = recipes.slice(startIndex, startIndex + pageSize);
+  const paginatedRecipes = sortedRecipes.slice(startIndex, startIndex + pageSize);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -265,12 +329,12 @@ const RecipesView: React.FC<RecipesViewProps> = ({
   };
 
   /* ── Drawer navigation ── */
-  const currentIndex = selectedRecipe ? recipes.findIndex(r => getDisplayName(r) === getDisplayName(selectedRecipe)) : -1;
+  const currentIndex = selectedRecipe ? sortedRecipes.findIndex(r => getDisplayName(r) === getDisplayName(selectedRecipe)) : -1;
   const goToPrev = () => {
-    if (currentIndex > 0) setSelectedRecipe(recipes[currentIndex - 1]);
+    if (currentIndex > 0) setSelectedRecipe(sortedRecipes[currentIndex - 1]);
   };
   const goToNext = () => {
-    if (currentIndex < recipes.length - 1) setSelectedRecipe(recipes[currentIndex + 1]);
+    if (currentIndex < sortedRecipes.length - 1) setSelectedRecipe(sortedRecipes[currentIndex + 1]);
   };
 
   return (
@@ -283,7 +347,41 @@ const RecipesView: React.FC<RecipesViewProps> = ({
           <p className="text-sm text-slate-400">通过 SPM 扫描或手动创建来添加知识条目</p>
         </div>
       ) : (
-        /* ── Card grid ── */
+        <>
+        {/* ── Sort bar ── */}
+        <div className="flex items-center gap-2 mb-4 text-xs">
+          <ArrowUpDown size={14} className="text-slate-400 shrink-0" />
+          {sortOptions.map(opt => {
+            const active = sortKey === opt.key;
+            return (
+              <button
+                key={opt.key}
+                onClick={() => {
+                  if (active) {
+                    setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setSortKey(opt.key);
+                    setSortDir(opt.defaultDir);
+                  }
+                  setCurrentPage(1);
+                }}
+                className={`px-2 py-1 rounded-md flex items-center gap-0.5 transition-colors ${
+                  active
+                    ? 'bg-blue-50 text-blue-700 font-medium border border-blue-200'
+                    : 'text-slate-500 hover:bg-slate-100 border border-transparent'
+                }`}
+              >
+                {opt.label}
+                {active && sortKey !== 'default' && (
+                  sortDir === 'asc'
+                    ? <ArrowUp size={12} />
+                    : <ArrowDown size={12} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {/* ── Card grid ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {paginatedRecipes.map((recipe) => {
             const displayName = getDisplayName(recipe);
@@ -404,13 +502,14 @@ const RecipesView: React.FC<RecipesViewProps> = ({
             );
           })}
         </div>
+        </>
       )}
 
       {recipes.length > 0 && (
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
-          totalItems={recipes.length}
+          totalItems={sortedRecipes.length}
           pageSize={pageSize}
           onPageChange={handlePageChange}
           onPageSizeChange={handlePageSizeChange}
@@ -431,9 +530,8 @@ const RecipesView: React.FC<RecipesViewProps> = ({
         const { metadata, body } = parseContent(contentStr);
 
         return (
-          <div className="fixed inset-0 z-50 flex justify-end" onClick={() => { closeDrawer(); }}>
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" />
+          <PageOverlay className="z-30 flex justify-end" onClick={() => { closeDrawer(); }}>
+            <PageOverlay.Backdrop />
 
             {/* ── 关联 Recipe 侧抽屉（贴在详情抽屉左侧） ── */}
             {secondDrawerRecipe && (() => {
@@ -449,7 +547,7 @@ const RecipesView: React.FC<RecipesViewProps> = ({
 
               return (
                 <div
-                  className="relative w-[520px] max-w-[40vw] h-full bg-white shadow-2xl flex flex-col border-r border-slate-200"
+                  className={`relative h-full bg-white shadow-2xl flex flex-col border-r border-slate-200 ${drawerWide ? 'w-[720px] max-w-[50vw]' : 'w-[520px] max-w-[40vw]'}`}
                   style={{ animation: 'slideInRight 0.2s ease-out' }}
                   onClick={e => e.stopPropagation()}
                 >
@@ -580,7 +678,7 @@ const RecipesView: React.FC<RecipesViewProps> = ({
 
             {/* Drawer */}
             <div
-              className="relative w-[min(92vw,800px)] h-full bg-white shadow-2xl flex flex-col"
+              className={`relative h-full bg-white shadow-2xl flex flex-col ${drawerWide ? 'w-[min(92vw,1100px)]' : 'w-[min(92vw,800px)]'}`}
               style={{ animation: 'slideInRight 0.25s ease-out' }}
               onClick={e => e.stopPropagation()}
             >
@@ -610,6 +708,13 @@ const RecipesView: React.FC<RecipesViewProps> = ({
                       <Edit3 size={ICON_SIZES.sm} /> 编辑
                     </button>
                   </div>
+                  <button
+                    onClick={toggleDrawerWide}
+                    className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400"
+                    title={drawerWide ? '收窄面板' : '展开更宽'}
+                  >
+                    {drawerWide ? <Minimize2 size={ICON_SIZES.md} /> : <Maximize2 size={ICON_SIZES.md} />}
+                  </button>
                   <button
                     onClick={() => { handleDeleteRecipe(recipe.name || (recipe as any).id); closeDrawer(); }}
                     className="p-1.5 hover:bg-red-50 rounded-lg text-red-500 transition-colors"
@@ -747,7 +852,7 @@ const RecipesView: React.FC<RecipesViewProps> = ({
                     <div className="px-5 py-3 border-b border-slate-100">
                       <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">元数据</label>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2.5 gap-x-6">
-                        {Object.entries(metadata).filter(([k]) => !['tags', 'headers', 'summary_cn', 'summary_en', 'summary'].includes(k)).map(([key, value]) => {
+                        {Object.entries(metadata).filter(([k]) => !['tags', 'headers', 'summary_cn', 'summary_en', 'summary', 'usageGuide', 'usageGuide_cn', 'usageGuide_en'].includes(k)).map(([key, value]) => {
                           let displayValue = value;
                           if (key === 'updatedAt' || key === 'createdAt') {
                             const ts = parseInt(value, 10);
@@ -886,7 +991,7 @@ const RecipesView: React.FC<RecipesViewProps> = ({
                     {recipe.relations && Object.entries(recipe.relations).some(([, v]) => Array.isArray(v) && v.length > 0) ? (
                       <div className="space-y-1.5">
                         {RELATION_TYPES.map(({ key, label, icon }) => {
-                          const items = (recipe.relations as any)?.[key];
+                          const items = recipe.relations?.[key];
                           if (!items || !Array.isArray(items) || items.length === 0) return null;
                           return (
                             <div key={key} className="flex items-start gap-2">
@@ -953,13 +1058,140 @@ const RecipesView: React.FC<RecipesViewProps> = ({
                     );
                   })()}
 
-                  {/* Description */}
-                  {recipe.description && (
+                  {/* Description — 仅当与摘要不重复时显示 */}
+                  {recipe.description && recipe.description !== (metadata.summary_cn || metadata.summary || '') && (
                     <div className="px-5 py-3 border-b border-slate-100">
                       <label className="text-[10px] font-bold text-slate-400 uppercase mb-1.5 block">描述</label>
                       <p className="text-sm text-slate-600 leading-relaxed">{recipe.description}</p>
                     </div>
                   )}
+
+                  {/* Usage Guide — 使用指南（优先 recipe 对象，降级 frontmatter） */}
+                  {(recipe.usageGuide || recipe.usageGuide_cn || metadata.usageGuide || metadata.usageGuide_cn || metadata.usageGuide_en) && (
+                    <div className="px-5 py-3 border-b border-slate-100">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase mb-1.5 block flex items-center gap-1.5">
+                        <BookOpen size={11} className="text-blue-400" /> 使用指南
+                      </label>
+                      <div className="markdown-body text-sm text-slate-600">
+                        <MarkdownWithHighlight content={recipe.usageGuide || recipe.usageGuide_cn || metadata.usageGuide || metadata.usageGuide_cn || ''} />
+                      </div>
+                      {(recipe.usageGuide_en || metadata.usageGuide_en) && (
+                        <div className="mt-2 pt-2 border-t border-slate-100">
+                          <span className="text-[9px] text-slate-400 font-bold uppercase block mb-1">Usage Guide (EN)</span>
+                          <div className="markdown-body text-sm text-slate-500">
+                            <MarkdownWithHighlight content={recipe.usageGuide_en || metadata.usageGuide_en || ''} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* V2 Structured Content — 结构化内容 */}
+                  {recipe.v2Content && (() => {
+                    const v2 = recipe.v2Content;
+                    // 判断 v2.pattern 是否与 body 内容重复（跳过重复的 pattern 显示）
+                    const patternRedundant = v2.pattern && body && body.includes(v2.pattern.trim());
+                    const hasV2 = v2.rationale || (v2.pattern && !patternRedundant) || (v2.steps && v2.steps.length > 0) || (v2.codeChanges && v2.codeChanges.length > 0) || v2.verification;
+                    if (!hasV2) return null;
+                    return (
+                      <div className="px-5 py-3 border-b border-slate-100 space-y-3">
+                        {/* Rationale */}
+                        {v2.rationale && (
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">设计原理</label>
+                            <p className="text-sm text-slate-600 leading-relaxed">{v2.rationale}</p>
+                          </div>
+                        )}
+
+                        {/* Pattern — 仅当与 body 不重复时显示 */}
+                        {v2.pattern && !patternRedundant && (
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">模式</label>
+                            <div className="markdown-body text-sm text-slate-600">
+                              <MarkdownWithHighlight content={v2.pattern} showLineNumbers />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Steps */}
+                        {v2.steps && v2.steps.length > 0 && (
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1.5 block">实施步骤</label>
+                            <div className="space-y-2">
+                              {v2.steps.map((step: any, i: number) => {
+                                // Handle both string and object step formats
+                                if (typeof step === 'string') {
+                                  return (
+                                    <div key={i} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                                      <div className="flex items-start gap-2">
+                                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                                        <p className="text-xs text-slate-700">{step}</p>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                const title = typeof step.title === 'string' ? step.title : '';
+                                const desc  = typeof step.description === 'string' ? step.description : '';
+                                const code  = typeof step.code === 'string' ? step.code : '';
+                                return (
+                                  <div key={i} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-[10px] font-bold text-blue-600 bg-blue-50 rounded-full w-5 h-5 flex items-center justify-center shrink-0">{i + 1}</span>
+                                      {title && <span className="text-xs font-bold text-slate-700">{title}</span>}
+                                    </div>
+                                    {desc && <p className="text-xs text-slate-600 ml-7">{desc}</p>}
+                                    {code && (
+                                      <pre className="text-[11px] font-mono bg-slate-800 text-green-300 p-2 rounded mt-1 ml-7 overflow-x-auto whitespace-pre-wrap">{code}</pre>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Code Changes */}
+                        {v2.codeChanges && v2.codeChanges.length > 0 && (
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1.5 block">代码变更</label>
+                            <div className="space-y-2">
+                              {v2.codeChanges.map((change, i) => (
+                                <div key={i} className="border border-slate-200 rounded-lg overflow-hidden">
+                                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+                                    <FileCode size={11} className="text-blue-400" />
+                                    <code className="text-[10px] font-mono text-slate-600">{change.file}</code>
+                                  </div>
+                                  {change.explanation && <p className="text-[11px] text-slate-500 px-3 py-1.5 border-b border-slate-100 bg-yellow-50/30">{change.explanation}</p>}
+                                  <div className="p-2 bg-red-50/30 border-b border-slate-100">
+                                    <div className="text-[9px] font-bold text-red-400 mb-0.5 uppercase">Before</div>
+                                    <pre className="text-[11px] text-slate-600 whitespace-pre-wrap break-words font-mono">{change.before || '(空)'}</pre>
+                                  </div>
+                                  <div className="p-2 bg-emerald-50/30">
+                                    <div className="text-[9px] font-bold text-emerald-500 mb-0.5 uppercase">After</div>
+                                    <pre className="text-[11px] text-slate-700 whitespace-pre-wrap break-words font-mono">{change.after}</pre>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Verification */}
+                        {v2.verification && (
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">验证方法</label>
+                            <div className="bg-teal-50/50 border border-teal-100 rounded-lg p-3 space-y-1.5">
+                              {v2.verification.method && <p className="text-xs text-slate-600"><span className="font-bold text-teal-600">方法:</span> {v2.verification.method}</p>}
+                              {v2.verification.expectedResult && <p className="text-xs text-slate-600"><span className="font-bold text-teal-600">预期结果:</span> {v2.verification.expectedResult}</p>}
+                              {v2.verification.testCode && (
+                                <pre className="text-[11px] font-mono bg-slate-800 text-green-300 p-2 rounded overflow-x-auto whitespace-pre-wrap mt-1">{v2.verification.testCode}</pre>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Full content body (markdown) - rendered from parsed body, not raw content */}
                   <div className="px-5 py-4">
@@ -975,7 +1207,7 @@ const RecipesView: React.FC<RecipesViewProps> = ({
                 </div>
               )}
             </div>
-          </div>
+          </PageOverlay>
         );
       })()}
     </div>

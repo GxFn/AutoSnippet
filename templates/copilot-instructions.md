@@ -9,6 +9,7 @@
 ## 知识库与结构
 - 知识库根目录：`AutoSnippet/`（用户项目可通过 boxspec `knowledgeBase.dir` 自定义）
 - Recipe：`AutoSnippet/recipes/*.md`（Markdown + Frontmatter + Snippet + Usage Guide）
+- **Project Skills**：`AutoSnippet/skills/<name>/SKILL.md`（项目级 AI 知识增强文档，跟随 Git）
 - constitution.yaml：`AutoSnippet/constitution.yaml`（权限宪法：角色 + 能力 + 治理规则）
 - 运行时 DB：`.autosnippet/autosnippet.db`（SQLite，recipes/candidates/snippets 索引缓存）
 - 向量索引：`.autosnippet/context/`（`asd embed` 生成）
@@ -51,13 +52,20 @@
 - `autosnippet_submit_draft_recipes` — 解析草稿 Markdown 文件
 - `autosnippet_enrich_candidates` — AI 补全缺失语义字段
 
-### 项目扫描
+### 项目扫描 & 冷启动
 - `autosnippet_get_targets` / `autosnippet_get_target_files` / `autosnippet_get_target_metadata`
 - `autosnippet_scan_project` — 轻量探查（文件清单 + Guard 审计）
-- `autosnippet_bootstrap_knowledge` — 冷启动知识库初始化（9 大知识维度）
+- `autosnippet_bootstrap_knowledge` — 冷启动知识库初始化（9 维度 + 自动生成 Project Skills）
+- `autosnippet_bootstrap_refine` — Bootstrap 候选 AI 润色（summary/insight/relations）
 
 ### Guard & 治理
 - `autosnippet_guard_check` / `autosnippet_guard_audit_files` / `autosnippet_compliance_report`
+
+### Skills
+- `autosnippet_list_skills` — 列出所有可用 Skills（内置 + 项目级）
+- `autosnippet_load_skill` — 加载 Skill 完整文档
+- `autosnippet_create_skill` — 创建项目级 Skill（写入 `AutoSnippet/skills/`）
+- `autosnippet_suggest_skills` — 基于使用模式推荐创建 Skill
 
 ### 其它
 - `autosnippet_health` / `autosnippet_capabilities` / `autosnippet_confirm_usage`
@@ -67,10 +75,19 @@
 - Frontmatter 必填字段（7）：`title`、`trigger`（@开头）、`category`（8 选 1）、`language`、`summary_cn`、`summary_en`、`headers`。
 - Usage Guide 必须用 `###` 三级标题分段，列表式书写，禁止一行文字墙。
 
+## Project Skills
+- **发现**：`autosnippet_list_skills` — 列出所有可用 Skills（内置 + 项目级）
+- **加载**：`autosnippet_load_skill(skillName)` — 获取 Skill 完整操作指南
+- **创建**：`autosnippet_create_skill(name, description, content)` — 创建项目级 Skill
+- **推荐**：`autosnippet_suggest_skills` — 基于使用模式推荐创建 Skill
+- **Bootstrap 自动生成**：冷启动 Phase 5.5 自动生成 4 个 Project Skills（code-standard, architecture, project-profile, agent-guidelines）
+- **优先级**：项目级 Skill 同名覆盖内置；宏观知识查 Skill，微观代码模式查 Recipe
+
 ## 推荐工作流
 - **查找**：`autosnippet_search`（推荐）或 `autosnippet_context_search`（上下文感知）。
 - **产出候选**：`autosnippet_validate_candidate` 预校验 → `autosnippet_submit_candidate` 提交。
-- **批量扫描**：`autosnippet_bootstrap_knowledge`（冷启动）→ 按 analysisFramework 逐维度分析 → `autosnippet_submit_candidates`。
+- **冷启动**：`autosnippet_bootstrap_knowledge` → `autosnippet_enrich_candidates` → `autosnippet_bootstrap_refine` → 逐 Target 深入 → `autosnippet_submit_candidates`。
+- **Skills 创建**：`autosnippet_suggest_skills` 分析 → `autosnippet_create_skill` 固化知识。
 - **采纳反馈**：`autosnippet_confirm_usage`（记录使用量影响排序权重）。
 
 ## 与 Cursor 规则联动

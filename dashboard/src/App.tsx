@@ -8,6 +8,7 @@ import { isShellTarget, isSilentTarget, isPendingTarget, getWritePermissionError
 import api from './api';
 import { useAuth } from './hooks/useAuth';
 import { usePermission } from './hooks/usePermission';
+import { useBootstrapSocket } from './hooks/useBootstrapSocket';
 import LoginView from './components/Views/LoginView';
 
 // Components
@@ -20,9 +21,11 @@ import CandidatesView from './components/Views/CandidatesView';
 import SPMExplorerView from './components/Views/SPMExplorerView';
 import DepGraphView from './components/Views/DepGraphView';
 import GuardView from './components/Views/GuardView';
+import { GlobalChatProvider, GlobalChatPanel, useGlobalChat } from './components/Shared/GlobalChatDrawer';
 import AiChatView from './components/Views/AiChatView';
 import KnowledgeGraphView from './components/Views/KnowledgeGraphView';
 import SkillsView from './components/Views/SkillsView';
+import BootstrapProgressView from './components/Views/BootstrapProgressView';
 import XcodeSimulator from './pages/XcodeSimulator';
 import RecipeEditor from './components/Modals/RecipeEditor';
 import CreateModal from './components/Modals/CreateModal';
@@ -45,21 +48,20 @@ function stringifyGuide(val: unknown): string {
 const App: React.FC = () => {
   const auth = useAuth();
   const permission = usePermission(auth.user?.role);
+  const bootstrap = useBootstrapSocket();
 
   const getTabFromPath = (): TabType => {
   const path = window.location.pathname.replace(/^\//, '').split('/')[0] || '';
   return (validTabs.includes(path as any) ? path : 'help') as any;
   };
 
-  // ── 登录门控 ──────────────────────────────────
-  // authEnabled=true 且未登录 → 只渲染登录页
-  if (auth.authEnabled && !auth.isAuthenticated) {
-    return <LoginView onLogin={auth.login} isLoading={auth.isLoading} />;
-  }
+  // ── 登录门控标记 ──────────────────────────────────
+  const requireLogin = auth.authEnabled && !auth.isAuthenticated;
 
   // State
   const [data, setData] = useState<ProjectData | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>(getTabFromPath());
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
@@ -76,9 +78,7 @@ const App: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createPath, setCreatePath] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
-  const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'model', text: string }[]>([]);
-  const [userInput, setUserInput] = useState('');
-  const [isAiThinking, setIsAiThinking] = useState(false);
+  // chatHistory / userInput / isAiThinking 已迁移到 GlobalChatDrawer
   const [semanticResults, setSemanticResults] = useState<any[] | null>(null);
   const [searchAction, setSearchAction] = useState<{ q: string; path: string } | null>(null);
   const [isSavingRecipe, setIsSavingRecipe] = useState(false);
@@ -87,18 +87,16 @@ const App: React.FC = () => {
   const [signalSuggestionCount, setSignalSuggestionCount] = useState(0);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  const chatAbortControllerRef = useRef<AbortController | null>(null);
+  // chatAbortControllerRef 已迁移到 GlobalChatDrawer
 
   // 搜索/分类变化时 Recipes 列表重置到第一页；刷新数据（fetchData）不重置页码
   useEffect(() => {
   setRecipePage(1);
   }, [searchQuery, selectedCategory]);
 
-  /** 切换 AI 前停止当前 AI 任务（扫描、聊天等）；不置空 ref，由各任务 finally 清理并更新 UI */
+  /** 切换 AI 前停止当前 AI 任务（扫描等）；不置空 ref，由各任务 finally 清理并更新 UI */
   const stopCurrentAiTasks = () => {
   if (abortControllerRef.current) abortControllerRef.current.abort();
-  if (chatAbortControllerRef.current) chatAbortControllerRef.current.abort();
-  setIsAiThinking(false);
   };
 
   // SignalCollector 轮询：每 5 分钟检查是否有新建议
@@ -107,8 +105,11 @@ const App: React.FC = () => {
     const poll = async () => {
       try {
         const status = await api.getSignalStatus();
-        if (!cancelled && status?.snapshot?.lastResult?.newSuggestions) {
-          setSignalSuggestionCount(status.snapshot.lastResult.newSuggestions);
+        if (!cancelled) {
+          // 优先使用 pendingSuggestions 实际数量，降级到 snapshot 历史计数
+          const pending = status?.suggestions?.length || 0;
+          const fromSnapshot = status?.snapshot?.lastResult?.newSuggestions || 0;
+          setSignalSuggestionCount(pending || fromSnapshot);
         }
       } catch { /* silent */ }
     };
@@ -116,6 +117,13 @@ const App: React.FC = () => {
     const timer = setInterval(poll, 5 * 60 * 1000);
     return () => { cancelled = true; clearInterval(timer); };
   }, []);
+
+  // Bootstrap 异步填充完成时刷新数据    
+  useEffect(() => {
+    if (bootstrap.isAllDone) {
+      fetchData();
+    }
+  }, [bootstrap.isAllDone]);
 
   // Navigation
   const navigateToTab = (tab: TabType, options?: { preserveSearch?: boolean }) => {
@@ -191,6 +199,10 @@ const App: React.FC = () => {
     setTimeout(() => handleCreateFromPathWithSpecifiedPath(path), 500);
     }
   }
+
+  return () => {
+    window.removeEventListener('popstate', handlePopState);
+  };
   }, []);
 
   // API Calls
@@ -221,7 +233,8 @@ const App: React.FC = () => {
     projectData.candidates = cleanedCandidates;
     }
     setData(projectData);
-  } catch (_) {
+  } catch (err: any) {
+    notify(err?.message || '项目数据加载失败', { type: 'error' });
   } finally {
     setLoading(false);
   }
@@ -231,7 +244,8 @@ const App: React.FC = () => {
   try {
     const result = await api.fetchTargets();
     setTargets(result);
-  } catch (_) {
+  } catch (err: any) {
+    console.warn('删除候选残留失败:', err?.message);
   }
   };
 
@@ -480,7 +494,7 @@ const App: React.FC = () => {
   }
   };
 
-  /** 冷启动：结构收集 + 9 维度 Candidate 创建（与 MCP bootstrap 一致） */
+  /** 冷启动：快速骨架 + 异步逐维度填充（v5 async fill） */
   const handleColdStart = async () => {
   if (isScanning) return;
   if (abortControllerRef.current) abortControllerRef.current.abort();
@@ -494,44 +508,32 @@ const App: React.FC = () => {
   setGuardAudit(null);
   setScanFileList([]);
   setScanProgress({ current: 0, total: 100, status: '正在收集项目结构...' });
-
-  const phases = [
-    { status: '正在扫描 SPM Target...', percent: 15 },
-    { status: '正在收集源文件...', percent: 30 },
-    { status: '正在构建依赖图谱...', percent: 50 },
-    { status: '正在运行 Guard 审计...', percent: 70 },
-    { status: '正在创建 9 维度 Candidate...', percent: 85 },
-  ];
-  let phaseIndex = 0;
-  const progressTimer = setInterval(() => {
-    phaseIndex = Math.min(phaseIndex + 1, phases.length);
-    const phase = phases[phaseIndex - 1];
-    if (phase) setScanProgress(prev => ({ ...prev, current: phase.percent, status: phase.status }));
-  }, 3000);
+  bootstrap.resetSession();
 
   try {
     const result = await api.bootstrap(controller.signal);
-    clearInterval(progressTimer);
-    setScanProgress({ current: 100, total: 100, status: '冷启动完成' });
+    setScanProgress({ current: 100, total: 100, status: '骨架已创建，正在后台填充...' });
 
-    // 刷新候选列表（bootstrap 已创建 Candidate）
+    // 如果返回了 bootstrapSession，初始化到 socket hook
+    if (result.bootstrapSession) {
+      bootstrap.initFromApiResponse(result.bootstrapSession);
+    }
+
+    // 刷新候选列表
     fetchData();
 
     const report = result.report || {};
-    const bs = result.bootstrapCandidates || { created: 0 };
-    const guardInfo = result.guardSummary;
     const targetCount = result.targets?.length || 0;
     const fileCount = report.totals?.files || 0;
     const graphEdges = report.totals?.graphEdges || 0;
+    const guardInfo = result.guardSummary;
     const guardMsg = guardInfo ? `, Guard: ${guardInfo.totalViolations} 项违规` : '';
-    const aiMsg = result.aiEnhancement === 'pending' ? '，AI 润色正在后台进行' : '';
 
     notify(
-      `冷启动完成: ${targetCount} 个 Target, ${fileCount} 个文件, ` +
-      `${graphEdges} 条依赖, ${bs.created} 个维度 Candidate 已创建${guardMsg}${aiMsg}`
+      `冷启动骨架已创建: ${targetCount} 个 Target, ${fileCount} 个文件, ` +
+      `${graphEdges} 条依赖${guardMsg}，正在后台逐维度填充...`
     );
   } catch (err: any) {
-    clearInterval(progressTimer);
     if (axios.isCancel(err)) return;
     const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
     const msg = isTimeout
@@ -857,10 +859,22 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
   try {
     await api.deleteCandidate(candidateId);
     setScanResults(prev => prev.filter(r => !(r.candidateId === candidateId && r.candidateTargetName === targetName)));
-    fetchData();
+    // 同步更新 data.candidates 状态，移除已删候选；若分类为空则移除整个分类
+    setData(prev => {
+      if (!prev?.candidates) return prev;
+      const updated = { ...prev.candidates };
+      if (updated[targetName]) {
+        const filtered = updated[targetName].items.filter(c => c.id !== candidateId);
+        if (filtered.length === 0) {
+          delete updated[targetName];
+        } else {
+          updated[targetName] = { ...updated[targetName], items: filtered };
+        }
+      }
+      return { ...prev, candidates: updated };
+    });
   } catch (err) {
     notify('操作失败', { type: 'error' });
-    throw err;
   }
   };
 
@@ -886,33 +900,7 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
   }
   };
 
-  const handleChat = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!userInput.trim() || isAiThinking) return;
-  if (chatAbortControllerRef.current) chatAbortControllerRef.current.abort();
-  const controller = new AbortController();
-  chatAbortControllerRef.current = controller;
-  const userMsg = { role: 'user' as const, text: userInput };
-  setChatHistory(prev => [...prev, userMsg]);
-  setUserInput('');
-  setIsAiThinking(true);
-  try {
-    const chatResult = await api.chat(
-    userInput,
-    chatHistory.map(h => ({ role: h.role, content: h.text })),
-    controller.signal,
-    );
-    setChatHistory(prev => [...prev, { role: 'model', text: chatResult.text }]);
-  } catch (err: any) {
-    if (axios.isCancel(err)) return;
-    setChatHistory(prev => [...prev, { role: 'model', text: 'Error' }]);
-  } finally {
-    if (chatAbortControllerRef.current === controller) {
-    chatAbortControllerRef.current = null;
-    setIsAiThinking(false);
-    }
-  }
-  };
+  // handleChat 已迁移到 GlobalChatDrawer
 
   // Filters
   const filteredRecipes = (data?.recipes || []).filter(s => {
@@ -954,7 +942,13 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
 
   const isDarkMode = activeTab === 'editor';
 
+  // ── 登录门控 ──────────────────────────────────
+  if (requireLogin) {
+    return <LoginView onLogin={auth.login} isLoading={auth.isLoading} />;
+  }
+
   return (
+  <GlobalChatProvider>
   <div className={`flex h-screen ${isDarkMode ? 'bg-[#1e1e1e] text-slate-200' : 'bg-slate-50 text-slate-900'} overflow-hidden font-sans`}>
     <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
     <Sidebar 
@@ -968,6 +962,8 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
     currentRole={permission.role}
     permissionMode={permission.mode}
     onLogout={auth.authEnabled ? auth.logout : undefined}
+    collapsed={sidebarCollapsed}
+    onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
     />
 
     <main className="flex-1 flex flex-col overflow-hidden relative">
@@ -1014,9 +1010,21 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
       ) : activeTab === 'guard' ? (
       <GuardView onRefresh={fetchData} />
       ) : activeTab === 'skills' ? (
-      <SkillsView onRefresh={fetchData} />
+      <SkillsView onRefresh={fetchData} signalSuggestionCount={signalSuggestionCount} onSuggestionCountChange={setSignalSuggestionCount} />
       ) : activeTab === 'candidates' ? (
-      <CandidatesView 
+      <>
+        {/* Bootstrap 异步填充进度面板 */}
+        {bootstrap.session && (
+          <div className="mb-4">
+            <BootstrapProgressView
+              session={bootstrap.session}
+              isAllDone={bootstrap.isAllDone}
+              reviewState={bootstrap.reviewState}
+              onDismiss={() => bootstrap.resetSession()}
+            />
+          </div>
+        )}
+        <CandidatesView 
         data={data} 
         isShellTarget={isShellTarget}
         isSilentTarget={isSilentTarget}
@@ -1025,6 +1033,7 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
         onEditRecipe={openRecipeEdit}
         onColdStart={handleColdStart}
         isScanning={isScanning}
+        isBootstrapping={bootstrap.session?.status === 'running'}
         onRefresh={fetchData}
         onAuditCandidate={(cand, targetName) => {
         setScanResults([{ 
@@ -1054,6 +1063,7 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
         }}
         handleDeleteAllInTarget={handleDeleteAllInTarget} 
       />
+      </>
       ) : activeTab === 'depgraph' ? (
       <DepGraphView />
       ) : activeTab === 'knowledgegraph' ? (
@@ -1084,13 +1094,7 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
       ) : activeTab === 'help' ? (
       <HelpView />
       ) : (
-      <AiChatView 
-        chatHistory={chatHistory} 
-        userInput={userInput} 
-        setUserInput={setUserInput} 
-        handleChat={handleChat} 
-        isAiThinking={isAiThinking} 
-      />
+      <AiChatView />
       )}
     </div>
 
@@ -1127,8 +1131,19 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
     )}
 
   </main>
+
+  {/* AI Chat 内联面板 — flex 同层，挤压 main 空间 */}
+  <ChatPanelSlot />
   </div>
+  </GlobalChatProvider>
   );
+};
+
+/** Chat 面板插槽 — 按 isOpen 渲染 */
+const ChatPanelSlot: React.FC = () => {
+  const { isOpen } = useGlobalChat();
+  if (!isOpen) return null;
+  return <GlobalChatPanel />;
 };
 
 export default App;
