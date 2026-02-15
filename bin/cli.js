@@ -583,6 +583,11 @@ async function initBootstrap() {
  */
 async function initContainer(opts = {}) {
   const projectRoot = opts.projectRoot || process.cwd();
+
+  // 配置路径安全守卫 — 阻止写操作逃逸到项目外
+  const { default: Bootstrap } = await import('../lib/bootstrap.js');
+  Bootstrap.configurePathGuard(projectRoot);
+
   const bootstrap = await initBootstrap();
   const { getServiceContainer } = await import('../lib/injection/ServiceContainer.js');
   const container = getServiceContainer();

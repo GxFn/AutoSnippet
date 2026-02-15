@@ -4,6 +4,49 @@
 
 ---
 
+## [2.7.1] - 2026-02-16
+
+### PathGuard 路径安全守卫 + LLM 配置面板 + Bootstrap 断点续传
+
+#### 安全 — PathGuard 双层防护
+
+- 新增 `lib/shared/PathGuard.js` 路径安全守卫（单例），防止文件写操作逃逸到项目外
+- **Layer 1** `assertSafe(path)`：边界检查，拦截写到 projectRoot 外的操作
+- **Layer 2** `assertProjectWriteSafe(path)`：项目内作用域检查，仅允许 `.autosnippet/`、知识库目录、`.cursor/`、`.vscode/`、`.github/` 等白名单前缀
+- 三入口（CLI / API Server / MCP Server）统一在启动时调用 `Bootstrap.configurePathGuard(projectRoot)`
+- `Paths.ensureDir()` 增加 PathGuard 校验，所有目录创建均经过安全检查
+- 新增 `test/unit/PathGuard.test.js` 单元测试
+
+#### Dashboard — LLM 配置面板 + HelpView 优化
+
+- 新增 `LlmConfigModal` 组件：Dashboard 内可视化配置 .env 中的 LLM Provider / Model / API Key
+- Header 增加 LLM 就绪状态指示，未配置时高亮提醒并可快速打开配置面板
+- 新增后端 API `GET/PUT /ai/env-config`：读写用户项目 .env 中的 LLM 相关变量
+- HelpView 全面更新：Skills 10 个（移除 3 个 reference-*，后续优化）、编辑器指令增加 `asc`/`ass`/`asa` 快捷写法、核心概念 Gateway 卡片替换为 Dual-Agent、V2 架构卡片替换为 Bootstrap 引擎 + 4 层检索管线
+- CandidatesView 修复：点击 Refine 图标同时打开详情抽屉
+
+#### Bootstrap — 断点续传 + 维度调度优化
+
+- Orchestrator 新增 Checkpoint 机制：维度级断点保存/恢复（1h TTL），支持 `resume` 从上次中断处继续
+- TierScheduler 优化维度调度策略
+- ProducerAgent 增强：提交候选时增加更多上下文注入
+
+#### AI Provider — 多提供商增强
+
+- Claude / Gemini / OpenAI 三个 Provider 增加 structured output 与错误恢复优化
+- AI 路由新增 .env LLM 配置读写端点（`/ai/env-config`）
+
+#### 基础设施
+
+- `SetupService._ensureGitignore()` 新增 `logs/` 和 `.autosnippet-drafts/` 规则
+- DatabaseConnection 增加连接安全检查
+- 多个 Service 模块增加 PathGuard 安全校验（CandidateFileWriter / RecipeFileWriter / ExclusionManager 等）
+- README.md 全面重写，反映 v2.7 实际架构
+- `.gitignore` 增加 `.DS_Store`、`nohup.out`、`.vscode/`、`.cursor/` 等规则
+- 新增 `resources/native-ui/combined-window.swift`：macOS 原生搜索弹窗 UI 原型（AppKit, 494 行）
+
+---
+
 ## [2.5.0] - 2026-02-13
 
 ### Dashboard UX 大幅升级 + AI 响应截断修复

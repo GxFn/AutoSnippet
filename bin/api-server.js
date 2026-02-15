@@ -22,6 +22,10 @@ async function main() {
       timestamp: new Date().toISOString(),
     });
 
+    // 配置路径安全守卫 — 阻止写操作逃逸到项目外
+    const projectRoot = process.env.ASD_PROJECT_DIR || process.cwd();
+    Bootstrap.configurePathGuard(projectRoot);
+
     // 初始化应用程序引导
     const bootstrap = new Bootstrap({ env: process.env.NODE_ENV || 'development' });
     const components = await bootstrap.initialize();
@@ -34,6 +38,7 @@ async function main() {
       auditLogger: components.auditLogger,
       gateway: components.gateway,
       constitution: components.constitution,
+      projectRoot,
     });
     logger.info('Service container initialized successfully');
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, RefreshCw, BrainCircuit, Loader2, Cpu, ChevronDown, MessageSquare } from 'lucide-react';
+import { Search, Plus, RefreshCw, BrainCircuit, Loader2, Cpu, ChevronDown, MessageSquare, Settings } from 'lucide-react';
 import api from '../../api';
 import { ICON_SIZES } from '../../constants/icons';
 import { useGlobalChat } from '../Shared/GlobalChatDrawer';
@@ -16,13 +16,15 @@ interface HeaderProps {
   setShowCreateModal: (show: boolean) => void;
   handleSyncToXcode: () => void;
   aiConfig?: { provider: string; model: string };
+  llmReady?: boolean;
+  onOpenLlmConfig?: () => void;
   onSemanticSearchResults?: (results: any[]) => void;
   onBeforeAiSwitch?: () => void;
   onAiConfigChange?: () => void;
   isDarkMode?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCreateModal, handleSyncToXcode, aiConfig, onSemanticSearchResults, onBeforeAiSwitch, onAiConfigChange, isDarkMode = false }) => {
+const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCreateModal, handleSyncToXcode, aiConfig, llmReady = true, onOpenLlmConfig, onSemanticSearchResults, onBeforeAiSwitch, onAiConfigChange, isDarkMode = false }) => {
   const { toggle: toggleChat, isOpen: chatOpen } = useGlobalChat();
   const [isSemanticSearching, setIsSemanticSearching] = useState(false);
   const [aiDropdownOpen, setAiDropdownOpen] = useState(false);
@@ -98,7 +100,17 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCre
     </button>
     </div>
     <div className="flex items-center gap-4">
-    {aiConfig && (
+    {!llmReady ? (
+      <button
+        type="button"
+        onClick={onOpenLlmConfig}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium hover:bg-amber-100 transition-colors animate-pulse"
+        title="AI 未配置 — 点击设置 LLM"
+      >
+        <Settings size={ICON_SIZES.sm} />
+        配置 LLM
+      </button>
+    ) : aiConfig ? (
       <div className="relative" ref={aiDropdownRef}>
       <button
         type="button"
@@ -113,7 +125,9 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCre
       {aiDropdownOpen && (
         <div className="absolute top-full right-0 mt-1 py-1 rounded-lg border border-slate-200 bg-white shadow-lg z-20 min-w-[200px]">
         <div className="px-3 py-2 text-xs text-slate-500 border-b border-slate-100">切换 AI</div>
-        <div className="px-3 py-1.5 text-[11px] text-slate-400 border-b border-slate-100">API Key 仍从 .env 读取</div>
+        <div className="px-3 py-1.5 text-[11px] text-slate-400 border-b border-slate-100">
+          <button type="button" onClick={() => { setAiDropdownOpen(false); onOpenLlmConfig?.(); }} className="text-blue-500 hover:underline">修改 .env 配置</button>
+        </div>
         {aiProviders.length === 0 ? (
           <div className="px-3 py-2 text-xs text-slate-400">加载中...</div>
         ) : (
@@ -133,7 +147,7 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, setShowCre
         </div>
       )}
       </div>
-    )}
+    ) : null}
     <button
       onClick={toggleChat}
       className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${

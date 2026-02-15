@@ -30,6 +30,7 @@ import XcodeSimulator from './pages/XcodeSimulator';
 import RecipeEditor from './components/Modals/RecipeEditor';
 import CreateModal from './components/Modals/CreateModal';
 import SearchModal from './components/Modals/SearchModal';
+import LlmConfigModal from './components/Modals/LlmConfigModal';
 
 /* ── ErrorBoundary — 防止白屏 ────────────── */
 class ErrorBoundary extends React.Component<
@@ -115,6 +116,10 @@ const App: React.FC = () => {
   const [semanticResults, setSemanticResults] = useState<any[] | null>(null);
   const [searchAction, setSearchAction] = useState<{ q: string; path: string } | null>(null);
   const [isSavingRecipe, setIsSavingRecipe] = useState(false);
+
+  // LLM 配置状态
+  const [llmReady, setLlmReady] = useState(true); // 默认 true，加载后更新
+  const [showLlmConfig, setShowLlmConfig] = useState(false);
 
   // SignalCollector 后台推荐计数
   const [signalSuggestionCount, setSignalSuggestionCount] = useState(0);
@@ -210,6 +215,7 @@ const App: React.FC = () => {
   useEffect(() => {
   fetchData();
   fetchTargets();
+  fetchLlmStatus();
 
   const handlePopState = () => {
     setActiveTab(getTabFromPath());
@@ -279,6 +285,15 @@ const App: React.FC = () => {
     setTargets(result);
   } catch (err: any) {
     console.warn('删除候选残留失败:', err?.message);
+  }
+  };
+
+  const fetchLlmStatus = async () => {
+  try {
+    const data = await api.getLlmEnvConfig();
+    setLlmReady(data.llmReady);
+  } catch {
+    // 加载失败时保持默认值（true），不影响正常使用
   }
   };
 
@@ -1007,6 +1022,8 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
       setShowCreateModal={setShowCreateModal} 
       handleSyncToXcode={handleSyncToXcode} 
       aiConfig={data?.aiConfig}
+      llmReady={llmReady}
+      onOpenLlmConfig={() => setShowLlmConfig(true)}
       onBeforeAiSwitch={stopCurrentAiTasks}
       onAiConfigChange={fetchData}
       isDarkMode={isDarkMode}
@@ -1161,6 +1178,16 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
         setSearchAction(null);
         window.history.replaceState({}, document.title, window.location.pathname);
       }}
+      />
+    )}
+
+    {showLlmConfig && (
+      <LlmConfigModal
+        onClose={() => setShowLlmConfig(false)}
+        onSaved={() => {
+          fetchLlmStatus();
+          fetchData();
+        }}
       />
     )}
 

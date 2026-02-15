@@ -937,6 +937,33 @@ Skill 文档格式要求：
     });
     return res.data?.data || { reply: '' };
   },
+
+  // ── LLM .env 配置 ──────────────────────────────────
+
+  /** 读取用户项目 .env 中的 LLM 配置 */
+  async getLlmEnvConfig(): Promise<{
+    vars: Record<string, string>;
+    hasEnvFile: boolean;
+    llmReady: boolean;
+  }> {
+    const res = await http.get('/ai/env-config');
+    return res.data?.data || { vars: {}, hasEnvFile: false, llmReady: false };
+  },
+
+  /** 写入 / 更新用户项目 .env 中的 LLM 配置 */
+  async saveLlmEnvConfig(config: {
+    provider: string;
+    model?: string;
+    apiKey?: string;
+    proxy?: string;
+  }): Promise<{
+    vars: Record<string, string>;
+    hasEnvFile: boolean;
+    llmReady: boolean;
+  }> {
+    const res = await http.post('/ai/env-config', config);
+    return res.data?.data || { vars: {}, hasEnvFile: false, llmReady: false };
+  },
 };
 
 export default api;

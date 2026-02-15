@@ -316,6 +316,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
   const handleRefineSingle = useCallback((candidateId: string) => {
     if (!effectiveTarget || !data?.candidates?.[effectiveTarget]) return;
     setCompareModal(null);
+    setExpandedId(candidateId);
     const items = data.candidates[effectiveTarget].items;
     globalChat.openRefine({
       candidateIds: [candidateId],

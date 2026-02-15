@@ -11,6 +11,7 @@ SPMTest/
 !tools/parse-package/Package.swift
 # native-ui 源码不忽略（resources 下）
 !resources/native-ui/main.swift
+!resources/native-ui/combined-window.swift
 # asd 原生入口源码不忽略
 !resources/asd-entry/main.swift
 # Swift 构建产物
@@ -19,6 +20,10 @@ resources/native-ui/native-ui
 bin/asd-verify
 # 发布时生成，不提交（prepublishOnly 会生成到 tarball）
 checksums.json
+
+# macOS 系统文件
+.DS_Store
+*/.DS_Store
 
 # 本地测试 / 密钥（勿提交）
 test/temp/
@@ -40,6 +45,7 @@ test/integration/reports/
 # 日志文件
 *.log
 /tmp/
+nohup.out
 
 # Copilot 文档和任务记录（不跟随 git）
 docs/copilot/
@@ -66,3 +72,10 @@ data/
 
 # 构建产物（可选：若需提交 dist 可删此行）
 dashboard/dist/
+
+# 编辑器 / IDE 本地配置
+.vscode/
+.cursor/
+
+# Prettier 输出
+prettier-output.log
