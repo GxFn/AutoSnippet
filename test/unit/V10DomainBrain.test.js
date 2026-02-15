@@ -511,21 +511,21 @@ describe('P2: buildMinimalPrompt', () => {
     expect(prompt).toContain('自主规划探索方向');
   });
 
-  test('includes 项目特写 style guide for candidate dims', () => {
+  test('includes 项目特写 definition for candidate dims', () => {
     const prompt = buildMinimalPrompt(makeDim(), makeContext());
 
-    expect(prompt).toContain('「项目特写」风格指南');
-    expect(prompt).toContain('最高优先级');
-    expect(prompt).toContain('描述与代码交织');
+    expect(prompt).toContain('基本用法与项目特征的融合');
+    expect(prompt).toContain('项目选择了什么');
+    expect(prompt).toContain('项目禁止什么');
     expect(prompt).toContain('项目真实类名');
-    expect(prompt).toContain('标注代码来源');
+    expect(prompt).toContain('代码来源标注');
   });
 
   test('does NOT include style guide for skill-only dims', () => {
     const dim = makeDim({ skillWorthy: true, dualOutput: false });
     const prompt = buildMinimalPrompt(dim, makeContext());
 
-    expect(prompt).not.toContain('「项目特写」风格指南');
+    expect(prompt).not.toContain('基本用法与项目特征的融合');
     expect(prompt).not.toContain('Few-shot');
   });
 
@@ -554,7 +554,7 @@ describe('P2: buildMinimalPrompt', () => {
 
     expect(prompt).toContain('假阳性');
     expect(prompt).toContain('泛化描述');
-    expect(prompt).toContain('最高优先级');
+    expect(prompt).toContain('四大要素缺一不可');
   });
 });
 
