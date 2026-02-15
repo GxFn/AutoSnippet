@@ -76,6 +76,112 @@
 
 ---
 
+## [2.7.0] - 2026-02-16
+
+### v3 AI-First Bootstrap — 双 Agent 架构 + 废弃代码清理
+
+> Bootstrap 管线从 v2 手工提取器模式重写为 v3 AI-First 双 Agent 架构，大幅精简代码量。
+
+#### 核心 — Analyst → Gate → Producer 双 Agent 管线
+
+- **AnalystAgent**（216 行）：负责信号收集与维度分析，通过 Agent-Pull 架构主动调用 `list_project_structure` / `get_file_summary` / `semantic_search_code` 等 7 个工具探索项目
+- **ProducerAgent**（240 行）：接收 Analyst 产出，生成结构化候选并调用 `submit_candidate` 提交
+- **HandoffProtocol**（180 行）：Analyst → Producer 交接协议，传递维度分析上下文
+- **CandidateGuardrail**（134 行）：候选质量门控，最低 200 字符，硬拒无代码块候选
+- **TierScheduler**（162 行）：分层并行调度，9 维度按优先级分 Tier 执行
+
+#### v10 Agent-Pull 架构演进
+
+- **Minimal Prompt 模式**：从 v9 的 ~20K tokens prompt 精简到 ~500 tokens（`buildMinimalPrompt`），让 Agent 主动拉取上下文
+- **DIMENSION_EXPLORATION_GOALS**：9 维度各自定义独立探索目标映射
+- **PROJECT_SNAPSHOT_STYLE_GUIDE**：「项目特写」风格定义（选择了什么 / 为什么 / 禁止什么 / 怎么写）
+- **Few-shot 范例**：候选类 + 深度扫描类两种范例模板
+- 新增 4 个 Agent 工具：`search_project_code` / `read_project_file` / `plan_task` / `review_my_output`
+- 默认模式从 `full-signal` 切换到 `minimal-prompt`，`ASD_PROMPT_MODE='full-signal'` 可回退
+
+#### Pipeline 完整性修复（v9 Bug Fix）
+
+- Fix Bug1：连续用户消息合并—— Gemini/Claude Provider `#convertMessages` 增加 `pushOrMerge`
+- Fix Bug2：空响应死循环——独立计数器防止无限重试
+- Fix Bug3：P5 pre-check 空操作——改为有意义的 warning
+- 移除死代码：`ContextWindow.setInitialPrompt()`、`ToolRegistry` 参数规范化（snake_case → camelCase）
+
+#### BiliDemo 冷启动 12 项修复
+
+- ChatAgent 注入 PRODUCE 过渡提示，修复 0 条提交问题
+- PhaseRouter 即时 PRODUCE 提示 + 阶段特定 grace rounds
+- 长 Skill 自动拆分（category-scan / deep-scan）为多 part 文件，不再截断
+- `createSkill` frontmatter 新增 `title`（自动从 `# heading` 提取）
+- `referenceSnippets` 保留最多 3 个代码块（≤15 行）写入 Skill
+- 测试结果：428 tests, 23 suites，BiliDemo 13 AI 提交候选、6 Skills、9/9 维度完成
+
+#### 代码清理 — 删除 v2 管线 ~10,300 行
+
+- 删除 v2 pipeline 全部代码：orchestrator / extractors / patterns / shared 等 23 个文件
+- 删除 v9 残留：`production-prompts.js`、ChatAgent `promptMode` 分支
+- `orchestrator-v3.js` 重命名为 `orchestrator.js`
+- 移除 `USE_V3_BOOTSTRAP` 特性开关
+- 删除 3 个测试文件（ProductionPrompts / ProjectSkills / SignalExtractor）
+
+#### Dashboard
+
+- Bootstrap 进度条替换为已用时间 + 预计剩余 + 工具调用次数
+- 9 维度合并为 4 个显示分组（架构与设计 / 规范与实践 / 事件与数据流 / 深度扫描）
+- 新增 GlobalChatDrawer 全局对话抽屉（522 行）+ PageOverlay
+- Sidebar 重构（170 行改动）
+
+#### 测试
+
+- 测试基线：20 套件 / 351 测试全部通过
+
+---
+
+## [2.6.0] - 2026-02-13
+
+### SignalCollector AI 引擎 + ChatAgent 持久化 + 工具增强
+
+> 后台信号收集从规则引擎重写为 AI 驱动引擎，ChatAgent 新增对话持久化与跨对话摘要能力。
+
+#### SignalCollector — AI 驱动信号引擎
+
+- **SkillAdvisor**（322 行）：新增使用模式分析服务，4 维度（Guard 违规 / Memory 偏好 / Recipe 分布缺口 / 候选积压率）生成 Skill 创建建议
+- **SignalCollector 初版**（0a58d71）：3 种模式（off / suggest / auto），周期性执行 SkillAdvisor 分析，快照持久化到 `.autosnippet/signal-snapshot.json`
+- **SignalCollector AI 重写**（25ccdc6，**BREAKING**）：规则引擎替换为 ChatAgent ReAct 循环，6 维度（+chat memory / +code changes），AI 动态调整 tick 间隔（5min~24h），auto 模式直接调用 `create_skill`
+- 默认模式从 `suggest` 改为 `auto`
+- MCP `autosnippet_suggest_skills` 工具新增（#36）
+- Dashboard SkillsView 新增「推荐」按钮 + 建议面板 + Sidebar 建议 badge
+- HTTP API `GET /api/v1/skills/suggest` / `GET /api/v1/skills/signal-status`
+- Gateway `auditSuccess` / `auditFailure` 事件触发，EventBus 恢复到 ServiceContainer
+
+#### ChatAgent 持久化体系升级
+
+- **ConversationStore**（377 行）：对话持久化存储 + token 预算上下文窗口管理 + AI 自动摘要
+- **Memory 升级**：source 标签隔离（user/system）+ 去重 + 按 source 过滤
+- ChatAgent 新增 `conversationId` 支持、AI 驱动记忆提取（`[MEMORY]` 标签）、`#autoSummarize`
+- AuditStore 新增 `cleanup()` TTL 清理（默认 90 天）
+- `Skill createdBy` 创建者追踪：4 种类型（manual / user-ai / system-ai / external-ai），Dashboard 显示创建者标签
+
+#### 工具增强
+
+- **Lazy Tool Schema**：ChatAgent 工具 schema 延迟加载，减少初始化开销
+- **AutoCondense**（AiProvider）：AI 响应过长时自动压缩上下文
+- **EventAggregator**（187 行）：事件聚合器，合并高频事件减少处理次数
+- **CircuitBreaker**（SignalCollector）：错误重试 + 指数退避
+
+#### 修复
+
+- 修复 7 处 SQL schema 不匹配（SignalCollector/SkillAdvisor 列名/表名错误）
+- ChatAgent ReAct 循环错误恢复：AI 调用 / 工具执行 / 最终总结三层 try/catch + 降级
+- 知识图谱节点缺失时静默处理（不再打印 error 日志）
+- 终端噪音精简：HTTP GET 2xx 降为 debug，轮询路径静默，ToolRegistry 汇总日志
+- ChatAgent 实时调试日志：cyan/magenta 高亮，每轮 ReAct 迭代详情
+
+#### 测试
+
+- 测试基线：276 单元测试 + 17 集成测试通过
+
+---
+
 ## [2.5.0] - 2026-02-13
 
 ### Dashboard UX 大幅升级 + AI 响应截断修复
