@@ -1,4 +1,3 @@
-```skill
 ---
 name: autosnippet-reference-objc
 description: Objective-C 业界最佳实践参考。涵盖命名前缀、属性声明、Delegate 模式、内存管理、nullability、错误处理，为冷启动分析提供高质量参考标准。
@@ -424,4 +423,3 @@ if ([NSThread isMainThread]) {
 - **autosnippet-coldstart**: 完整冷启动流程（本 Skill 的主 Skill）
 - **autosnippet-reference-swift**: Swift 业界最佳实践参考
 - **autosnippet-reference-jsts**: JavaScript/TypeScript 业界最佳实践参考
-```

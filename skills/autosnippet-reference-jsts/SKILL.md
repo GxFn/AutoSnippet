@@ -1,4 +1,3 @@
-```skill
 ---
 name: autosnippet-reference-jsts
 description: JavaScript/TypeScript 业界最佳实践参考。涵盖类型系统、模块化、错误处理、async/await、命名、ESLint 规则，为冷启动分析提供高质量参考标准。
@@ -437,4 +436,3 @@ const url = baseUrl + '/api/v' + version + '/users/' + userId;
 - **autosnippet-coldstart**: 完整冷启动流程（本 Skill 的主 Skill）
 - **autosnippet-reference-swift**: Swift 业界最佳实践参考
 - **autosnippet-reference-objc**: Objective-C 业界最佳实践参考
-```

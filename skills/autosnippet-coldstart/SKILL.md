@@ -1,4 +1,3 @@
-```skill
 ---
 name: autosnippet-coldstart
 description: Cold-start knowledge base initialization. Full 9-dimension analysis workflow — works with both external Agent and internal AI. Call bootstrap_knowledge, then systematically analyze code and submit candidates.
@@ -465,4 +464,3 @@ description: Cold-start knowledge base initialization. Full 9-dimension analysis
 - **autosnippet-reference-swift**: Swift 业界最佳实践参考（命名/并发/错误处理/内存/设计模式）
 - **autosnippet-reference-objc**: Objective-C 业界最佳实践参考（ARC/Block/Delegate/Prefix/GCD）
 - **autosnippet-reference-jsts**: JavaScript/TypeScript 业界最佳实践参考（async/React/Node/ESM/类型系统）
-```
