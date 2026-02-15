@@ -288,8 +288,8 @@ describe('v9 prompt guidance', () => {
  *  Tests: ALL_TOOLS 完整性
  * ──────────────────────────────────────────── */
 describe('tools registry completeness', () => {
-  it('should have 44 tools', () => {
-    expect(ALL_TOOLS.length).toBe(44);
+  it('should have 47 tools', () => {
+    expect(ALL_TOOLS.length).toBe(47);
   });
 
   it('should include all three new meta tools', () => {
