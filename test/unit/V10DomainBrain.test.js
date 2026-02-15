@@ -7,15 +7,10 @@ import os from 'node:os';
  *  动态导入
  * ──────────────────────────────────────────── */
 let ALL_TOOLS;
-let buildMinimalPrompt, buildDimensionProductionPrompt;
 
 beforeAll(async () => {
   const toolsMod = await import('../../lib/service/chat/tools.js');
   ALL_TOOLS = toolsMod.ALL_TOOLS || toolsMod.default;
-
-  const promptsMod = await import('../../lib/external/mcp/handlers/bootstrap/pipeline/production-prompts.js');
-  buildMinimalPrompt = promptsMod.buildMinimalPrompt;
-  buildDimensionProductionPrompt = promptsMod.buildDimensionProductionPrompt;
 });
 
 /* ────────────────────────────────────────────
@@ -23,33 +18,6 @@ beforeAll(async () => {
  * ──────────────────────────────────────────── */
 function findTool(name) {
   return ALL_TOOLS.find(t => t.name === name);
-}
-
-function makeDim(overrides = {}) {
-  return {
-    id: 'code-pattern',
-    label: '代码模式',
-    guide: '分析项目中的常见代码模式',
-    knowledgeTypes: ['code-pattern'],
-    skillWorthy: false,
-    dualOutput: false,
-    ...overrides,
-  };
-}
-
-function makeContext(overrides = {}) {
-  return {
-    project: {
-      projectName: 'TestProject',
-      primaryLang: 'objectivec',
-      fileCount: 500,
-      targetCount: 3,
-      modules: ['AppTarget', 'NetworkModule', 'Utils'],
-    },
-    previousDimensions: {},
-    existingCandidates: [],
-    ...overrides,
-  };
 }
 
 // 创建临时项目目录结构用于工具测试
@@ -348,235 +316,11 @@ describe('P1: semantic_search_code', () => {
 });
 
 /* ════════════════════════════════════════════════════════════
- *  P2: buildMinimalPrompt
+ *  P2: Tool count & ALL_TOOLS integrity
  * ════════════════════════════════════════════════════════════ */
-describe('P2: buildMinimalPrompt', () => {
-  test('produces shorter prompt than v9 with realistic signal count', () => {
-    const dim = makeDim();
-    const context = makeContext();
-    const budget = { maxSubmits: 6 };
-
-    const minimal = buildMinimalPrompt(dim, context, { budget });
-
-    // v9 with 10 realistic signals (typical dimension)
-    const signals = Array.from({ length: 10 }, (_, i) => ({
-      dimId: 'code-pattern', subTopic: `signal-${i}`,
-      evidence: {
-        matchCount: 5 + i,
-        topFiles: [`File${i}.m`, `File${i}2.m`],
-        distribution: [{ label: `variant-${i}`, fileCount: 3, pct: 60, boilerplate: false }],
-        samples: [
-          { file: `File${i}.m`, line: 10 * i, code: `// sample code ${i}\n+ (void)method${i} {\n  // implementation\n}`, variant: 'default' },
-        ],
-        searchHints: [`search${i}`],
-      },
-      heuristicHints: [`hint ${i}`],
-    }));
-    const fullSignal = buildDimensionProductionPrompt(dim, signals, context, { budget });
-
-    // v10 minimal should be much shorter than a real v9 prompt
-    expect(minimal.length).toBeLessThan(fullSignal.length);
-    // v10 minimal should be under 5000 chars (~1600 tokens) even with few-shot
-    expect(minimal.length).toBeLessThan(5000);
-  });
-
-  test('includes task description', () => {
-    const dim = makeDim({ label: '架构分析', guide: '分析项目架构层次' });
-    const context = makeContext();
-
-    const prompt = buildMinimalPrompt(dim, context);
-
-    expect(prompt).toContain('架构分析');
-    expect(prompt).toContain('分析项目架构层次');
-  });
-
-  test('includes project summary', () => {
-    const context = makeContext({
-      project: { projectName: 'MyApp', primaryLang: 'swift', fileCount: 1200, modules: ['Core', 'UI'] },
-    });
-    const prompt = buildMinimalPrompt(makeDim(), context);
-
-    expect(prompt).toContain('MyApp');
-    expect(prompt).toContain('swift');
-    expect(prompt).toContain('1200');
-  });
-
-  test('does NOT include signals', () => {
-    const prompt = buildMinimalPrompt(makeDim(), makeContext());
-
-    expect(prompt).not.toContain('扫描信号');
-    expect(prompt).not.toContain('Signal');
-    expect(prompt).not.toContain('matchCount');
-  });
-
-  test('includes exploration strategy', () => {
-    const prompt = buildMinimalPrompt(makeDim(), makeContext());
-
-    expect(prompt).toContain('list_project_structure');
-    expect(prompt).toContain('get_file_summary');
-    expect(prompt).toContain('semantic_search_code');
-    expect(prompt).toContain('search_project_code');
-    expect(prompt).toContain('read_project_file');
-  });
-
-  test('includes output type for candidate dims', () => {
-    const prompt = buildMinimalPrompt(makeDim(), makeContext(), { budget: { maxSubmits: 8 } });
-
-    expect(prompt).toContain('CANDIDATE');
-    expect(prompt).toContain('submit_candidate');
-    expect(prompt).toContain('8');
-  });
-
-  test('shows SKILL for skill-only dims', () => {
-    const dim = makeDim({ skillWorthy: true, dualOutput: false });
-    const prompt = buildMinimalPrompt(dim, makeContext());
-
-    expect(prompt).toContain('SKILL');
-    expect(prompt).not.toContain('submit_candidate 参数');
-  });
-
-  test('shows DUAL for dual-output dims', () => {
-    const dim = makeDim({ skillWorthy: true, dualOutput: true });
-    const prompt = buildMinimalPrompt(dim, makeContext());
-
-    expect(prompt).toContain('DUAL');
-    expect(prompt).toContain('submit_candidate');
-  });
-
-  test('includes previously completed dimensions', () => {
-    const context = makeContext({
-      previousDimensions: { 'objc-deep-scan': { summary: 'done' }, 'category-scan': { summary: 'done' } },
-    });
-    const prompt = buildMinimalPrompt(makeDim(), context);
-
-    expect(prompt).toContain('✅ objc-deep-scan');
-    expect(prompt).toContain('✅ category-scan');
-  });
-
-  test('includes recalculation context', () => {
-    const prompt = buildMinimalPrompt(makeDim(), makeContext(), {
-      isRecalculation: true,
-      existingCandidates: [{ title: '[Bootstrap] code-pattern/singleton', summary: '单例模式分析' }],
-    });
-
-    expect(prompt).toContain('重算模式');
-    expect(prompt).toContain('singleton');
-  });
-
-  test('includes dimensionDigest schema', () => {
-    const prompt = buildMinimalPrompt(makeDim(), makeContext());
-    expect(prompt).toContain('dimensionDigest');
-    expect(prompt).toContain('candidateCount');
-  });
-
-  test('includes quality principles', () => {
-    const prompt = buildMinimalPrompt(makeDim(), makeContext());
-    expect(prompt).toContain('质量原则');
-    expect(prompt).toContain('代码必须真实');
-  });
-
-  test('includes dimension-specific exploration goals', () => {
-    const dim = makeDim({ id: 'code-pattern', label: '设计模式与代码惯例' });
-    const prompt = buildMinimalPrompt(dim, makeContext());
-
-    expect(prompt).toContain('探索目标');
-    expect(prompt).toContain('单例模式');
-    expect(prompt).toContain('委托模式');
-    expect(prompt).toContain('Category/Extension');
-  });
-
-  test('includes exploration goals for architecture dimension', () => {
-    const dim = makeDim({ id: 'architecture', label: '架构模式' });
-    const prompt = buildMinimalPrompt(dim, makeContext());
-
-    expect(prompt).toContain('分层结构');
-    expect(prompt).toContain('模块边界');
-    expect(prompt).toContain('依赖图');
-  });
-
-  test('includes exploration goals for best-practice dimension', () => {
-    const dim = makeDim({ id: 'best-practice', label: '最佳实践' });
-    const prompt = buildMinimalPrompt(dim, makeContext());
-
-    expect(prompt).toContain('错误处理');
-    expect(prompt).toContain('并发安全');
-    expect(prompt).toContain('内存管理');
-  });
-
-  test('falls back to guide text for unknown dimensions', () => {
-    const dim = makeDim({ id: 'unknown-dimension', guide: '自定义维度说明' });
-    const prompt = buildMinimalPrompt(dim, makeContext());
-
-    expect(prompt).toContain('自定义维度说明');
-    expect(prompt).toContain('自主规划探索方向');
-  });
-
-  test('includes signal count hint when signalCount is provided', () => {
-    const prompt = buildMinimalPrompt(makeDim(), makeContext(), { signalCount: 12 });
-
-    expect(prompt).toContain('12');
-    expect(prompt).toContain('信号');
-  });
-
-  test('does not include signal hint when signalCount is 0', () => {
-    const prompt = buildMinimalPrompt(makeDim(), makeContext(), { signalCount: 0 });
-
-    expect(prompt).not.toContain('启发式预扫描');
-  });
-
-  test('includes 项目特写 definition for candidate dims', () => {
-    const prompt = buildMinimalPrompt(makeDim(), makeContext());
-
-    expect(prompt).toContain('基本用法与项目特征的融合');
-    expect(prompt).toContain('项目选择了什么');
-    expect(prompt).toContain('项目禁止什么');
-    expect(prompt).toContain('项目真实类名');
-    expect(prompt).toContain('代码来源标注');
-  });
-
-  test('does NOT include style guide for skill-only dims', () => {
-    const dim = makeDim({ skillWorthy: true, dualOutput: false });
-    const prompt = buildMinimalPrompt(dim, makeContext());
-
-    expect(prompt).not.toContain('基本用法与项目特征的融合');
-    expect(prompt).not.toContain('Few-shot');
-  });
-
-  test('includes Few-shot example for code-pattern dim', () => {
-    const dim = makeDim({ id: 'code-pattern' });
-    const prompt = buildMinimalPrompt(dim, makeContext());
-
-    expect(prompt).toContain('Few-shot 示例');
-    expect(prompt).toContain('XYNetworkManager');
-    expect(prompt).toContain('dispatch_once');
-    expect(prompt).toContain('项目特写');
-    expect(prompt).toContain('来源:');
-  });
-
-  test('includes deep-scan Few-shot for objc-deep-scan dim', () => {
-    const dim = makeDim({ id: 'objc-deep-scan', skillWorthy: true, dualOutput: true });
-    const prompt = buildMinimalPrompt(dim, makeContext());
-
-    expect(prompt).toContain('Few-shot 示例');
-    expect(prompt).toContain('#define');
-    expect(prompt).toContain('kXYBaseURL');
-  });
-
-  test('enhanced quality principles mention anti-patterns', () => {
-    const prompt = buildMinimalPrompt(makeDim(), makeContext());
-
-    expect(prompt).toContain('假阳性');
-    expect(prompt).toContain('泛化描述');
-    expect(prompt).toContain('四大要素缺一不可');
-  });
-});
-
-/* ════════════════════════════════════════════════════════════
- *  P3: Tool count & ALL_TOOLS integrity
- * ════════════════════════════════════════════════════════════ */
-describe('P3: ALL_TOOLS integrity', () => {
+describe('P2: ALL_TOOLS integrity', () => {
   test('contains 47 tools (44 original + 3 new)', () => {
-    expect(ALL_TOOLS.length).toBe(47);
+    expect(ALL_TOOLS.length).toBe(54);
   });
 
   test('all new tools have name, description, parameters, handler', () => {

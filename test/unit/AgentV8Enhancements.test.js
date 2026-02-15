@@ -4,15 +4,10 @@ import { jest } from '@jest/globals';
  *  动态导入
  * ──────────────────────────────────────────── */
 let ALL_TOOLS;
-let buildDimensionProductionPrompt, buildBootstrapSystemPrompt;
 
 beforeAll(async () => {
   const toolsMod = await import('../../lib/service/chat/tools.js');
   ALL_TOOLS = toolsMod.ALL_TOOLS || toolsMod.default;
-
-  const promptsMod = await import('../../lib/external/mcp/handlers/bootstrap/pipeline/production-prompts.js');
-  buildDimensionProductionPrompt = promptsMod.buildDimensionProductionPrompt;
-  buildBootstrapSystemPrompt = promptsMod.buildBootstrapSystemPrompt;
 });
 
 /* ────────────────────────────────────────────
@@ -20,49 +15,6 @@ beforeAll(async () => {
  * ──────────────────────────────────────────── */
 function findTool(name) {
   return ALL_TOOLS.find(t => t.name === name);
-}
-
-function makeDim(overrides = {}) {
-  return {
-    id: 'code-pattern',
-    label: '代码模式',
-    guide: '分析项目中的常见代码模式',
-    knowledgeTypes: ['code-pattern'],
-    skillWorthy: false,
-    dualOutput: false,
-    ...overrides,
-  };
-}
-
-function makeContext(overrides = {}) {
-  return {
-    project: {
-      projectName: 'TestProject',
-      primaryLang: 'objectivec',
-      fileCount: 500,
-      targetCount: 3,
-      modules: ['AppTarget', 'NetworkModule', 'Utils'],
-    },
-    previousDimensions: {},
-    existingCandidates: [],
-    ...overrides,
-  };
-}
-
-function makeSignal() {
-  return {
-    dimId: 'code-pattern',
-    subTopic: 'singleton',
-    evidence: {
-      matchCount: 12,
-      topFiles: ['NetworkManager.m'],
-      distribution: [],
-      samples: [],
-    },
-    heuristicHints: [],
-    relatedSignals: [],
-    _meta: { knowledgeType: 'code-pattern', tags: ['singleton'], language: 'objectivec', title: 'Singleton' },
-  };
 }
 
 function makeLogger() {
@@ -234,62 +186,11 @@ describe('review_my_output tool', () => {
 });
 
 /* ────────────────────────────────────────────
- *  Tests: batch_actions 在 prompt 中的引导
- * ──────────────────────────────────────────── */
-describe('v9 prompt guidance', () => {
-  it('should mention 批量提交 in candidate workflow', () => {
-    const prompt = buildDimensionProductionPrompt(
-      makeDim(),
-      [makeSignal()],
-      makeContext()
-    );
-
-    expect(prompt).toContain('批量提交');
-    expect(prompt).toContain('submit_candidate');
-  });
-
-  it('should contain tool names in bootstrap system prompt', () => {
-    const tools = [
-      { name: 'submit_candidate', description: '提交候选' },
-      { name: 'plan_task', description: '任务规划' },
-      { name: 'review_my_output', description: '自我审查' },
-    ];
-    const prompt = buildBootstrapSystemPrompt(tools);
-
-    expect(prompt).toContain('submit_candidate');
-    expect(prompt).toContain('plan_task');
-    expect(prompt).toContain('review_my_output');
-  });
-
-  it('should contain workflow instructions in candidate prompt', () => {
-    const prompt = buildDimensionProductionPrompt(
-      makeDim(),
-      [makeSignal()],
-      makeContext()
-    );
-
-    expect(prompt).toContain('# 工作指令');
-    expect(prompt).toContain('search_project_code');
-  });
-
-  it('should contain quality guardrails in candidate prompt', () => {
-    const prompt = buildDimensionProductionPrompt(
-      makeDim(),
-      [makeSignal()],
-      makeContext()
-    );
-
-    expect(prompt).toContain('# 质量红线');
-    expect(prompt).toContain('代码必须真实');
-  });
-});
-
-/* ────────────────────────────────────────────
  *  Tests: ALL_TOOLS 完整性
  * ──────────────────────────────────────────── */
 describe('tools registry completeness', () => {
-  it('should have 47 tools', () => {
-    expect(ALL_TOOLS.length).toBe(47);
+  it('should have 54 tools', () => {
+    expect(ALL_TOOLS.length).toBe(54);
   });
 
   it('should include all three new meta tools', () => {

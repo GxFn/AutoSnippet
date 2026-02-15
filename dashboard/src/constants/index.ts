@@ -1,17 +1,18 @@
 import { Globe, Layout, Cpu, Zap, Database, Wifi, HardDrive, Box, Layers, Hash, GitBranch, Shield, BookOpen, Workflow, Cog, Brain, ScanSearch, Library } from 'lucide-react';
 
-/** Bootstrap 维度分类 tab 显示名 */
+/** Bootstrap 维度分类 tab 显示名（合并后的展示分组） */
 export const BOOTSTRAP_DIM_LABELS: Record<string, string> = {
+  'architecture': '架构与设计',
+  'best-practice': '规范与实践',
+  'event-and-data-flow': '事件与数据流',
+  'objc-deep-scan': '深度扫描',
+  'agent-guidelines': 'Agent 注意事项',
+  'bootstrap': 'Bootstrap',
+  // 旧维度 ID 回退（兼容已有数据）
   'code-standard': '代码规范',
   'code-pattern': '设计模式',
-  'architecture': '架构模式',
-  'best-practice': '最佳实践',
-  'event-and-data-flow': '事件与数据流',
   'project-profile': '项目特征',
-  'agent-guidelines': 'Agent 注意事项',
-  'objc-deep-scan': '常量/Hook',
   'category-scan': 'Category 分类方法',
-  'bootstrap': 'Bootstrap',
 };
 
 export const categoryConfigs: Record<string, { icon: any, color: string, bg: string, border: string }> = {

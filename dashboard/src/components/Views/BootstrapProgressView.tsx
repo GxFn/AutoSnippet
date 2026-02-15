@@ -10,8 +10,8 @@
  * 全部完成后弹出通知。
  */
 
-import React, { useEffect, useRef } from 'react';
-import { Check, X, Loader2, Sparkles, Code2, Layers, BookOpen, Zap, Settings, Bot, Brain, Filter, Wand2, GitMerge } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Check, X, Loader2, Sparkles, Code2, Layers, BookOpen, Zap, Settings, Bot, Brain, Filter, Wand2, GitMerge, Clock, Wrench } from 'lucide-react';
 import { notify } from '../../utils/notification';
 import type { BootstrapSession, BootstrapTask, ReviewState } from '../../hooks/useBootstrapSocket';
 
@@ -250,6 +250,19 @@ const ReviewPipelinePanel: React.FC<{ review: ReviewState }> = ({ review }) => {
 };
 
 /* ═══════════════════════════════════════════════════════
+ *  Time formatting helper
+ * ═══════════════════════════════════════════════════════ */
+
+function formatDuration(ms: number): string {
+  if (ms < 0) return '--';
+  const totalSec = Math.floor(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  if (min === 0) return `${sec}s`;
+  return `${min}m ${sec.toString().padStart(2, '0')}s`;
+}
+
+/* ═══════════════════════════════════════════════════════
  *  Main progress panel
  * ═══════════════════════════════════════════════════════ */
 
@@ -269,6 +282,14 @@ const BootstrapProgressView: React.FC<BootstrapProgressViewProps> = ({
   onDismiss,
 }) => {
   const notifiedRef = useRef(false);
+  const [now, setNow] = useState(Date.now());
+
+  // Tick every second while running
+  useEffect(() => {
+    if (!session || session.status !== 'running') return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [session?.status]);
 
   // Notify on completion
   useEffect(() => {
@@ -288,20 +309,27 @@ const BootstrapProgressView: React.FC<BootstrapProgressViewProps> = ({
 
   if (!session) return null;
 
-  const progressPercent = session.progress;
+  // ── Compute elapsed & estimated remaining time ──
+  const elapsedMs = session.startedAt ? now - session.startedAt : (session.elapsedMs ?? 0);
+  const done = session.completed + session.failed;
+  const remaining = session.total - done;
+  // Use server-reported elapsed (from last task completion) for remaining estimate — fixed, not ticking
+  const serverElapsedMs = session.elapsedMs ?? 0;
+  const estimatedRemainingMs = done > 0 && serverElapsedMs > 0 ? Math.round((serverElapsedMs / done) * remaining) : -1;
+  const toolCalls = session.totalToolCalls ?? 0;
+
   const statusText =
-    session.status === 'running' ? `正在填充... (${session.completed}/${session.total})` :
     session.status === 'completed' ? '全部完成' :
     session.status === 'completed_with_errors' ? '完成（有错误）' :
-    '等待中';
+    null;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-lg font-semibold text-slate-800">冷启动进度</h2>
-          <p className="text-sm text-slate-500 mt-0.5">{statusText}</p>
+          {statusText && <p className="text-sm text-slate-500 mt-0.5">{statusText}</p>}
         </div>
         {isAllDone && onDismiss && (
           <button
@@ -313,16 +341,25 @@ const BootstrapProgressView: React.FC<BootstrapProgressViewProps> = ({
         )}
       </div>
 
-      {/* Progress bar */}
-      <div className="w-full h-2 bg-slate-100 rounded-full mb-5 overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ease-out ${
-            isAllDone
-              ? session.failed > 0 ? 'bg-amber-400' : 'bg-emerald-500'
-              : 'bg-blue-500'
-          }`}
-          style={{ width: `${progressPercent}%` }}
-        />
+      {/* Stats bar — elapsed time, remaining time, tool calls */}
+      <div className="flex flex-wrap items-center gap-4 mb-5 text-sm">
+        <div className="flex items-center gap-1.5 text-slate-600">
+          <Clock size={14} className="text-slate-400" />
+          <span>已用 <span className="font-medium text-slate-800">{formatDuration(elapsedMs)}</span></span>
+        </div>
+        {session.status === 'running' && remaining > 0 && estimatedRemainingMs > 0 && (
+          <div className="flex items-center gap-1.5 text-slate-600">
+            <Clock size={14} className="text-blue-400" />
+            <span>预计剩余 <span className="font-medium text-blue-600">{formatDuration(estimatedRemainingMs)}</span></span>
+          </div>
+        )}
+        <div className="flex items-center gap-1.5 text-slate-600">
+          <Wrench size={14} className="text-slate-400" />
+          <span>工具调用 <span className="font-medium text-slate-800">{toolCalls}</span></span>
+        </div>
+        <div className="text-slate-400 text-xs">
+          {done}/{session.total} 维度
+        </div>
       </div>
 
       {/* Task cards grid — sorted by execution order */}

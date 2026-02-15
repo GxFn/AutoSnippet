@@ -64,6 +64,12 @@ export interface BootstrapSession {
   summary?: Record<string, unknown> | null;
   /** AI 审查管线状态 */
   review?: ReviewState;
+  /** 会话开始时间戳 (ms) */
+  startedAt?: number;
+  /** 累计工具调用次数 */
+  totalToolCalls?: number;
+  /** 后端计算的已用毫秒 */
+  elapsedMs?: number;
 }
 
 interface UseBootstrapSocketReturn {
@@ -125,7 +131,7 @@ export function useBootstrapSocket(): UseBootstrapSocketReturn {
 
     // ── Bootstrap progress events ──
 
-    const onStarted = (data: { tasks: Array<{ id: string } & BootstrapTaskMeta>; total: number; sessionId: string }) => {
+    const onStarted = (data: { tasks: Array<{ id: string } & BootstrapTaskMeta>; total: number; sessionId: string; startedAt?: number }) => {
       sessionIdRef.current = data.sessionId;
       setReviewState(INITIAL_REVIEW_STATE); // 新 session 重置 AI 审查状态
       setSession({
@@ -137,6 +143,9 @@ export function useBootstrapSocket(): UseBootstrapSocketReturn {
         failed: 0,
         filling: 0,
         skeleton: data.total,
+        startedAt: data.startedAt || Date.now(),
+        totalToolCalls: 0,
+        elapsedMs: 0,
         tasks: data.tasks.map(t => ({
           id: t.id,
           status: 'skeleton' as const,
@@ -163,7 +172,7 @@ export function useBootstrapSocket(): UseBootstrapSocketReturn {
       });
     };
 
-    const onTaskCompleted = (data: { taskId: string; result: Record<string, unknown>; progress: number; completed: number; total: number }) => {
+    const onTaskCompleted = (data: { taskId: string; result: Record<string, unknown>; progress: number; completed: number; total: number; totalToolCalls?: number; elapsedMs?: number }) => {
       setSession(prev => {
         if (!prev) return prev;
         const updatedTasks = prev.tasks.map(t =>
@@ -176,6 +185,8 @@ export function useBootstrapSocket(): UseBootstrapSocketReturn {
           progress: data.progress,
           completed: data.completed,
           total: data.total,
+          totalToolCalls: data.totalToolCalls ?? prev.totalToolCalls,
+          elapsedMs: data.elapsedMs ?? prev.elapsedMs,
           tasks: updatedTasks,
           filling: updatedTasks.filter(t => t.status === 'filling').length,
           skeleton: updatedTasks.filter(t => t.status === 'skeleton').length,
