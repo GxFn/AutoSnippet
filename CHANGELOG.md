@@ -4,6 +4,15 @@
 
 ---
 
+## [2.8.1] - 2026-02-16
+
+### Bug Fixes — 候选项不可见 & 路径解析
+
+- **fix(cli/mcp/api-server):** 当 projectRoot 与 cwd 不同时（如 `asd ui -d <path>` 或 `ASD_PROJECT_DIR` 环境变量），自动 `process.chdir(projectRoot)`，确保 DB 路径 `./.autosnippet/autosnippet.db` 正确解析到目标项目而非执行目录
+- **fix(candidates route):** `GET /api/v1/candidates` 的 `pageSize` 上限从 100 提升到 1000，与前端 `limit=1000` 请求一致，避免候选项超过 100 条时分页截断
+
+---
+
 ## [2.8.0] - 2025-02-16
 
 ### MCP Skills CRUD 完善 + 进程级错误兜底 + AlinkHandler 实现

@@ -605,6 +605,11 @@ async function initBootstrap() {
 async function initContainer(opts = {}) {
   const projectRoot = opts.projectRoot || process.cwd();
 
+  // 切换工作目录到项目根 — 确保 DB 等相对路径正确解析
+  if (resolve(projectRoot) !== resolve(process.cwd())) {
+    process.chdir(projectRoot);
+  }
+
   // 配置路径安全守卫 — 阻止写操作逃逸到项目外
   const { default: Bootstrap } = await import('../lib/bootstrap.js');
   Bootstrap.configurePathGuard(projectRoot);
