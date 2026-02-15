@@ -43,9 +43,9 @@ const HelpView: React.FC = () => {
           AutoSnippet V2 使用说明
         </h1>
         <p className="text-slate-600 text-lg max-w-3xl mx-auto whitespace-nowrap">
-          连接开发者、AI 与项目知识库：Dual-Agent 智能对话 + 4 层检索管线 + .md Source of Truth
+          连接开发者、AI 与项目知识库：ChatAgent 智能对话 · Skills 开放平台 · 知识库持续生长
         </p>
-        <p className="text-slate-400 text-sm mt-2">Node.js ≥ 20 · 36 MCP 工具 · 10 Skills · Dual-Agent 对话 · 4 层检索管线</p>
+        <p className="text-slate-400 text-sm mt-2">Node.js ≥ 20 · 13 Skills · AI 可自建 · 38 MCP 工具 · ChatAgent 对话 · 4 层检索管线</p>
         <div className="mt-6 flex gap-4 justify-center text-sm">
           <a href="https://github.com/GxFn/AutoSnippet" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             查看 GitHub
@@ -109,10 +109,10 @@ const HelpView: React.FC = () => {
                   <tr className="hover:bg-slate-50">
                     <td className="px-4 py-3 border-b font-medium text-green-700">Cursor Agent</td>
                     <td className="px-4 py-3 border-b">按规范生成代码、检索知识库</td>
-                    <td className="px-4 py-3 border-b text-xs">13 个 Skills 理解规范；36 个 MCP 工具按需检索、提交候选；写操作经 Gateway 审核</td>
+                    <td className="px-4 py-3 border-b text-xs">13 个 Skills 理解规范；38 个 MCP 工具按需检索、提交候选；写操作经 Gateway 审核</td>
                   </tr>
                   <tr className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium text-purple-700">项目内 AI</td>
+                    <td className="px-4 py-3 font-medium text-purple-700">ChatAgent</td>
                     <td className="px-4 py-3">提取、摘要、扫描、审查</td>
                     <td className="px-4 py-3 text-xs"><code className="bg-slate-100 px-1 rounded">asd ais</code> 批量扫描；分析剪贴板；Guard 审查；Dashboard RAG</td>
                   </tr>
@@ -125,18 +125,6 @@ const HelpView: React.FC = () => {
           <div>
             <h3 className="text-lg font-semibold text-slate-700 mb-3">核心组件</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                  <FileCode size={ICON_SIZES.lg} />
-                  Recipe（配方）
-                </h4>
-                <p className="text-blue-800 text-sm mb-3">Markdown 知识文档（Source of Truth）</p>
-                <ul className="text-blue-700 text-xs space-y-1 list-disc list-inside">
-                  <li>位置：<code className="bg-blue-100 px-1 rounded">AutoSnippet/recipes/*.md</code></li>
-                  <li>.md 文件 = 唯一数据源，DB 仅作索引缓存</li>
-                  <li><code className="bg-blue-100 px-1 rounded">asd sync</code> 增量同步 .md → DB</li>
-                </ul>
-              </div>
               <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                 <h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
                   <Zap size={ICON_SIZES.lg} />
@@ -161,12 +149,24 @@ const HelpView: React.FC = () => {
                   <li>Reasoning 字段记录 AI 推理过程</li>
                 </ul>
               </div>
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                  <FileCode size={ICON_SIZES.lg} />
+                  Recipe（配方）
+                </h4>
+                <p className="text-blue-800 text-sm mb-3">Markdown 知识文档（Source of Truth）</p>
+                <ul className="text-blue-700 text-xs space-y-1 list-disc list-inside">
+                  <li>位置：<code className="bg-blue-100 px-1 rounded">AutoSnippet/recipes/*.md</code></li>
+                  <li>.md 文件 = 唯一数据源，DB 仅作索引缓存</li>
+                  <li><code className="bg-blue-100 px-1 rounded">asd sync</code> 增量同步 .md → DB</li>
+                </ul>
+              </div>
               <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-200">
                 <h4 className="font-semibold text-indigo-900 mb-2 flex items-center gap-2">
                   <ArrowRightLeft size={ICON_SIZES.lg} />
-                  Dual-Agent（智能对话）
+                  ChatAgent（智能对话）
                 </h4>
-                <p className="text-indigo-800 text-sm mb-3">Analyst + Producer 双代理架构</p>
+                <p className="text-indigo-800 text-sm mb-3">多 Agent 协作架构，可持续扩展</p>
                 <ul className="text-indigo-700 text-xs space-y-1 list-disc list-inside">
                   <li>AnalystAgent 分析意图 → ProducerAgent 执行操作</li>
                   <li>HandoffProtocol 自动切换 + 轻量记忆持久化</li>
@@ -361,7 +361,7 @@ const HelpView: React.FC = () => {
 
           {/* MCP 工具 */}
           <div className="mb-5">
-            <h3 className="font-semibold text-slate-800 mb-3">36 个 MCP 工具</h3>
+            <h3 className="font-semibold text-slate-800 mb-3">38 个 MCP 工具</h3>
             <div className="overflow-x-auto">
               <table className="min-w-full border border-slate-200 rounded-lg text-xs">
                 <thead>
@@ -379,11 +379,11 @@ const HelpView: React.FC = () => {
                   <tr><td className="px-3 py-2 border-b font-medium">candidate</td><td className="px-3 py-2 border-b"><code>validate_candidate</code>, <code>check_duplicate</code>, <code>submit_candidate</code>, <code>submit_candidates</code>, <code>submit_draft_recipes</code>, <code>enrich_candidates</code></td><td className="px-3 py-2 border-b text-center">6</td></tr>
                   <tr><td className="px-3 py-2 border-b font-medium">guard</td><td className="px-3 py-2 border-b"><code>guard_check</code>, <code>guard_audit_files</code>, <code>scan_project</code></td><td className="px-3 py-2 border-b text-center">3</td></tr>
                   <tr><td className="px-3 py-2 border-b font-medium">bootstrap</td><td className="px-3 py-2 border-b"><code>bootstrap_knowledge</code>, <code>bootstrap_refine</code></td><td className="px-3 py-2 border-b text-center">2</td></tr>
-                  <tr><td className="px-3 py-2 font-medium">skills</td><td className="px-3 py-2"><code>list_skills</code>, <code>load_skill</code>, <code>create_skill</code>, <code>suggest_skills</code></td><td className="px-3 py-2 text-center">4</td></tr>
+                  <tr><td className="px-3 py-2 font-medium">skills</td><td className="px-3 py-2"><code>list_skills</code>, <code>load_skill</code>, <code>create_skill</code>, <code>delete_skill</code>, <code>update_skill</code>, <code>suggest_skills</code></td><td className="px-3 py-2 text-center">6</td></tr>
                 </tbody>
               </table>
             </div>
-            <p className="text-xs text-slate-500 mt-2">其中 9 个写操作工具（submit_candidate, submit_candidates, submit_draft_recipes, enrich_candidates, guard_audit_files, scan_project, bootstrap_knowledge, bootstrap_refine, create_skill）通过 Gateway 权限保护。</p>
+            <p className="text-xs text-slate-500 mt-2">其中 11 个写操作工具（submit_candidate, submit_candidates, submit_draft_recipes, enrich_candidates, guard_audit_files, scan_project, bootstrap_knowledge, bootstrap_refine, create_skill, delete_skill, update_skill）通过 Gateway 权限保护。</p>
           </div>
 
           {/* 使用示例 */}
@@ -450,9 +450,9 @@ const HelpView: React.FC = () => {
             <div className="border border-slate-200 rounded-lg p-5">
               <div className="flex items-center gap-2 mb-3">
                 <ArrowRightLeft size={ICON_SIZES.lg} className="text-indigo-600" />
-                <h3 className="font-semibold text-slate-800">Dual-Agent 对话系统</h3>
+                <h3 className="font-semibold text-slate-800">ChatAgent 对话系统</h3>
               </div>
-              <p className="text-slate-600 text-sm mb-2">Analyst + Producer 双代理架构：</p>
+              <p className="text-slate-600 text-sm mb-2">多 Agent 协作架构，可持续扩展：</p>
               <div className="bg-slate-50 rounded p-3 text-xs text-slate-700 space-y-1.5">
                 <p><strong>AnalystAgent</strong>：分析用户意图 → 检索知识库 → 给出建议 → 信心信号分级</p>
                 <p><strong>ProducerAgent</strong>：生成代码 → 创建候选 → 执行操作 → 结果聚合</p>

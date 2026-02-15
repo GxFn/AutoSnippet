@@ -19,6 +19,28 @@
 // 使用动态 import() 避免 ESM static import hoisting 导致 env 未就绪
 process.env.ASD_MCP_MODE = '1';
 
+// ─── 进程级错误兜底 ────────────────────────────────────
+process.on('uncaughtException', (error) => {
+  process.stderr.write(`[MCP] Uncaught Exception: ${error.message}\n`);
+  if (error.stack) process.stderr.write(`${error.stack}\n`);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  process.stderr.write(`[MCP] Unhandled Rejection: ${msg}\n`);
+  process.exit(1);
+});
+
+process.on('SIGTERM', () => {
+  process.stderr.write('[MCP] Received SIGTERM, shutting down…\n');
+  process.exit(0);
+});
+process.on('SIGINT', () => {
+  process.stderr.write('[MCP] Received SIGINT, shutting down…\n');
+  process.exit(0);
+});
+
 const { startMcpServer } = await import('../lib/external/mcp/McpServer.js');
 
 startMcpServer().catch(err => {

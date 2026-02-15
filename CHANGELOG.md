@@ -4,6 +4,35 @@
 
 ---
 
+## [2.8.0] - 2025-02-16
+
+### MCP Skills CRUD 完善 + 进程级错误兜底 + AlinkHandler 实现
+
+#### MCP — delete_skill / update_skill 新工具
+
+- 新增 `autosnippet_delete_skill` MCP 工具：删除项目级 Skill 目录，自动刷新编辑器索引
+- 新增 `autosnippet_update_skill` MCP 工具：部分更新 Skill 的 description / content，保留 createdBy/createdAt 元数据
+- Gateway 权限 gating 新增 `delete:skills`、`update:skills` 两条写操作映射
+- TOOLS 数组从 36 → 38，McpServer 工具计数同步更新
+- HelpView / README MCP 工具表同步更新
+
+#### CLI / MCP Server — 进程级错误兜底
+
+- `bin/cli.js`：新增 `uncaughtException`、`unhandledRejection`、`SIGTERM`、`SIGINT` 处理器
+- `bin/mcp-server.js`：新增同等 4 项处理器，防止 Cursor/VSCode 进程异常退出时无日志
+
+#### AlinkHandler — 缓存链路实现
+
+- 替换原有 TODO 空壳，通过 DI 容器获取 DB 实例
+- 精确匹配 `trigger` 字段 → 回退到模糊搜索 `trigger/title`
+- 构建 Dashboard URL 并调用 `open` 打开浏览器
+
+#### Dashboard 版本同步
+
+- `dashboard/package.json` 版本从 2.2.0 同步至 2.8.0
+
+---
+
 ## [2.7.1] - 2026-02-16
 
 ### PathGuard 路径安全守卫 + LLM 配置面板 + Bootstrap 断点续传

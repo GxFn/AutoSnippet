@@ -37,7 +37,7 @@ AI 编码助手生成的代码往往脱离项目上下文——不知道团队�
 | **Guard** | 代码审查引擎——基于知识库中的规则对代码做合规检查，支持文件 / Target / 项目三级范围 |
 | **Skills** | 13 个 Cursor Agent 技能包——覆盖候选生成、冷启动、Guard 审计、意图路由、生命周期管理等场景 |
 | **Bootstrap** | 冷启动引擎——自动扫描 SPM Target + AST 分析，9 维度启发式提取代码模式，AI 精炼后生成 Candidate |
-| **ChatAgent** | Dual-Agent 对话系统（Analyst + Producer），支持项目感知、信心信号、组合工具链和跨对话轻量记忆 |
+| **ChatAgent** | 多 Agent 协作对话系统（Analyst + Producer），支持项目感知、信心信号、组合工具链和跨对话轻量记忆 |
 
 ## 快速开始
 
@@ -82,7 +82,7 @@ asd status         # 自检项目根、AI Provider、索引、Dashboard
 
 ### 三种使用方式
 
-**① Cursor AI（推荐）**：自然语言驱动，Cursor 通过 13 个 Skills + 36 个 MCP 工具与知识库交互。
+**① Cursor AI（推荐）**：自然语言驱动，Cursor 通过 13 个 Skills + 38 个 MCP 工具与知识库交互。
 
 ```
 用户：「扫描 NetworkModule 这个 Target，提取最佳实践」
@@ -98,7 +98,7 @@ Cursor → autosnippet_get_targets → autosnippet_get_target_files → 逐文�
 
 `asd ui` 启动后访问 Web 管理后台（默认 http://127.0.0.1:3000）：
 
-![Dashboard](./resources/ASImage01.png)
+![Dashboard](./resources/ASImage02.png)
 
 **10 个功能视图**：
 
@@ -106,7 +106,7 @@ Cursor → autosnippet_get_targets → autosnippet_get_target_files → 逐文�
 |------|------|
 | **Recipes** | 浏览、编辑、发布、弃用知识条目；详情抽屉支持 Markdown 编辑与关联关系管理 |
 | **Candidates** | 审核 AI / 手动提交的候选，一键入库或批量操作，支持 AI 润色 |
-| **AI Chat** | Dual-Agent 智能对话（Analyst 分析 + Producer 生产），项目感知 + 跨对话记忆 |
+| **AI Chat** | ChatAgent 智能对话（Analyst 分析 + Producer 生产），项目感知 + 跨对话记忆 |
 | **SPM Explorer** | SPM Target 浏览与扫描，候选 vs Recipe 对比抽屉，头文件编辑 |
 | **Dep Graph** | 依赖关系图可视化 |
 | **Knowledge Graph** | Recipe 关联关系的知识图谱可视化（依赖 / 扩展 / 冲突等），AI 自动发现关系，按 category 分组 |
@@ -123,7 +123,7 @@ Cursor → autosnippet_get_targets → autosnippet_get_target_files → 逐文�
 
 AutoSnippet 为 Cursor 提供完整的 MCP + Skills 集成：
 
-- **36 个 MCP 工具**：搜索（4 种模式）、Guard 检查、候选提交 / 校验 / 查重、知识图谱查询、Bootstrap 冷启动、Skills 管理等
+- **38 个 MCP 工具**：搜索（4 种模式）、Guard 检查、候选提交 / 校验 / 查重、知识图谱查询、Bootstrap 冷启动、Skills 管理等
 - **13 个 Agent Skills**：`autosnippet-candidates`、`autosnippet-guard`、`autosnippet-coldstart`、`autosnippet-intent` 等，引导 AI 正确使用工具
 - **写操作 Gateway 保护**：9 个写操作经过权限 / 宪法 / 审计三重检查
 
@@ -167,7 +167,7 @@ asd install:vscode-copilot      # 配置 MCP 和 Copilot 指令
 
 ## MCP 工具一览
 
-36 个 MCP 工具按功能分组：
+38 个 MCP 工具按功能分组：
 
 | 分类 | 工具 |
 |------|------|
@@ -179,7 +179,7 @@ asd install:vscode-copilot      # 配置 MCP 和 Copilot 指令
 | **项目结构** | `autosnippet_get_targets`、`autosnippet_get_target_files`、`autosnippet_get_target_metadata` |
 | **Guard** | `autosnippet_guard_check`、`autosnippet_guard_audit_files`、`autosnippet_scan_project` |
 | **冷启动** | `autosnippet_bootstrap_knowledge`、`autosnippet_bootstrap_refine` |
-| **Skills** | `autosnippet_list_skills`、`autosnippet_load_skill`、`autosnippet_create_skill`、`autosnippet_suggest_skills` |
+| **Skills** | `autosnippet_list_skills`、`autosnippet_load_skill`、`autosnippet_create_skill`、`autosnippet_delete_skill`、`autosnippet_update_skill`、`autosnippet_suggest_skills` |
 | **治理** | `autosnippet_compliance_report` |
 
 ## 配置

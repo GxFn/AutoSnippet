@@ -25,6 +25,27 @@ const __dirname = dirname(__filename);
 const pkgPath = join(__dirname, '..', 'package.json');
 const pkg = existsSync(pkgPath) ? JSON.parse(readFileSync(pkgPath, 'utf8')) : { version: '2.0.0' };
 
+// ─── 进程级错误兜底 ────────────────────────────────────
+process.on('uncaughtException', (error) => {
+  process.stderr.write(`[asd] Uncaught Exception: ${error.message}\n`);
+  if (error.stack) process.stderr.write(`${error.stack}\n`);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  process.stderr.write(`[asd] Unhandled Rejection: ${msg}\n`);
+  process.exit(1);
+});
+
+// 优雅关闭 — 防止 SIGINT/SIGTERM 时资源泄漏
+const handleSignal = (signal) => {
+  process.stderr.write(`[asd] Received ${signal}, exiting…\n`);
+  process.exit(0);
+};
+process.on('SIGTERM', () => handleSignal('SIGTERM'));
+process.on('SIGINT',  () => handleSignal('SIGINT'));
+
 const program = new Command();
 program
   .name('asd')
