@@ -106,6 +106,73 @@ describe('CandidateFileWriter', () => {
       expect(md).toContain('## Candidate aaaa-bbb');
     });
 
+    /* ── 项目特写（snapshot）格式 ────────────── */
+    test('should output Markdown code directly without fence for snapshot content', () => {
+      const snapshotCode = '## UICollectionView — 项目特写\n\n### 选择了什么\nUICollectionView + Compositional Layout\n\n### 为什么\n灵活度高，支持复杂布局';
+      const md = writer.serializeToMarkdown(makeCandidate({ code: snapshotCode }));
+
+      // 不应有 ```swift 包裹
+      expect(md).not.toMatch(/```swift/);
+      // 应直接包含 Markdown 内容
+      expect(md).toContain('## UICollectionView — 项目特写');
+      expect(md).toContain('### 选择了什么');
+      // frontmatter 应有 _format: snapshot
+      expect(md).toContain('_format: snapshot');
+    });
+
+    test('should use blockquote reasoning for snapshot content', () => {
+      const snapshotCode = '## UICollectionView — 项目特写\n\n### 选择了什么\nUICollectionView';
+      const md = writer.serializeToMarkdown(makeCandidate({ code: snapshotCode }));
+
+      // 不应有 ## Why Standard 标题
+      expect(md).not.toContain('## Why Standard');
+      expect(md).not.toContain('## Sources');
+      // 应有 blockquote 格式
+      expect(md).toContain('<!-- reasoning -->');
+      expect(md).toContain('> **审核理由**: common greeting pattern');
+      expect(md).toContain('> **来源**: file.swift');
+    });
+
+    test('should not add separate title heading for snapshot content', () => {
+      const snapshotCode = '## MyClass — 项目特写\n\ncontent here';
+      const md = writer.serializeToMarkdown(makeCandidate({
+        code: snapshotCode,
+        metadata: { title: 'Hello World Helper' },
+      }));
+
+      // 不应额外添加 ## Hello World Helper
+      expect(md).not.toContain('## Hello World Helper');
+      // 应使用 code 自身的标题
+      expect(md).toContain('## MyClass — 项目特写');
+    });
+
+    test('should detect Markdown code starting with # (heading with space)', () => {
+      const mdCode = '# Overview\n\n## Setup\nSome instructions';
+      const md = writer.serializeToMarkdown(makeCandidate({ code: mdCode }));
+
+      expect(md).toContain('_format: snapshot');
+      expect(md).not.toMatch(/```swift/);
+      expect(md).toContain('# Overview');
+    });
+
+    test('should NOT treat ObjC #import/#define as snapshot', () => {
+      const objcCode = '#import <Foundation/Foundation.h>\n@interface Foo : NSObject\n@end';
+      const md = writer.serializeToMarkdown(makeCandidate({ code: objcCode, language: 'objectivec' }));
+
+      // #import 不是 Markdown heading，应该走传统 code fence 路径
+      expect(md).not.toContain('_format: snapshot');
+      expect(md).toContain('```objectivec');
+      expect(md).toContain('#import <Foundation/Foundation.h>');
+    });
+
+    test('should NOT treat #define as snapshot', () => {
+      const defineCode = '#define kMaxRetry 3\n#define kTimeout 30.0';
+      const md = writer.serializeToMarkdown(makeCandidate({ code: defineCode }));
+
+      expect(md).not.toContain('_format: snapshot');
+      expect(md).toContain('```swift');
+    });
+
     test('should include approved fields when present', () => {
       const c = makeCandidate({
         status: 'approved',
@@ -199,6 +266,17 @@ describe('CandidateFileWriter', () => {
       const parsed = parseCandidateMarkdown(md, 'test.md');
 
       expect(parsed._bodyCode).toBe('func hello() { print("world") }');
+    });
+
+    test('should extract Markdown body for snapshot format', () => {
+      const snapshotCode = '## UICollectionView — 项目特写\n\n### 选择了什么\nUICollectionView + Compositional Layout';
+      const md = writer.serializeToMarkdown(makeCandidate({ code: snapshotCode }));
+      const parsed = parseCandidateMarkdown(md, 'test.md');
+
+      expect(parsed._format).toBe('snapshot');
+      expect(parsed._bodyCode).toContain('## UICollectionView — 项目特写');
+      expect(parsed._bodyCode).toContain('### 选择了什么');
+      expect(parsed._bodyCode).not.toContain('审核理由');
     });
   });
 

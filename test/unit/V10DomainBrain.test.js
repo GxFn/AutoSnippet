@@ -511,6 +511,19 @@ describe('P2: buildMinimalPrompt', () => {
     expect(prompt).toContain('自主规划探索方向');
   });
 
+  test('includes signal count hint when signalCount is provided', () => {
+    const prompt = buildMinimalPrompt(makeDim(), makeContext(), { signalCount: 12 });
+
+    expect(prompt).toContain('12');
+    expect(prompt).toContain('信号');
+  });
+
+  test('does not include signal hint when signalCount is 0', () => {
+    const prompt = buildMinimalPrompt(makeDim(), makeContext(), { signalCount: 0 });
+
+    expect(prompt).not.toContain('启发式预扫描');
+  });
+
   test('includes 项目特写 definition for candidate dims', () => {
     const prompt = buildMinimalPrompt(makeDim(), makeContext());
 

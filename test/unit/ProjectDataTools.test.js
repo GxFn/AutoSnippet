@@ -6,13 +6,15 @@ import os from 'os';
 /* ────────────────────────────────────────────
  *  动态导入 tools.js 获取 ALL_TOOLS 数组
  * ──────────────────────────────────────────── */
-let searchProjectCode, readProjectFile;
+let searchProjectCode, readProjectFile, submitWithCheck, getFileSummary;
 
 beforeAll(async () => {
   const mod = await import('../../lib/service/chat/tools.js');
   const tools = mod.ALL_TOOLS;
   searchProjectCode = tools.find(t => t.name === 'search_project_code');
   readProjectFile = tools.find(t => t.name === 'read_project_file');
+  submitWithCheck = tools.find(t => t.name === 'submit_with_check');
+  getFileSummary = tools.find(t => t.name === 'get_file_summary');
 });
 
 /* ────────────────────────────────────────────
@@ -338,5 +340,123 @@ describe('read_project_file', () => {
     );
     // Should read from disk since not in cache
     expect(result.content).toContain('AppDelegate');
+  });
+});
+
+/* ────────────────────────────────────────────
+ *  Tests: submit_with_check — 与 submit_candidate 一致性
+ * ──────────────────────────────────────────── */
+describe('submit_with_check consistency', () => {
+  beforeAll(() => setupTestProject());
+  afterAll(() => cleanupTestProject());
+
+  it('should auto-fill knowledgeType from dimensionMeta', async () => {
+    const params = {
+      code: 'func example() {}',
+      language: 'swift',
+      category: 'Architecture',
+      title: 'Example Pattern',
+    };
+    const mockCandidateService = {
+      createFromToolParams: jest.fn().mockResolvedValue({ id: 'c-1', status: 'pending' }),
+    };
+    const ctx = {
+      projectRoot: testProjectDir,
+      source: 'system',
+      _dimensionMeta: {
+        id: 'architecture',
+        allowedKnowledgeTypes: ['architecture', 'best-practice'],
+        allowedCategories: ['Architecture', 'Service'],
+      },
+      container: { get: (name) => name === 'candidateService' ? mockCandidateService : null },
+      logger: { info: jest.fn(), warn: jest.fn(), debug: jest.fn() },
+    };
+    const result = await submitWithCheck.handler(params, ctx);
+    expect(result.submitted).toBe(true);
+    // Verify knowledgeType was auto-filled into the item passed to createFromToolParams
+    const itemArg = mockCandidateService.createFromToolParams.mock.calls[0][0];
+    expect(itemArg.knowledgeType).toBe('architecture');
+  });
+
+  it('should pass source from params instead of hardcoded agent', async () => {
+    const params = {
+      code: 'func test() {}',
+      language: 'swift',
+      category: 'Service',
+      title: 'Test',
+      source: 'bootstrap',
+    };
+    const mockCandidateService = {
+      createFromToolParams: jest.fn().mockResolvedValue({ id: 'c-2', status: 'pending' }),
+    };
+    const ctx = {
+      projectRoot: testProjectDir,
+      container: { get: (name) => name === 'candidateService' ? mockCandidateService : null },
+      logger: { info: jest.fn(), warn: jest.fn(), debug: jest.fn() },
+    };
+    const result = await submitWithCheck.handler(params, ctx);
+    expect(result.submitted).toBe(true);
+    // Verify source parameter was used
+    const sourceArg = mockCandidateService.createFromToolParams.mock.calls[0][1];
+    expect(sourceArg).toBe('bootstrap');
+  });
+
+  it('should preserve extra fields (complexity, scope) via ...rest', async () => {
+    const params = {
+      code: 'class Router {}',
+      language: 'swift',
+      category: 'Architecture',
+      title: 'Router Pattern',
+      summary: 'Pattern summary',
+      complexity: 'medium',
+      scope: 'module',
+      knowledgeType: 'architecture',
+    };
+    const mockCandidateService = {
+      createFromToolParams: jest.fn().mockResolvedValue({ id: 'c-3', status: 'pending' }),
+    };
+    const ctx = {
+      projectRoot: testProjectDir,
+      container: { get: (name) => name === 'candidateService' ? mockCandidateService : null },
+      logger: { info: jest.fn(), warn: jest.fn(), debug: jest.fn() },
+    };
+    const result = await submitWithCheck.handler(params, ctx);
+    expect(result.submitted).toBe(true);
+    const itemArg = mockCandidateService.createFromToolParams.mock.calls[0][0];
+    expect(itemArg.complexity).toBe('medium');
+    expect(itemArg.scope).toBe('module');
+    expect(itemArg.knowledgeType).toBe('architecture');
+  });
+});
+
+/* ────────────────────────────────────────────
+ *  Tests: get_file_summary — 语言映射
+ * ──────────────────────────────────────────── */
+describe('get_file_summary language map', () => {
+  beforeAll(() => setupTestProject());
+  afterAll(() => cleanupTestProject());
+
+  it('should not mismap .java/.kt/.go/.rs/.rb to javascript', async () => {
+    // Create test files
+    const testFiles = {
+      'Test.java': 'public class Test { public void run() {} }',
+      'Test.kt': 'class Test { fun run() {} }',
+      'test.go': 'package main\nfunc main() {}',
+      'test.rs': 'fn main() {}',
+      'test.rb': 'class Test; end',
+    };
+    for (const [name, content] of Object.entries(testFiles)) {
+      fs.writeFileSync(path.join(testProjectDir, name), content);
+    }
+
+    for (const name of Object.keys(testFiles)) {
+      const result = await getFileSummary.handler(
+        { filePath: name },
+        makeCtx()
+      );
+      // Should fall back to preview (unknown language), not apply JS extractors
+      expect(result.language).toBe('unknown');
+      expect(result.preview).toBeDefined();
+    }
   });
 });
