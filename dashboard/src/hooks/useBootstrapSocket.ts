@@ -321,9 +321,13 @@ export function useBootstrapSocket(): UseBootstrapSocketReturn {
   const initFromApiResponse = useCallback((sessionData: BootstrapSession) => {
     if (sessionData) {
       setSession(prev => {
-        // 如果 socket 已经建立了同 session 且有进度，不要用 API 骨架覆盖
-        if (prev && prev.id === sessionData.id && prev.progress > sessionData.progress) {
-          return prev;
+        if (prev && prev.id === sessionData.id) {
+          // progress 只计 completed/failed，filling 不算；需额外对比 active 任务数
+          const prevActive = (prev.filling ?? 0) + (prev.completed ?? 0) + (prev.failed ?? 0);
+          const apiActive = (sessionData.filling ?? 0) + (sessionData.completed ?? 0) + (sessionData.failed ?? 0);
+          if (prev.progress > sessionData.progress || prevActive > apiActive) {
+            return prev; // socket 驱动的状态更新，不要被 API 快照覆盖
+          }
         }
         sessionIdRef.current = sessionData.id;
         return sessionData;

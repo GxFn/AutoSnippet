@@ -56,11 +56,11 @@ const SPMCompareDrawer: React.FC<SPMCompareDrawerProps> = ({
     const parts = [];
     if (cand.code) parts.push('## Snippet / Code Reference\n\n```' + candLang + '\n' + cand.code + '\n```');
     if (cand.usageGuide) parts.push('\n## AI Context / Usage Guide\n\n' + cand.usageGuide);
-    navigator.clipboard.writeText(parts.join('\n') || '').then(() => notify('已复制候选内容'));
+    navigator.clipboard.writeText(parts.join('\n') || '').then(() => notify('候选内容已复制到剪贴板', { title: '已复制' }));
   };
   const copyRecipe = () => {
     const text = stripFrontmatter(data.recipeContent);
-    navigator.clipboard.writeText(text).then(() => notify('已复制 Recipe 内容'));
+    navigator.clipboard.writeText(text).then(() => notify('Recipe 内容已复制到剪贴板', { title: '已复制' }));
   };
 
   const switchToRecipe = async (newName: string) => {
@@ -90,7 +90,7 @@ const SPMCompareDrawer: React.FC<SPMCompareDrawerProps> = ({
       await handleDeleteCandidate(data.targetName, cand.candidateId);
       onClose();
     } catch (err: any) {
-      notify(err?.message || '删除失败', { type: 'error' });
+      notify(err?.message || '删除失败', { title: '删除失败', type: 'error' });
     }
   };
 

@@ -73,7 +73,7 @@ const SkillsView: React.FC<SkillsViewProps> = ({ onRefresh, signalSuggestionCoun
       // Skills 路由可能未注册 — 静默处理 404
       const status = err.response?.status;
       if (status !== 404) {
-        notify('获取 Skills 列表失败: ' + (err.message || ''), { type: 'error' });
+        notify(err.message || '', { title: '获取 Skills 列表失败', type: 'error' });
       }
       setSkills([]);
     } finally {
@@ -94,7 +94,7 @@ const SkillsView: React.FC<SkillsViewProps> = ({ onRefresh, signalSuggestionCoun
       const data = await api.loadSkill(name);
       setSelectedSkill(data);
     } catch (err: any) {
-      notify(`加载 Skill "${name}" 失败`, { type: 'error' });
+      notify(`"${name}" 不存在或读取出错`, { title: '加载 Skill 失败', type: 'error' });
     } finally {
       setLoadingDetail(false);
     }
@@ -132,7 +132,7 @@ const SkillsView: React.FC<SkillsViewProps> = ({ onRefresh, signalSuggestionCoun
       // 同步角标数量为实际推荐数
       onSuggestionCountChange?.(list.length);
     } catch (err: any) {
-      notify('获取 Skill 推荐失败: ' + (err.message || ''), { type: 'error' });
+      notify(err.message || '', { title: '获取 Skill 推荐失败', type: 'error' });
       setSuggestions([]);
       onSuggestionCountChange?.(0);
     } finally {
@@ -166,7 +166,7 @@ const SkillsView: React.FC<SkillsViewProps> = ({ onRefresh, signalSuggestionCoun
         content,
         createdBy: 'user-ai',
       });
-      notify(`Skill "${suggestion.name}" 已创建`, { type: 'success' });
+      notify(`已创建并加入知识库`, { title: `Skill "${suggestion.name}" 创建成功` });
       setSuggestions(prev => {
         const next = prev.filter(s => s.name !== suggestion.name);
         onSuggestionCountChange?.(next.length);
@@ -174,7 +174,7 @@ const SkillsView: React.FC<SkillsViewProps> = ({ onRefresh, signalSuggestionCoun
       });
       fetchSkills();
     } catch (err: any) {
-      notify(`创建 Skill 失败: ${err.message || ''}`, { type: 'error' });
+      notify(err.message || '', { title: '创建 Skill 失败', type: 'error' });
     } finally {
       setCreatingSuggestion(null);
     }
@@ -567,7 +567,7 @@ const CreateSkillModal: React.FC<{
 
       setAiGenerated(true);
       setMode('manual'); // Switch to manual to let user review/edit
-      notify('AI 已生成 Skill 内容，请检查并确认', { type: 'success' });
+      notify('请检查并确认生成的内容', { title: 'AI 已生成 Skill' });
     } catch (err: any) {
       setError('AI 生成失败: ' + (err.message || ''));
     } finally {
@@ -585,7 +585,7 @@ const CreateSkillModal: React.FC<{
     setError('');
     try {
       await api.createSkill({ name: name.trim(), description: description.trim(), content: content.trim(), createdBy: aiGenerated ? 'user-ai' : 'manual' });
-      notify(`Skill "${name}" 创建成功`, { type: 'success' });
+      notify(`已保存到知识库`, { title: `Skill "${name}" 创建成功` });
       onCreated();
     } catch (err: any) {
       const msg = err.response?.data?.error?.message || err.message || '';

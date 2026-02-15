@@ -25,9 +25,9 @@ const RefineProgressBar: React.FC<RefineProgressBarProps> = ({ refine, isRefineD
     if (isRefineDone && refine && !notifiedRef.current) {
       notifiedRef.current = true;
       const msg = refine.failed > 0
-        ? `AI 润色完成（${refine.refined} 条已更新，${refine.failed} 条失败）`
-        : `AI 润色完成！${refine.refined}/${refine.total} 条候选已更新`;
-      notify(msg, { type: refine.failed > 0 ? 'error' : 'success' });
+        ? `${refine.refined} 条已更新，${refine.failed} 条失败`
+        : `${refine.refined}/${refine.total} 条候选已更新`;
+      notify(msg, { title: 'AI 润色完成', type: refine.failed > 0 ? 'error' : 'success' });
     }
   }, [isRefineDone, refine]);
 

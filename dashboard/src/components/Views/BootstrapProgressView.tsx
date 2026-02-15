@@ -19,6 +19,18 @@ import type { BootstrapSession, BootstrapTask, ReviewState } from '../../hooks/u
  *  Icon & Color mapping
  * ═══════════════════════════════════════════════════════ */
 
+/** 与 orchestrator.js DIMENSION_EXECUTION_ORDER 保持一致 */
+const DIMENSION_EXECUTION_ORDER = [
+  'objc-deep-scan', 'category-scan',
+  'project-profile',
+  'code-standard',
+  'architecture',
+  'code-pattern',
+  'event-and-data-flow',
+  'best-practice',
+  'agent-guidelines',
+];
+
 const DIM_ICON_MAP: Record<string, React.ReactNode> = {
   'code-standard':      <BookOpen className="w-5 h-5" />,
   'code-pattern':       <Code2 className="w-5 h-5" />,
@@ -110,14 +122,21 @@ const TaskCard: React.FC<{ task: BootstrapTask }> = ({ task }) => {
               {meta.skillWorthy ? 'Skill' : 'Candidate'}
               {task.result && status === 'completed' && (
                 <span className="ml-2 text-emerald-600">
-                  {(task.result as Record<string, unknown>).type === 'skill'
-                    ? (task.result as Record<string, unknown>).empty
-                      ? '✓ 无匹配内容'
-                      : `✓ ${(task.result as Record<string, unknown>).sourceCount ?? 0} 项特征`
-                    : (task.result as Record<string, unknown>).extracted
-                      ? `✓ ${(task.result as Record<string, unknown>).extracted} 项特征`
-                      : '✓ 无匹配内容'
-                  }
+                  {(() => {
+                    const r = task.result as Record<string, unknown>;
+                    const sourceCount = (r.sourceCount as number) ?? 0;
+                    const extracted = (r.extracted as number) ?? 0;
+                    if (r.type === 'empty') return '✓ 无匹配内容';
+                    if (r.type === 'skill') {
+                      if (r.empty) return '✓ 无匹配内容';
+                      // dualOutput 维度同时有 Skill + Candidate
+                      return extracted > 0
+                        ? `✓ ${sourceCount} 项特征 · ${extracted} 条候选`
+                        : `✓ ${sourceCount} 项特征`;
+                    }
+                    // candidate 类型
+                    return extracted > 0 ? `✓ ${extracted} 条候选` : '✓ 无匹配内容';
+                  })()}
                 </span>
               )}
               {task.error && status === 'failed' && (
@@ -256,9 +275,9 @@ const BootstrapProgressView: React.FC<BootstrapProgressViewProps> = ({
     if (isAllDone && session && !notifiedRef.current) {
       notifiedRef.current = true;
       const msg = session.failed > 0
-        ? `冷启动完成（${session.completed}/${session.total} 成功，${session.failed} 失败）`
-        : `冷启动完成！${session.completed} 个维度全部填充成功`;
-      notify(msg, { type: session.failed > 0 ? 'error' : 'success' });
+        ? `${session.completed}/${session.total} 成功，${session.failed} 失败`
+        : `${session.completed} 个维度全部填充成功`;
+      notify(msg, { title: '冷启动完成', type: session.failed > 0 ? 'error' : 'success' });
     }
   }, [isAllDone, session]);
 
@@ -306,11 +325,17 @@ const BootstrapProgressView: React.FC<BootstrapProgressViewProps> = ({
         />
       </div>
 
-      {/* Task cards grid */}
+      {/* Task cards grid — sorted by execution order */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {session.tasks.map(task => (
-          <TaskCard key={task.id} task={task} />
-        ))}
+        {[...session.tasks]
+          .sort((a, b) => {
+            const ai = DIMENSION_EXECUTION_ORDER.indexOf(a.meta?.dimId ?? a.id);
+            const bi = DIMENSION_EXECUTION_ORDER.indexOf(b.meta?.dimId ?? b.id);
+            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+          })
+          .map(task => (
+            <TaskCard key={task.id} task={task} />
+          ))}
       </div>
 
       {/* AI Review pipeline progress */}

@@ -21,7 +21,7 @@ interface CandidatesViewProps {
   isShellTarget: (name: string) => boolean;
   isSilentTarget?: (name: string) => boolean;
   isPendingTarget?: (name: string) => boolean;
-  handleDeleteCandidate: (targetName: string, candidateId: string) => void;
+  handleDeleteCandidate: (targetName: string, candidateId: string) => void | Promise<void>;
   handleDeleteAllInTarget: (targetName: string) => void;
   onAuditCandidate: (cand: CandidateItem, targetName: string) => void;
   onAuditAllInTarget: (items: CandidateItem[], targetName: string) => void;
@@ -198,9 +198,9 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
         const status = err.response?.status;
         const message = err.response?.data?.message || err.message;
         if (status === 404) {
-          notify(`Recipe 不存在: ${normalizedRecipeName}`, { type: 'error' });
+          notify(`"${normalizedRecipeName}" 不存在于当前知识库`, { title: 'Recipe 不存在', type: 'error' });
         } else {
-          notify(`加载 Recipe 失败: ${message}`, { type: 'error' });
+          notify(message, { title: '加载 Recipe 失败', type: 'error' });
         }
         return;
       }
@@ -254,9 +254,9 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
     try {
       const result = await api.enrichCandidates([candidateId]);
       if (result.enriched > 0) {
-        notify(`已补齐 ${result.results?.[0]?.filledFields?.length || 0} 个结构字段`);
+        notify(`已补齐 ${result.results?.[0]?.filledFields?.length || 0} 个结构字段`, { title: 'AI 补齐完成' });
       } else {
-        notify('所有结构字段已完整，无需补齐');
+        notify('无缺失字段，均已完整', { title: '无需补齐', type: 'info' });
       }
       // 异步刷新抽屉内容（不刷新页面）
       try {
@@ -264,7 +264,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
         setCandidateOverrides(prev => ({ ...prev, [candidateId]: updated }));
       } catch (_) {}
     } catch (err: any) {
-      notify(`AI 补齐失败: ${err.response?.data?.error || err.message}`, { type: 'error' });
+      notify(err.response?.data?.error || err.message, { title: 'AI 补齐失败', type: 'error' });
     } finally {
       setEnrichingIds(prev => { const next = new Set(prev); next.delete(candidateId); return next; });
     }
@@ -283,10 +283,10 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
         const result = await api.enrichCandidates(batch);
         total += result.enriched;
       }
-      notify(`① 结构补齐完成: ${total}/${items.length} 条候选已更新`);
+      notify(`${total}/${items.length} 条候选已更新`, { title: '① 结构补齐完成' });
       onRefresh?.();
     } catch (err: any) {
-      notify(`① 结构补齐失败: ${err.response?.data?.error || err.message}`, { type: 'error' });
+      notify(err.response?.data?.error || err.message, { title: '① 结构补齐失败', type: 'error' });
     } finally {
       setEnrichingAll(false);
     }
@@ -633,7 +633,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                           paginatedItems.map(item => handleDeleteCandidate(targetName, item.id))
                         );
                         const failed = results.filter(r => r.status === 'rejected').length;
-                        if (failed > 0) notify(`${failed} 条删除失败`, { type: 'error' });
+                        if (failed > 0) notify(`${failed} 条候选移除时出错`, { title: '部分删除失败', type: 'error' });
                         onRefresh?.();
                       }}
                       className="text-[11px] font-bold text-orange-500 hover:text-orange-600 px-2.5 py-1.5 rounded-lg hover:bg-orange-50 transition-colors"
@@ -845,7 +845,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                               {refiningIds.has(cand.id) ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                             </button>
                             <button
-                              onClick={() => handleDeleteCandidate(targetName, cand.id)}
+                              onClick={() => { handleDeleteCandidate(targetName, cand.id); if (expandedId === cand.id) { setExpandedId(null); setCompareModal(null); } }}
                               title="忽略"
                               className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
                             >
@@ -862,10 +862,10 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                                 onClick={async () => {
                                   try {
                                     await api.promoteCandidateToRecipe(cand.id);
-                                    notify('已提升为 Recipe');
+                                    notify('候选已成功提升为正式 Recipe', { title: '提升成功' });
                                     onRefresh?.();
                                   } catch (err: any) {
-                                    notify(`提升失败: ${err.message}`, { type: 'error' });
+                                    notify(err.message, { title: '提升失败', type: 'error' });
                                   }
                                 }}
                                 className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors flex items-center gap-1"
@@ -933,11 +933,11 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                 const parts = [];
                 if (compareCand.code) parts.push('## Snippet / Code Reference\n\n```' + (compareCandLang || '') + '\n' + compareCand.code + '\n```');
                 if (compareCand.usageGuide) parts.push('\n## AI Context / Usage Guide\n\n' + compareCand.usageGuide);
-                navigator.clipboard.writeText(parts.join('\n') || '').then(() => notify('已复制候选内容'));
+                navigator.clipboard.writeText(parts.join('\n') || '').then(() => notify('候选内容已复制到剪贴板', { title: '已复制' }));
               };
               const copyRecipe = () => {
                 const text = stripFrontmatter(compareModal.recipeContent);
-                navigator.clipboard.writeText(text).then(() => notify('已复制 Recipe 内容'));
+                navigator.clipboard.writeText(text).then(() => notify('Recipe 内容已复制到剪贴板', { title: '已复制' }));
               };
               const switchToRecipe = async (newName: string) => {
                 if (newName === compareModal.recipeName) return;
@@ -963,7 +963,7 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                   await handleDeleteCandidate(compareModal.targetName, compareCand.id);
                   setCompareModal(null);
                 } catch (err: any) {
-                  notify(err?.message || '删除失败', { type: 'error' });
+                  notify(err?.message || '删除失败', { title: '删除失败', type: 'error' });
                 }
               };
               const handleCompareAudit = () => {
@@ -1334,10 +1334,10 @@ const CandidatesView: React.FC<CandidatesViewProps> = ({
                       onClick={async () => {
                         try {
                           await api.promoteCandidateToRecipe(cand.id);
-                          notify('已提升为 Recipe');
+                          notify('候选已成功提升为正式 Recipe', { title: '提升成功' });
                           onRefresh?.();
                         } catch (err: any) {
-                          notify(`提升失败: ${err.message}`, { type: 'error' });
+                          notify(err.message, { title: '提升失败', type: 'error' });
                         }
                       }}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors"

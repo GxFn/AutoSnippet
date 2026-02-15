@@ -31,6 +31,39 @@ import RecipeEditor from './components/Modals/RecipeEditor';
 import CreateModal from './components/Modals/CreateModal';
 import SearchModal from './components/Modals/SearchModal';
 
+/* ── ErrorBoundary — 防止白屏 ────────────── */
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 40, textAlign: 'center' }}>
+          <h2 style={{ color: '#ef4444', marginBottom: 12 }}>页面出现异常</h2>
+          <pre style={{ fontSize: 12, color: '#64748b', whiteSpace: 'pre-wrap', maxWidth: 600, margin: '0 auto' }}>
+            {this.state.error?.message}
+          </pre>
+          <button
+            onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+            style={{ marginTop: 16, padding: '8px 20px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}
+          >
+            刷新页面
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 /** 将 usageGuide 字段安全转为字符串（AI 可能返回 object） */
 function stringifyGuide(val: unknown): string {
   if (!val) return '';
@@ -234,7 +267,7 @@ const App: React.FC = () => {
     }
     setData(projectData);
   } catch (err: any) {
-    notify(err?.message || '项目数据加载失败', { type: 'error' });
+    notify(err?.message || '无法加载项目数据', { title: '加载失败', type: 'error' });
   } finally {
     setLoading(false);
   }
@@ -252,9 +285,9 @@ const App: React.FC = () => {
   const handleSyncToXcode = async () => {
   try {
     await api.syncToXcode();
-    notify('已同步到 Xcode CodeSnippets');
+    notify('Recipes 已同步到 Xcode CodeSnippets 目录', { title: 'Xcode 同步成功' });
   } catch (err) {
-    notify('同步失败', { type: 'error' });
+    notify('请检查 Xcode 是否已安装并重试', { title: '同步失败', type: 'error' });
   }
   };
 
@@ -262,9 +295,9 @@ const App: React.FC = () => {
   try {
     await api.refreshProject();
     fetchTargets();
-    notify('项目结构已刷新');
+    notify('Target 列表与文件树已更新', { title: '项目结构已刷新' });
   } catch (err) {
-    notify('刷新失败', { type: 'error' });
+    notify('请确认项目路径有效后重试', { title: '刷新失败', type: 'error' });
   }
   };
 
@@ -297,7 +330,7 @@ const App: React.FC = () => {
     setShowCreateModal(false);
     fetchData();
     if (extractResult.result?.length > 0) {
-    notify('提取完成，已加入候选池，请在 Candidates 页审核');
+    notify('提取结果已进入候选池，请在 Candidates 页审核', { title: '提取完成' });
     }
   } catch (err) {
     notify('Extraction failed', { type: 'error' });
@@ -336,9 +369,9 @@ const App: React.FC = () => {
     setShowCreateModal(false);
     fetchData();
     if (extractResult.result?.length > 0) {
-    notify(extractResult.isMarked ? '提取完成（精准锁定），已加入候选池' : '提取完成，已加入候选池');
+    notify(extractResult.isMarked ? '精准锁定标记代码，已加入候选池' : '提取结果已加入候选池', { title: '提取完成' });
     } else if (!extractResult.isMarked) {
-    notify('未找到标记，AI 正在分析完整文件');
+    notify('未找到 ASD 标记，AI 将分析完整文件', { title: '提取中', type: 'info' });
     }
   } catch (err) {
     notify('Extraction failed', { type: 'error' });
@@ -350,10 +383,10 @@ const App: React.FC = () => {
   const handleCreateFromClipboard = async (contextPath?: string) => {
   try {
     const text = await navigator.clipboard.readText();
-    if (!text) return notify('剪贴板为空');
+    if (!text) return notify('请先复制代码到剪贴板', { title: '剪贴板为空', type: 'info' });
     
     // 立即提示收到代码
-    notify('已收到剪贴板内容，正在调用 AI 识别...');
+    notify('已收到代码，AI 正在识别可复用模式...', { title: '剪贴板分析中', type: 'info' });
     
     setIsExtracting(true);
     const relativePath = contextPath || createPath;
@@ -385,20 +418,20 @@ const App: React.FC = () => {
     navigateToTab('spm', { preserveSearch: true });
     setShowCreateModal(false);
     fetchData();
-    notify(multipleCount ? `已识别 ${multipleCount} 条 Recipe，已加入候选池` : 'AI 识别成功，已加入候选池');
+    notify(multipleCount ? `已识别 ${multipleCount} 条 Recipe，请在候选池审核` : '提取结果已加入候选池', { title: 'AI 识别完成' });
     } catch (err: any) {
     // 区分 AI 错误和其他错误
     const isAiError = err.response?.data?.aiError === true;
     const errorMsg = err.response?.data?.error || err.message;
     
     if (isAiError) {
-      notify(`AI 识别失败: ${errorMsg}`, { type: 'error' });
+      notify(errorMsg, { title: 'AI 识别失败', type: 'error' });
     } else {
-      notify(`操作失败: ${errorMsg}`, { type: 'error' });
+      notify(errorMsg, { title: '操作失败', type: 'error' });
     }
     }
   } catch (err) {
-    notify('剪贴板读取失败', { type: 'error' });
+    notify('浏览器可能未授权剪贴板访问', { title: '剪贴板读取失败', type: 'error' });
   } finally {
     setIsExtracting(false);
   }
@@ -468,14 +501,14 @@ const App: React.FC = () => {
 
     fetchData();
     if (recipes.length > 0) {
-      notify(`AI 提取了 ${recipes.length} 条结果，请在右侧审核`);
+      notify(`发现 ${recipes.length} 条可复用代码模式，请在右侧审核`, { title: 'Target 扫描完成' });
     } else if (scanResult.message) {
-      notify(`AI 扫描未返回结果: ${scanResult.message}`, { type: 'error' });
+      notify(scanResult.message, { title: 'AI 扫描未返回结果', type: 'error' });
     } else {
-      notify(`未发现可提取的代码模式`, { type: 'error' });
+      notify('该 Target 中未找到可复用的代码片段', { title: '扫描完成', type: 'info' });
     }
     } else {
-    notify('Scan failed: No source files.', { type: 'error' });
+    notify('请确认 Target 包含有效的源代码文件', { title: '扫描失败', type: 'error' });
     }
   } catch (err: any) {
     clearInterval(progressTimer);
@@ -484,7 +517,7 @@ const App: React.FC = () => {
     const msg = isTimeout
       ? '扫描超时，请尝试减少 Target 文件数量'
       : (err.response?.data?.error || err.message);
-    notify(msg, { type: 'error' });
+    notify(msg, { title: isTimeout ? '扫描超时' : '扫描出错', type: 'error' });
   } finally {
     if (abortControllerRef.current === controller) {
     setIsScanning(false);
@@ -948,9 +981,10 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
   }
 
   return (
+  <ErrorBoundary>
   <GlobalChatProvider>
   <div className={`flex h-screen ${isDarkMode ? 'bg-[#1e1e1e] text-slate-200' : 'bg-slate-50 text-slate-900'} overflow-hidden font-sans`}>
-    <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
+    <Toaster position="top-center" toastOptions={{ duration: 5000 }} containerStyle={{ top: 24 }} />
     <Sidebar 
     activeTab={activeTab} 
     navigateToTab={navigateToTab} 
@@ -1136,6 +1170,7 @@ ${extracted.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
   <ChatPanelSlot />
   </div>
   </GlobalChatProvider>
+  </ErrorBoundary>
   );
 };
 

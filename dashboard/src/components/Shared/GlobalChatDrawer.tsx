@@ -320,9 +320,9 @@ export const GlobalChatPanel: React.FC = () => {
       setApplied(prev => new Set(prev).add(currentRefineId));
       refineCtx.onCandidateUpdated?.(currentRefineId);
       setMessages(prev => [...prev, { id: uid(), role: 'system', content: '✅ 变更已应用到候选！', timestamp: Date.now() }]);
-      notify('润色已应用');
+      notify('候选内容已更新为润色后版本', { title: '润色已应用' });
     } catch (err: any) {
-      notify(`应用失败: ${err.response?.data?.error || err.message}`, { type: 'error' });
+      notify(err.response?.data?.error || err.message, { title: '应用失败', type: 'error' });
     } finally { setApplying(false); }
   }, [applying, currentRefineId, lastPrompt, refineCtx]);
 

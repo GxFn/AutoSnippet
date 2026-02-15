@@ -88,7 +88,7 @@ const GuardView: React.FC<{ onRefresh?: () => void }> = ({ onRefresh }) => {
     fetchGuard();
     onRefresh?.();
   } catch (err: any) {
-    notify(err?.message || '清空违反记录失败', { type: 'error' });
+    notify(err?.message || '清空违反记录失败', { title: '操作失败', type: 'error' });
   }
   };
 

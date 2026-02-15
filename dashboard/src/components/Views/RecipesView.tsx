@@ -186,7 +186,7 @@ const RecipesView: React.FC<RecipesViewProps> = ({
       await api.setRecipeAuthority(selectedRecipe.name, authority);
       onRefresh?.();
     } catch (err: any) {
-      notify(err?.message || '设置权威分失败', { type: 'error' });
+      notify(err?.message || '设置权威分失败', { title: '操作失败', type: 'error' });
     }
   };
 

@@ -19,7 +19,6 @@ interface ScanResultCardProps {
   setExpandedEditIndex: (i: number | null) => void;
   /* similarity */
   similarityMap: Record<string, SimilarRecipe[]>;
-  similarityLoading: string | null;
   /* callbacks */
   handleUpdateScanResult: (index: number, updates: any) => void;
   handleSaveExtracted: (res: any) => void;
@@ -99,7 +98,6 @@ const ScanResultCard: React.FC<ScanResultCardProps> = ({
   expandedEditIndex,
   setExpandedEditIndex,
   similarityMap,
-  similarityLoading,
   handleUpdateScanResult,
   handleSaveExtracted,
   handlePromoteToCandidate,
@@ -497,15 +495,16 @@ const ScanResultCard: React.FC<ScanResultCardProps> = ({
           />
         </div>
 
-        {/* Similarity warnings */}
+        {/* Similarity warnings — 仅在有 ≥60% 相似结果时才显示，不产生布局变化 */}
         {(() => {
           const simKey = res.candidateId ?? `scan-${i}`;
           const similar = similarityMap[simKey];
-          const loading = similarityLoading === simKey;
-          const hasSimilar = (similar?.length ?? 0) > 0;
-          const highSimilar = (similar || []).filter(s => s.similarity >= 0.85);
+          // 只过滤出有意义的相似结果（≥60%），低于此阈值不显示
+          const meaningfulSimilar = (similar || []).filter(s => s.similarity >= 0.6);
+          if (meaningfulSimilar.length === 0) return null;
+          const highSimilar = meaningfulSimilar.filter(s => s.similarity >= 0.85);
           const hasHighSimilar = highSimilar.length > 0;
-          return (hasSimilar || loading) ? (
+          return (
             <div className="space-y-1.5">
               {hasHighSimilar && (
                 <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
@@ -525,30 +524,24 @@ const ScanResultCard: React.FC<ScanResultCardProps> = ({
               )}
               <div className="flex flex-wrap gap-1.5 items-center">
                 <span className="text-[10px] text-slate-400 font-bold">相似 Recipe：</span>
-                {loading ? (
-                  <span className="text-[10px] text-slate-400">加载中...</span>
-                ) : (
-                  (similar || []).slice(0, 5).map(s => (
-                    <button
-                      key={s.recipeName}
-                      onClick={() => openCompare(res, s.recipeName, similar || [])}
-                      className={`text-[10px] font-bold px-2 py-1 rounded border transition-colors flex items-center gap-1 ${
-                        s.similarity >= 0.85
-                          ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-                          : s.similarity >= 0.6
-                            ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                      }`}
-                      title={`与 ${s.recipeName} 相似 ${(s.similarity * 100).toFixed(0)}%，点击对比`}
-                    >
-                      <GitCompare size={ICON_SIZES.xs} />
-                      {s.recipeName.replace(/\.md$/i, '')} {(s.similarity * 100).toFixed(0)}%
-                    </button>
-                  ))
-                )}
+                {meaningfulSimilar.slice(0, 5).map(s => (
+                  <button
+                    key={s.recipeName}
+                    onClick={() => openCompare(res, s.recipeName, similar || [])}
+                    className={`text-[10px] font-bold px-2 py-1 rounded border transition-colors flex items-center gap-1 ${
+                      s.similarity >= 0.85
+                        ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                        : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                    }`}
+                    title={`与 ${s.recipeName} 相似 ${(s.similarity * 100).toFixed(0)}%，点击对比`}
+                  >
+                    <GitCompare size={ICON_SIZES.xs} />
+                    {s.recipeName.replace(/\.md$/i, '')} {(s.similarity * 100).toFixed(0)}%
+                  </button>
+                ))}
               </div>
             </div>
-          ) : null;
+          );
         })()}
 
         {/* Code editing */}

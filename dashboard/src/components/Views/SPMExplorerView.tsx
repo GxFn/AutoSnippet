@@ -95,9 +95,9 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
     const status = err.response?.status;
     const message = err.response?.data?.message || err.message;
     if (status === 404) {
-      notify(`Recipe 不存在: ${normalizedRecipeName}`, { type: 'error' });
+      notify(`"${normalizedRecipeName}" 不存在于当前知识库`, { title: 'Recipe 不存在', type: 'error' });
     } else {
-      notify(`加载 Recipe 失败: ${message}`, { type: 'error' });
+      notify(message, { title: '加载 Recipe 失败', type: 'error' });
     }
     return;
     }
@@ -149,7 +149,7 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
     
     if (resp?.warning) {
     // AI 翻译降级（provider 不可用、超时等），不切换语言
-    notify(resp.warning, { type: 'error' });
+    notify(resp.warning, { title: '翻译降级', type: 'error' });
     return;
     }
     
@@ -166,9 +166,9 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
     }
     
     handleUpdateScanResult(i, updates);
-    notify('已翻译并切换到英文');
+    notify('摘要与使用指南已切换为英文版本', { title: '翻译完成' });
   } catch (err: any) {
-    notify(err?.response?.data?.error || err?.message || '翻译失败，请检查网络或重试', { type: 'error' });
+    notify(err?.response?.data?.error || err?.message || '请检查网络或重试', { title: '翻译失败', type: 'error' });
   } finally {
     translateInFlightRef.current = false;
     setTranslatingIndex(null);
@@ -183,14 +183,18 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
     fetchedSimilarRef.current.clear();
     prevSimilarKeysRef.current = keys;
   }
-  scanResults.forEach((res, i) => {
-    const key = res.candidateId ?? `scan-${i}`;
-    if (res.candidateId && res.candidateTargetName) {
-    fetchSimilarity(key, { targetName: res.candidateTargetName, candidateId: res.candidateId });
-    } else {
-    fetchSimilarity(key, { candidate: { title: res.title, summary: res.summary, code: res.code, usageGuide: res.usageGuide } });
-    }
-  });
+  // 延迟请求相似度 — 等待卡片动画渲染完成后再发起，避免布局抖动
+  const timer = setTimeout(() => {
+    scanResults.forEach((res, i) => {
+      const key = res.candidateId ?? `scan-${i}`;
+      if (res.candidateId && res.candidateTargetName) {
+        fetchSimilarity(key, { targetName: res.candidateTargetName, candidateId: res.candidateId });
+      } else {
+        fetchSimilarity(key, { candidate: { title: res.title, summary: res.summary, code: res.code, usageGuide: res.usageGuide } });
+      }
+    });
+  }, 800);
+  return () => clearTimeout(timer);
   }, [scanResults, fetchSimilarity]);
 
   return (
@@ -356,7 +360,6 @@ const SPMExplorerView: React.FC<SPMExplorerViewProps> = ({
           expandedEditIndex={expandedEditIndex}
           setExpandedEditIndex={setExpandedEditIndex}
           similarityMap={similarityMap}
-          similarityLoading={similarityLoading}
           handleUpdateScanResult={handleUpdateScanResult}
           handleSaveExtracted={handleSaveExtracted}
           handlePromoteToCandidate={handlePromoteToCandidate}
