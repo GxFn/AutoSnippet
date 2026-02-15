@@ -133,29 +133,7 @@ asd install:cursor-skill --mcp  # 安装 Skills + MCP 配置
 
 ### Trae
 
-Trae 原生支持 MCP 协议，可直接复用 AutoSnippet 的 38 个 MCP 工具：
-
-1. 在 Trae 的 MCP 设置中添加 AutoSnippet Server：
-
-```json
-{
-  "mcpServers": {
-    "autosnippet": {
-      "command": "node",
-      "args": ["<autosnippet-install-path>/bin/mcp-server.js"],
-      "env": { "ASD_PROJECT_ROOT": "/path/to/your-project" }
-    }
-  }
-}
-```
-
-2. 或运行安装命令后手动配置：
-
-```bash
-asd install:cursor-skill --mcp  # 生成 MCP 配置，Trae 可复用同一配置格式
-```
-
-> Trae 的 MCP 配置格式与 Cursor 兼容，安装后即可使用全部工具与 Skills。
+Trae 支持 MCP 协议，MCP 配置格式与 Cursor 兼容——安装 Cursor 集成后即可在 Trae 中使用相同的 MCP 工具与 Skills。
 
 ### VSCode Copilot
 
