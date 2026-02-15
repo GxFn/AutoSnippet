@@ -5,7 +5,7 @@
 **Project Knowledge Engine for iOS / Swift Teams**
 
 将团队的代码模式、最佳实践沉淀为 AI 可检索的知识库，<br>
-让 Cursor、Copilot 和 Xcode 都按你的项目规范生成代码。
+让 Cursor、Trae、Copilot 和 Xcode 都按你的项目规范生成代码。
 
 [![npm version](https://img.shields.io/npm/v/autosnippet.svg?style=flat-square)](https://www.npmjs.com/package/autosnippet)
 [![License](https://img.shields.io/npm/l/autosnippet.svg?style=flat-square)](https://github.com/GxFn/AutoSnippet/blob/main/LICENSE)
@@ -24,7 +24,7 @@ AI 编码助手生成的代码往往脱离项目上下文——不知道团队�
                                                         │
                 ┌───────────────────────────────────────┘
                 ↓
-        Cursor / Copilot / Xcode  ──→  按规范生成代码
+        Cursor / Trae / Copilot / Xcode  ──→  按规范生成代码
 ```
 
 ## 核心概念
@@ -130,6 +130,32 @@ AutoSnippet 为 Cursor 提供完整的 MCP + Skills 集成：
 ```bash
 asd install:cursor-skill --mcp  # 安装 Skills + MCP 配置
 ```
+
+### Trae
+
+Trae 原生支持 MCP 协议，可直接复用 AutoSnippet 的 38 个 MCP 工具：
+
+1. 在 Trae 的 MCP 设置中添加 AutoSnippet Server：
+
+```json
+{
+  "mcpServers": {
+    "autosnippet": {
+      "command": "node",
+      "args": ["<autosnippet-install-path>/bin/mcp-server.js"],
+      "env": { "ASD_PROJECT_ROOT": "/path/to/your-project" }
+    }
+  }
+}
+```
+
+2. 或运行安装命令后手动配置：
+
+```bash
+asd install:cursor-skill --mcp  # 生成 MCP 配置，Trae 可复用同一配置格式
+```
+
+> Trae 的 MCP 配置格式与 Cursor 兼容，安装后即可使用全部工具与 Skills。
 
 ### VSCode Copilot
 
