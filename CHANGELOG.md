@@ -4,6 +4,16 @@
 
 ---
 
+## [2.8.3] - 2026-02-16
+
+### Bug Fixes — MCP 响应体积过大 & Health 版本号错误
+
+- **fix(bootstrap):** MCP `bootstrapKnowledge` 响应从 **1.2MB → 68KB** (94.5% 减少)。`filesByTarget` 不再包含文件内容 (`content`)，改为每个 target 返回 top-10 高优先级文件摘要 + `totalFiles` 计数。完整文件列表保留在服务端内存供 Phase 5 异步 AI pipeline 使用。之前 Cursor 因响应过大 (1,241,857 bytes / 5506 lines) 将输出 dump 到文件而非内联处理，导致冷启动流程中断
+- **fix(health):** `autosnippet_health` 版本号不再 hardcoded `2.0.0`。改用 `import.meta.url` 定位 AutoSnippet 自身的 `package.json`，不受 MCP 服务器 `cwd` 影响
+- **refactor(system.js):** 移除未使用的 `import * as Paths` 导入
+
+---
+
 ## [2.8.2] - 2026-02-16
 
 ### Bug Fixes — DB 路径逃逸防护 & 孤儿候选修复
