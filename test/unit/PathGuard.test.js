@@ -167,10 +167,18 @@ describe('PathGuard', () => {
       expect(() => pathGuard.assertProjectWriteSafe(path.join(PACKAGE_ROOT, 'logs/error.log'))).not.toThrow();
     });
 
-    test('should allow writes to external whitelist paths', () => {
+    test('should allow writes to external whitelist paths (cache only)', () => {
       const HOME = process.env.HOME || process.env.USERPROFILE;
       if (HOME) {
         expect(() => pathGuard.assertProjectWriteSafe(path.join(HOME, '.autosnippet/cache/test.json'))).not.toThrow();
+      }
+    });
+
+    test('should BLOCK ~/.autosnippet/autosnippet.db (not in cache scope)', () => {
+      const HOME = process.env.HOME || process.env.USERPROFILE;
+      if (HOME) {
+        expect(() => pathGuard.assertProjectWriteSafe(path.join(HOME, '.autosnippet/autosnippet.db')))
+          .toThrow(PathGuardError);
       }
     });
 

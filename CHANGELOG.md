@@ -4,6 +4,16 @@
 
 ---
 
+## [2.8.2] - 2026-02-16
+
+### Bug Fixes — DB 路径逃逸防护 & 孤儿候选修复
+
+- **fix(DatabaseConnection):** 相对 DB 路径现在通过 `pathGuard.projectRoot` 解析，不再依赖 `process.cwd()`。即使 MCP 服务器的 cwd 是用户主目录，DB 也会正确创建在项目的 `.autosnippet/` 下
+- **fix(PathGuard):** 全局白名单收窄：`~/.autosnippet` → `~/.autosnippet/cache`。之前整个 `~/.autosnippet/` 被白名单放行，导致 DB 意外写到主目录时 PathGuard 未拦截
+- **test(PathGuard):** 新增测试 `should BLOCK ~/.autosnippet/autosnippet.db`，验证白名单收窄后的拦截行为
+
+---
+
 ## [2.8.1] - 2026-02-16
 
 ### Bug Fixes — 候选项不可见 & 路径解析
