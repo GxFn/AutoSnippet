@@ -96,6 +96,7 @@ export function useBootstrapSocket(): UseBootstrapSocketReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [reviewState, setReviewState] = useState<ReviewState>(INITIAL_REVIEW_STATE);
   const sessionIdRef = useRef<string | null>(null);
+  const recoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const socket = getSocket();
@@ -104,7 +105,9 @@ export function useBootstrapSocket(): UseBootstrapSocketReturn {
     const onConnect = () => {
       setIsConnected(true);
       // Fix 7: 初始连接 + 重连均恢复 bootstrap 状态（避免页面刷新后丢失 session）
-      recoverBootstrapStatus();
+      // 节流：500ms 内多次 connect 事件只调一次（StrictMode / 快速重连场景）
+      if (recoverTimerRef.current) clearTimeout(recoverTimerRef.current);
+      recoverTimerRef.current = setTimeout(() => recoverBootstrapStatus(), 500);
     };
     const onDisconnect = () => setIsConnected(false);
 
@@ -305,6 +308,7 @@ export function useBootstrapSocket(): UseBootstrapSocketReturn {
 
     // Cleanup: only remove listeners, do NOT disconnect shared socket
     return () => {
+      if (recoverTimerRef.current) clearTimeout(recoverTimerRef.current);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.io.off('reconnect', onReconnect);

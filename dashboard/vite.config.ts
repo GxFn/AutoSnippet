@@ -12,6 +12,7 @@ export default defineConfig({
       '/socket.io': {
         target: 'http://127.0.0.1:3000',
         ws: true,             // WebSocket 升级
+        changeOrigin: true,
       },
     }
   },

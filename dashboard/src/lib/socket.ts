@@ -13,11 +13,11 @@ export function getSocket(): Socket {
   if (!socket) {
     socket = io(window.location.origin, {
       path: '/socket.io',
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],  // 跳过 polling，避免 Vite 代理下轮询降级导致反复重连
       reconnection: true,
       reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
     });
 
     // Auto-join notifications room on connect/reconnect
